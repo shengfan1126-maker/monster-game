@@ -942,8 +942,8 @@ async function gemOne(model,k,messages,maxTok,onDelta){
     systemInstruction:{parts:[{text:sys}]},
     contents:messages.filter(m=>m.role!=="system").map(m=>({role:m.role==="assistant"?"model":"user",parts:[{text:m.content}]})),
     generationConfig:{temperature:0.9,maxOutputTokens:Math.max(maxTok,6000),responseMimeType:"application/json"},
-    // 吃魔物、打架的血腥描寫容易被預設過濾擋下，只放寬這兩類
-    safetySettings:[{category:"HARM_CATEGORY_DANGEROUS_CONTENT",threshold:"BLOCK_ONLY_HIGH"},{category:"HARM_CATEGORY_HARASSMENT",threshold:"BLOCK_ONLY_HIGH"}]
+    // 吃魔物、打架、和夥伴親近的描寫容易被預設過濾誤擋，四類都放寬（Google 另有一層調不了的過濾）
+    safetySettings:["HARM_CATEGORY_DANGEROUS_CONTENT","HARM_CATEGORY_HARASSMENT","HARM_CATEGORY_SEXUALLY_EXPLICIT","HARM_CATEGORY_HATE_SPEECH"].map(category=>({category,threshold:"BLOCK_NONE"}))
   };
   const ctl=new AbortController(); let idle=null;
   const poke=()=>{clearTimeout(idle);idle=setTimeout(()=>ctl.abort(),90e3)}; poke();
@@ -953,7 +953,8 @@ async function gemOne(model,k,messages,maxTok,onDelta){
       headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
   }catch(e){clearTimeout(idle);throw new Error(e.name==="AbortError"?"等太久沒回應":"連不上 Google")}
   if(!r.ok){clearTimeout(idle);const d=await r.json().catch(()=>({}));throw gemErr(d,r.status)}
-  let txt="",finish=null,block=null,buf="";
+  let txt="",finish=null,block=null,buf="",cats=[];
+  const pick=rs=>(rs||[]).forEach(x=>{if((x.blocked||/HIGH|MEDIUM/.test(x.probability||""))&&!cats.includes(x.category))cats.push(x.category)});
   try{
     const rd=r.body.getReader(),dec=new TextDecoder();
     for(;;){
@@ -963,8 +964,9 @@ async function gemOne(model,k,messages,maxTok,onDelta){
       for(const ln of lines){
         const L=ln.trim(); if(!L.startsWith("data:"))continue;
         let j; try{j=JSON.parse(L.slice(5).trim())}catch(e){continue}
-        if(j.promptFeedback&&j.promptFeedback.blockReason)block=j.promptFeedback.blockReason;
+        if(j.promptFeedback){if(j.promptFeedback.blockReason)block=j.promptFeedback.blockReason;pick(j.promptFeedback.safetyRatings)}
         const c=(j.candidates||[])[0]; if(!c)continue;
+        pick(c.safetyRatings);
         const t=((c.content||{}).parts||[]).filter(p=>!p.thought).map(p=>p.text||"").join("");
         if(t){txt+=t;if(onDelta)onDelta(txt)}
         if(c.finishReason)finish=c.finishReason;
@@ -975,7 +977,13 @@ async function gemOne(model,k,messages,maxTok,onDelta){
     finish="MAX_TOKENS";
   }finally{clearTimeout(idle)}
   if(!txt.trim()){
-    if(block||/SAFETY|PROHIBITED|BLOCKLIST/.test(finish||""))throw new Error("被 Google 的安全過濾擋下");
+    const why=block||finish||"";
+    if(block||/SAFETY|PROHIBITED|BLOCKLIST|SPII|IMAGE_SAFETY/.test(finish||"")){
+      const CAT={HARM_CATEGORY_SEXUALLY_EXPLICIT:"色情",HARM_CATEGORY_HATE_SPEECH:"仇恨言論",HARM_CATEGORY_HARASSMENT:"騷擾",HARM_CATEGORY_DANGEROUS_CONTENT:"危險內容",HARM_CATEGORY_CIVIC_INTEGRITY:"公民誠信"};
+      const kind=cats.length?cats.map(c=>CAT[c]||c.replace("HARM_CATEGORY_","")).join("、")
+        :/PROHIBITED/.test(why)?"禁止內容（Google 調不了的那層）":/BLOCKLIST/.test(why)?"禁用詞清單":/SPII/.test(why)?"個人敏感資訊":"沒說是哪一類";
+      const x=new Error(`被 Google 的安全過濾擋下：${kind}`);x.safety=true;throw x;
+    }
     throw new Error("回了空白");
   }
   return {txt:txt.trim(),cut:finish==="MAX_TOKENS",used:model};
@@ -986,11 +994,11 @@ async function callGemini(messages,maxTok,validate,onDelta){
   const all=await gemModels(), good=ls.g("mowu_gem_good"), bad=getBad(), now=Date.now();
   let order=[...(all.includes(good)?[good]:[]),...all.filter(x=>x!==good)];
   const fresh=order.filter(x=>!(bad["g:"+x]&&now-bad["g:"+x]<10*60e3)); if(fresh.length)order=fresh;
-  const tried=[]; let backup=null,lastRaw="";
+  const tried=[]; let backup=null,lastRaw="",msgs=messages,blocked=false;
   for(const m of order.slice(0,3)){
     if(onDelta)onDelta("");
     try{
-      const res=await gemOne(m,k,messages,maxTok,onDelta);
+      const res=await gemOne(m,k,msgs,maxTok,onDelta);
       res.val=validate(res); res.fellBack=tried.length?tried.slice():null;
       ls.s("mowu_gem_good",m); return res;
     }catch(e){
@@ -998,12 +1006,14 @@ async function callGemini(messages,maxTok,validate,onDelta){
       if(e.prose&&!backup)backup={used:m,val:e.prose,loose:true};
       if(e.raw)lastRaw=e.raw;
       if(e.stop){e.raw=lastRaw;throw e}
-      const b=getBad();b["g:"+m]=Date.now()+(e.noFree?24*3600e3:0);ls.s("mowu_bad",JSON.stringify(b));   // 免費方案不給用的，一天內不再試
+      if(e.safety){blocked=true; if(messages.short){msgs=messages.short;tried[tried.length-1]+="，下一個改送較少的前文"}}   // 被擋不是模型壞了，不跳過它
+      else{const b=getBad();b["g:"+m]=Date.now()+(e.noFree?24*3600e3:0);ls.s("mowu_bad",JSON.stringify(b))}   // 免費方案不給用的，一天內不再試
       await sleep(300);
     }
   }
   if(backup){backup.fellBack=tried;return backup}
-  const err=new Error("試過的模型都不通：\n"+tried.join("\n")); err.raw=lastRaw; throw err;
+  const hint=blocked&&PROV==="gemini"?"\n（齒輪裡把模型來源改成「Gemini＋OpenRouter」，Gemini 被擋時會自動換 OpenRouter 再寫。）":"";
+  const err=new Error("試過的模型都不通：\n"+tried.join("\n")+hint); err.raw=lastRaw; throw err;
 }
 /* 保險：只准送給免費模型（價格為 0）。名單裡查不到、或有標價的，一律不送 */
 async function freeOnly(ids){
@@ -1081,8 +1091,9 @@ function recentLog(ctx,n){
   return ctx.filter(e=>!e.ooc&&e.kind!=="ooc").slice(-n).map(e=>e.who==="you"?"玩家："+e.text:(e.kind==="sys"||e.kind==="devour"?"系統：":"敘事：")+gmText(e)).join("\n\n");
 }
 function buildMessages(tail,ctx){
-  const user=`【目前狀態】\n${JSON.stringify(stateBrief(),null,1)}\n\n【最近發生】\n${recentLog(ctx,8)}\n\n${tail}`;
-  return [{role:"system",content:SYS},{role:"user",content:user}];
+  const mk=n=>[{role:"system",content:SYS},{role:"user",content:`【目前狀態】\n${JSON.stringify(stateBrief(),null,1)}\n\n【最近發生】\n${recentLog(ctx,n)}\n\n${tail}`}];
+  const m=mk(8); m.short=mk(3);   // 被安全過濾擋下時，改送較少的最近故事再試
+  return m;
 }
 
 /* ═════════ 規則：時間、飢餓、成長、生死 ═════════ */
