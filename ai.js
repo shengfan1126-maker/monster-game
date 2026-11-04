@@ -246,7 +246,10 @@ async function freeOnly(ids){
   return {ok,skipped};
 }
 /* 模型來源：both＝先 Gemini，不通再換 OpenRouter 免費模型 */
-async function callModel(messages,maxTok,validate,onDelta){
+/* 種族用詞統一：模型照中文 D&D 寫「地精」（goblin）就改成哥布林，「侏儒」（gnome）改成諾姆 */
+const fixRaceWords=t=>String(t??"").replace(/地精/g,"哥布林").replace(/侏儒/g,"諾姆");
+async function callModel(messages,maxTok,validate0,onDelta){
+  const validate=r=>{r.txt=fixRaceWords(r.txt);return validate0(r)};
   if(PROV==="gemini")return callGemini(messages,maxTok,validate,onDelta);
   if(PROV==="both"){
     const gk=ls.g("gm_key"), ok=ls.g("or_key");

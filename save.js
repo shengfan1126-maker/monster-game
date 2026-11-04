@@ -23,16 +23,45 @@ function migrate(o){
   if(o.err)fixS(o.err.pre);
   if(o.err&&!o.err.job)o.err=null;
   for(const [k,v] of [["mat",{}],["gone",[]],["party",[]],["evo",null],["war",null],["sub",null],["evoReady",null],["beaten",[]]])if(o[k]===undefined)o[k]=v;
+  if(!o.v025){o=renameDeep(o);o.v025=1}
   return o;
 }
+/* v0.25：「地精」改名「諾姆」。舊存檔裡的地精部落、據點、俘虜、同伴、故事一起換 */
+const renameDeep=x=>typeof x==="string"?x.replace(/地精/g,"諾姆"):Array.isArray(x)?x.map(renameDeep):
+  x&&typeof x==="object"?Object.fromEntries(Object.entries(x).map(([k,v])=>[k.replace(/地精/g,"諾姆"),renameDeep(v)])):x;
 const facRe=k=>(FACTIONS0[k]||{}).re||/$^/;
 function fixFac(o){if(o&&o.factions)for(const f of Object.values(o.factions))delete f.re;return o}
-function load(){try{const t=ls.g(SAVE_KEY)||ls.g("mowu_save_v1");if(!t)return null;return fixFac(migrate(JSON.parse(t)))}catch(e){return null}}
+/* 存檔放 IndexedDB（空間大）；localStorage 只當備用，放不下就算了。
+   啟動時兩邊都讀，用比較新的那份（看 S._at）。SAVE_TXT 是目前存檔的文字。 */
+let SAVE_TXT=null;
+const IDB={db:null,
+  open(){return new Promise(r=>{try{const q=indexedDB.open("mowu",1);q.onupgradeneeded=()=>q.result.createObjectStore("kv");
+    q.onsuccess=()=>{IDB.db=q.result;r(IDB.db)};q.onerror=q.onblocked=()=>r(null)}catch(e){r(null)}})},
+  req(mode,f){return new Promise(r=>{try{const tx=IDB.db.transaction("kv",mode),q=f(tx.objectStore("kv"));
+    tx.oncomplete=()=>r(mode==="readonly"?q.result:true);tx.onerror=tx.onabort=()=>r(mode==="readonly"?null:false)}catch(e){r(mode==="readonly"?null:false)}})},
+  get(k){return IDB.req("readonly",s=>s.get(k))},
+  put(k,v){return IDB.req("readwrite",s=>s.put(v,k))},
+  del(k){return IDB.req("readwrite",s=>s.delete(k))}};
+async function bootSave(){
+  await IDB.open();
+  try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}   // 請瀏覽器別自動清掉
+  const a=IDB.db?await IDB.get(SAVE_KEY):null, b=ls.g(SAVE_KEY)||ls.g("mowu_save_v1");
+  const at=t=>{try{return JSON.parse(t)._at||0}catch(e){return -1}};
+  SAVE_TXT=!a?b:!b?a:(at(b)>at(a)?b:a);
+}
+function load(){try{const t=SAVE_TXT;if(!t)return null;return fixFac(migrate(JSON.parse(t)))}catch(e){return null}}
 /* 撤回、重寫只用得到最後幾段的快照；更早的快照拿掉，存檔才不會超過瀏覽器的 5MB 上限 */
 function prunePre(){if(!S||!S.log)return;const L=S.log,k=L.length-12;for(let i=0;i<k;i++)if(L[i].pre)delete L[i].pre}
 function save(){prunePre();
-  try{localStorage.setItem(SAVE_KEY,JSON.stringify(S));S.saveFail=false}
-  catch(e){S.saveFail=true;console.warn(e);try{TOAST="⚠ 存檔失敗（瀏覽器空間不夠）。請先到 ⚙ 匯出存檔備份。"}catch(_){}}}
+  const fail=()=>{S.saveFail=true;TOAST="⚠ 存檔失敗（瀏覽器空間不夠）。請先到 ⚙ 匯出存檔備份。"};
+  let t; try{if(S){S._at=Date.now();S.saveFail=false}t=JSON.stringify(S)}catch(e){console.warn(e);fail();return}
+  SAVE_TXT=t;
+  let lsOK=true; try{localStorage.setItem(SAVE_KEY,t)}catch(e){lsOK=false}
+  if(IDB.db)IDB.put(SAVE_KEY,t).then(ok=>{
+    if(ok&&!lsOK)ls.d(SAVE_KEY);            // 備用那份放不下又是舊的：清掉，留空間給金鑰等設定
+    if(!ok&&!lsOK&&S){fail();render()}});
+  else if(!lsOK)fail();
+}
 /* 存檔停在「玩家送出、模型還沒回」：補一個「再試一次」 */
 function heal(){
   if(!S)return;
@@ -141,12 +170,32 @@ pick.onclick=async()=>{
   }catch(e){freelist.innerHTML=`<div class="note" style="color:var(--bad)">查不到：${esc(e.message||e)}</div>`}
   pick.disabled=false;pick.textContent="列出現在免費的模型";
 };
+function download(blob,name){
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download=name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
 exp.onclick=()=>{
   if(!S){snoteSet("目前沒有進行中的遊戲。",1);return}
-  const blob=new Blob([JSON.stringify(S,null,1)],{type:"application/json"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob); a.download=`魔物篇_${S.name}_第${S.day}天.json`;
-  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+  download(new Blob([JSON.stringify(S)],{type:"application/json"}),`魔物篇_${S.name}_第${S.day}天.json`);
+};
+/* 匯出故事：只留玩家的行動和敘述，按章節分段；判定卡、系統訊息、數字、OOC 都拿掉 */
+const STORY_KINDS=["turn","resolve","stage","war","raid","old"];
+function storyText(){
+  const out=[`權能進化・魔物篇｜${S.name}的故事`,""];
+  let ch=1; out.push(`━━ 第1章・${(CHAPTERS[1]||{}).name||""} ━━`,"");
+  S.log.forEach((e,i)=>{
+    if(e.who==="you"){if(!e.ooc&&e.text)out.push("▶ "+e.text,"");return}
+    const a=e.alts&&e.alts[e.i]; if(!a)return;
+    if(STORY_KINDS.includes(e.kind)||(i===0&&e.kind==="sys"))out.push(String(a.text||"").trim(),"");
+    for(const m of [a.text,...(e.notes||[])].join("\n").matchAll(/《世界之聲》：「第(\d+)章・([^」\n]+)」/g))
+      if(+m[1]>ch){ch=+m[1];out.push(`━━ 第${ch}章・${m[2]} ━━`,"")}
+  });
+  return out.join("\n");
+}
+expst.onclick=()=>{
+  if(!S){snoteSet("目前沒有進行中的遊戲。",1);return}
+  download(new Blob(["﻿"+storyText()],{type:"text/plain;charset=utf-8"}),`魔物篇_${S.name}_故事.txt`);
 };
 imp.onclick=()=>impfile.click();
 impfile.onchange=()=>{
@@ -170,11 +219,10 @@ newg.onclick=()=>{
     snoteSet("目前的進度會被清掉。想留著就先按「匯出存檔」。",1);
     clearTimeout(newgTimer); newgTimer=setTimeout(disarmNewg,5000); return;
   }
-  disarmNewg(); ls.d(SAVE_KEY); S=null; busy=false; EDIT=false; TOAST="";
+  disarmNewg(); ls.d(SAVE_KEY); ls.d("mowu_save_v1"); if(IDB.db)IDB.del(SAVE_KEY); SAVE_TXT=null; S=null; busy=false; EDIT=false; TOAST="";
   sheet.classList.remove("open"); render();
 };
 
 totop.onclick=()=>window.scrollTo({top:0,behavior:"smooth"});
 addEventListener("scroll",()=>{totop.hidden=scrollY<300},{passive:true});
-S=load(); heal(); if(S)save();
-render();
+bootSave().then(()=>{S=load(); heal(); if(S)save(); render()});
