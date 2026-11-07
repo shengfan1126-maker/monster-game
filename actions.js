@@ -222,14 +222,14 @@ function learnFor(j,k){
   S.log.push({who:"you",text:`把 ${p.n} 給 ${a.n}`,pre});
   let s=a.skills.find(x=>x.n===p.n), line;
   const fit=a.dir&&DIRS[a.dir].sys.test(p.sys)?1:0;
-  if(s){const o=s.lv;s.lv=Math.min(capOf(a.lv),s.lv+1+fit);line=`〈系統〉《世界之聲》：「${a.n} 的 ${p.n} Lv${o}→Lv${s.lv}。」${fit?"（對路）":""}`}
-  else{a.skills.push({n:p.n,sys:p.sys,lv:Math.min(capOf(a.lv),1+fit)});line=`〈系統〉《世界之聲》：「${a.n} 習得 ${p.n} Lv${1+fit}（${p.sys}）。」${fit?"（對路）":""}`}
+  if(s){const o=s.g;s.g=a.lv;line=`〈系統〉《世界之聲》：「${a.n} 的 ${p.n} ${o}級→${s.g}級。」${fit?"（對路）":""}`}
+  else{a.skills.push({n:p.n,sys:p.sys,g:a.lv});line=`〈系統〉《世界之聲》：「${a.n} 習得 ${p.n}（${a.lv}級・${p.sys}）。」${fit?"（對路）":""}`}
   if(S.eaten[0]&&!S.eaten[0].got)S.eaten[0].got=`${p.n}（給${a.n}）`;
   S.log.push(sysEntry(`你把湧上來的力量分了出去。\n${line}`)); save(); render();
   if(S.evoReady)evolve();
 }
 const maxSk=a=>a.named?4:3;
-const allyCan=(a,p)=>{const s=a.skills.find(x=>x.n===p.n);return s?s.lv<capOf(a.lv):a.skills.length<maxSk(a)};
+const allyCan=(a,p)=>{const s=a.skills.find(x=>x.n===p.n);return s?gIdx(s.g)<gIdx(a.lv):a.skills.length<maxSk(a)};
 const DIRS={"戰士":{sys:/武技|天生/,skill:{n:"劍術",sys:"武技"}},"斥候":{sys:/暗|風|意圖/,skill:{n:"追蹤",sys:"意圖"}},"法師":{sys:/火|水|風|土|光|暗/,skill:{n:"火花",sys:"火"}},"工匠":{sys:/意圖|土/,skill:{n:"手巧",sys:"意圖"}},"祭司":{sys:/光|水/,skill:{n:"治癒",sys:"光"}}};
 /* 同伴拿東西：魔法物品（附帶技能）放 gear，其餘放 hold（最多 3 件） */
 function equipAlly(who,item,off,notes){
@@ -251,8 +251,8 @@ function nameEvolve(k,name,dir){
   S.log.push({who:"you",text:`命名進化：${p.n}${name&&name!==p.n?` → ${name}`:""}（${dir}）`,pre});
   if(name&&name!==p.n)renameChar(p.n,name,notes);
   p.kind0=p.kind0||p.kind; p.kind=`${p.kind0}${dir}`; p.dir=dir; p.named=true;
-  const sk=DIRS[dir].skill; if(!p.skills.some(x=>x.n===sk.n))p.skills.push({...sk,lv:1});
-  notes.push(`〈系統〉《世界之聲》：「${p.n} 進化為 ${p.kind}。」`,`${p.n}習得 ${sk.n} Lv1（${sk.sys}）。技能上限多一格（4 個）。之後給牠「${dir}」對路的技能會長得比較快。`);
+  const sk=DIRS[dir].skill; if(!p.skills.some(x=>x.n===sk.n))p.skills.push({...sk,g:p.lv});
+  notes.push(`〈系統〉《世界之聲》：「${p.n} 進化為 ${p.kind}。」`,`${p.n}習得 ${sk.n}（${p.lv}級・${sk.sys}）。技能上限多一格（4 個）。之後給牠「${dir}」對路的技能會長得比較快。`);
   S.nameEvo=false; S.log.push(sysEntry(notes.join("\n"))); save(); render();
 }
 function learn(j){
@@ -471,6 +471,16 @@ async function swapSkills(){
 }
 
 /* 藥水：紅回 HP、藍回 MP、紫兩個都回；喝掉就沒了，不花時間，也擋不住對手（戰鬥中判定照樣進行） */
+/* 藥水給同伴：紅／紫治傷（負傷→好了、重傷→負傷）；藍沒有效果（同伴沒有 MP），不讓喝 */
+function potionAlly(i,k){
+  const it=S.items[i], c=POTION(it), p=S.party[k]; if(!c||!p||busy||S.dead||c==="藍")return;
+  const had=p.tags.includes("重傷")?"重傷":p.tags.includes("負傷")?"負傷":null;
+  S.items.splice(i,1);
+  if(had==="重傷"){p.tags=p.tags.filter(t=>t!=="重傷");if(!p.tags.includes("負傷"))p.tags.push("負傷")}
+  else if(had==="負傷")p.tags=p.tags.filter(t=>t!=="負傷");
+  S.log.push(sysEntry(`你把 ${it} 餵給了 ${p.n}：${had==="重傷"?`重傷減輕成負傷`:had==="負傷"?`負傷好了`:"他沒有傷，白用了"}。`));
+  save();render();
+}
 function drinkPotion(i){
   const it=S.items[i], c=POTION(it); if(!c||busy||S.dead)return;
   const hp=c!=="藍"?Math.min(S.hpMax-S.hp,Math.ceil(S.hpMax*0.4)):0, mp=c!=="紅"?Math.min(S.mpMax-S.mp,Math.ceil(S.mpMax*0.5)):0;
