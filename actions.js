@@ -411,14 +411,14 @@ function mergeGroups(){
     return {k,fn,g,to:GRADES[gIdx(g)+1]||null,list:a,ok:gIdx(g)<=gIdx(S.lv)&&gIdx(g)<6}});
 }
 const BAD_FALLBACK=["突然下起冷雨，你縮在角落裡發抖，等到雨停。","洞外傳來腳步聲，你屏住氣等它走遠，什麼都沒做成。","一陣落石滾下來，擦過你的肩膀。","風雪突然變大，你被困住了好一陣子。"];
-async function fourHours(what,notes){
+async function fourHours(what,notes,hours){
   const night=!isDay(S.hour), p=Math.min(0.6,(inNest()?0.10:0.35)+(night?0.10:0));
-  advanceTime(4,notes);
+  advanceTime(hours||4,notes);
   if(Math.random()>=p)return;
   let txt=null;
   try{
     const res=await callModel([{role:"system",content:"你是文字遊戲的規則助手。只輸出 JSON。"},
-      {role:"user",content:`哥布林主角在「${S.loc}」（${inNest()?"巢穴裡":"野外"}，${night?"夜裡":"白天"}）花了 4 小時${what}。這段時間出了一件小麻煩：天氣突變、落石、巡邏的獵人經過、同伴出狀況之類，要符合地點，分量輕，沒人會死。用一兩句話寫發生了什麼。只輸出：{"event":""}`}],300,
+      {role:"user",content:`哥布林主角在「${S.loc}」（${inNest()?"巢穴裡":"野外"}，${night?"夜裡":"白天"}）花了 ${hours||4} 小時${what}。這段時間出了一件小麻煩：天氣突變、落石、巡邏的獵人經過、同伴出狀況之類，要符合地點，分量輕，沒人會死。用一兩句話寫發生了什麼。只輸出：{"event":""}`}],300,
       r=>{const o=parseObjs(r.txt).reverse().find(x=>x&&typeof x.event==="string"&&x.event.trim());if(!o)throw new Error("沒照格式");return o},null);
     txt=res.val.event.trim().slice(0,120);
   }catch(e){}
@@ -477,4 +477,54 @@ function drinkPotion(i){
   S.items.splice(i,1);S.hp+=hp;S.mp+=mp;
   S.log.push(sysEntry(`你喝掉了 ${it}：${[hp?`HP +${hp}`:"",mp?`MP +${mp}`:""].filter(Boolean).join("、")||"沒有需要回復的地方，白喝了"}。`));
   save();render();
+}
+
+/* ═════════ 鍛造（v0.30）═════════
+   白字武器＋魔法原料 → 魔法武器（等級＝原料等級，受物品等級上限限制；附帶技能從原料來源的技能池抽一個）。
+   魔法武器＋更高級的魔法原料 → 升到原料的等級（附帶技能不變）。
+   有工匠（同伴或族人的本事／名字帶「匠、鍛、鐵、鑄」）時比較快：魔化 2 小時（自己 6）、升級 4 小時（自己 12）。 */
+let FGW=-1, FGM=-1;
+const hasSmith=()=>S.party.some(p=>/匠|鍛|鐵|鑄/.test(`${p.n||""}${p.knack||""}${p.role||""}${p.kind||""}`))||(S.npcs||[]).some(x=>x.where==="巢穴"&&/匠|鍛|鐵|鑄/.test(`${x.n||""}${x.role||""}${x.knack||""}`));
+const forgeWeapons=()=>S.items.map((n,i)=>({n,i,m:matOf(n)})).filter(x=>(!x.m&&GEAR_RE.test(x.n)&&!POTION(x.n))||(x.m&&x.m.skill));
+const forgeMats=()=>S.items.map((n,i)=>({n,i,m:matOf(n)})).filter(x=>x.m&&!x.m.skill);
+function forgePlan(wi,mi){
+  const wn=S.items[wi], mn=S.items[mi];
+  if(wn==null||mn==null)return {ok:false,text:"選一件武器和一份魔法原料。"};
+  const wm=matOf(wn), mm=matOf(mn), tg=capItemLv(mm.lv), sm=hasSmith();
+  if(!wm)return {ok:true,hours:sm?2:6,tg,text:`「${wn}」＋「${mn}」→ 魔法武器 ${tg} 級，附帶技能從${cleanName(mm.sp)}的技能池抽一個。${sm?"有工匠幫忙，2 小時。":"沒有工匠，自己來要 6 小時。"}`};
+  if(gIdx(tg)<=gIdx(wm.lv))return {ok:false,text:`原料（${mm.lv} 級${gIdx(tg)<gIdx(mm.lv)?`，受等級上限只能算 ${tg} 級`:""}）沒有比「${wn}」（${wm.lv} 級）高，升不了級。`};
+  return {ok:true,hours:sm?4:12,tg,text:`「${wn}」${wm.lv} 級＋「${mn}」→ ${tg} 級，附帶「${wm.skill.n}」不變。${sm?"有工匠幫忙，4 小時。":"沒有工匠，自己來要 12 小時。"}`};
+}
+const forgeHTML=()=>{
+  const ws=forgeWeapons(), ms=forgeMats(); if(!ws.length||!ms.length)return "";
+  if(!ws.some(x=>x.i===FGW))FGW=-1; if(!ms.some(x=>x.i===FGM))FGM=-1;
+  const plan=forgePlan(FGW,FGM);
+  return `<div class="sacbox" style="margin:8px 0"><label>鍛造：把魔法原料做進武器</label>
+    <select id="fgw"><option value="">選武器…</option>${ws.map(x=>`<option value="${x.i}"${x.i===FGW?" selected":""}>${esc(x.n)}${x.m?`（✦${x.m.lv}級・${esc(x.m.skill.n)}）`:"（普通）"}</option>`).join("")}</select>
+    <select id="fgm"><option value="">選原料…</option>${ms.map(x=>`<option value="${x.i}"${x.i===FGM?" selected":""}>${esc(x.n)}（${x.m.lv}級）</option>`).join("")}</select>
+    <div class="note">${esc(plan.text)}</div>${plan.ok?`<button class="paybtn" id="fgdo">鍛造（${plan.hours} 小時）</button>`:""}</div>`;
+};
+async function forge(){
+  if(busy||S.dead||skBusy())return;
+  const plan=forgePlan(FGW,FGM); if(!plan.ok)return;
+  const wn=S.items[FGW], mn=S.items[FGM], mm=matOf(mn), wm=matOf(wn), pre=snap();
+  S.log.push({who:"you",text:`鍛造：${wn}＋${mn}`,pre});
+  busy=true; render();
+  let sk=wm?wm.skill:null;
+  if(!wm){
+    let pool=[]; try{pool=await poolFor({name:mn,sp:mm.sp,lv:mm.lv,mat:true})||[]}catch(e){}
+    const c=pool.length?rnd(pool):null; sk=c?{n:c.n,sys:c.sys}:{n:"蠻力",sys:"天生"};
+  }
+  let name=wm?wn:`${cleanName(mm.sp)}・${wn}`.slice(0,16);
+  if(!wm&&S.items.includes(name))name=(name+"改").slice(0,16);
+  S.items=S.items.filter(x=>x!==mn&&(wm?true:x!==wn));
+  S.party.forEach(p=>{p.hold=(p.hold||[]).filter(x=>x!==mn&&(wm?true:x!==wn))});
+  delete S.mat[mn]; if(!wm)delete S.mat[wn];
+  if(!S.items.includes(name))S.items.push(name);
+  S.mat[name]={lv:plan.tg,sp:wm?wm.sp:mm.sp,skill:sk};
+  S.party.forEach(p=>{if(wm&&p.gear===wn)p.gearMat=S.mat[name]});
+  FGW=-1; FGM=-1;
+  const notes=[`你把${mn}做進了${wn}裡，花了 ${plan.hours} 小時。`,`〈系統〉《大賢者》：「告。${wm?`${name} 升到 ${plan.tg} 級，附帶「${sk.n}」不變`:`得到魔法武器 ✦${name}（${plan.tg} 級），附帶「${sk.n}」`}。」`];
+  await fourHours("鍛造",notes,plan.hours);
+  busy=false; S.log.push(sysEntry(notes.join("\n"))); save(); render();
 }

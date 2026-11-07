@@ -85,11 +85,15 @@ function normCheck(c){
 const itemOfSk=k=>{const m=/（(.+)）$/.exec(k||"");return m&&S.items.includes(m[1])?m[1]:null};
 const weakSk=ch=>{const n=ch&&itemOfSk(ch.useSk),m=n&&matOf(n);return !!(m&&ch.foeLv&&gIdx(m.lv)<gIdx(ch.foeLv))};
 const skillMp=ch=>ch&&ch.useSk&&!/（.+）$/.test(ch.useSk)?1:0;
+/* 同伴幫忙算的優勢最多 1 條（同伴再多也一樣），其他優勢照算 */
+const isAllyAdv=x=>S.party.some(p=>p.n&&String(x).includes(p.n))||/同伴|夥伴|隊友|幫手|協助|聯手/.test(String(x));
+const advList=ch=>{let seen=0;return (ch.adv||[]).filter(x=>!isAllyAdv(x)||++seen===1)};
 function checkInfo(ch){
   const lvDiff=ch.foeLv?Math.max(0,gIdx(ch.foeLv)-gIdx(S.lv)):0;
-  const net=ch.adv.length+(ch.useSk&&!skUsed(ch.useSk)&&!weakSk(ch)&&S.mp>=skillMp(ch)?1:0)+(ch.useItem&&S.items.includes(ch.useItem)?1:0)-ch.dis.length-lvDiff;
+  const crit=!!(ch.war||ch.raid);                          // 關鍵戰（進化戰、討伐戰）：至少要付 1 項代價、傷害 ×1.5
+  const net0=advList(ch).length+(ch.useSk&&!skUsed(ch.useSk)&&!weakSk(ch)&&S.mp>=skillMp(ch)?1:0)+(ch.useItem&&S.items.includes(ch.useItem)?1:0)-ch.dis.length-lvDiff, net=crit?Math.min(net0,0):net0;
   const need=Math.max(0,1-net), big=need+1;
-  const d=dmgOf(ch.foeLv), fight=!!ch.foe, stalled=fight&&S.fightDelay&&S.fightDelay===ch.foe;
+  const d=Math.ceil(dmgOf(ch.foeLv)*(crit?1.5:1)), fight=!!ch.foe, stalled=fight&&S.fightDelay&&S.fightDelay===ch.foe;
   const half=Math.ceil(S.mpMax/2), skMp=skillMp(ch);
   const gen=[{t:`HP -${d}（硬吃一下）`,hp:-d,g:1}];
   if(S.mp-skMp>=half)gen.push({t:`MP -${half}（拼盡全力）`,mp:-half,g:1});

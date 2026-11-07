@@ -87,7 +87,7 @@ function foeFate(k){
 function pendingCands(){const e=S.log[S.log.length-1];return e&&e.kind==="devour"&&e.alts[0].cands&&e.alts[0].cands.length?e.alts[0].cands:null}
 function checkHTML(ch){
   const ci=checkInfo(ch);
-  const lay=[...(ch.useSk?[weakSk(ch)?`<span class="dis">－ 「${esc(ch.useSk)}」等級低於對手，視同白字，沒有效果（硬用會壞）</span>`:`<span class="adv">＋ 用「${esc(ch.useSk)}」</span>`]:[]),...ch.adv.map(x=>`<span class="adv">＋ ${esc(x)}</span>`),...ch.dis.map(x=>`<span class="dis">－ ${esc(x)}</span>`),
+  const lay=[...(ch.useSk?[weakSk(ch)?`<span class="dis">－ 「${esc(ch.useSk)}」等級低於對手，視同白字，沒有效果（硬用會壞）</span>`:`<span class="adv">＋ 用「${esc(ch.useSk)}」</span>`]:[]),...advList(ch).map(x=>`<span class="adv">＋ ${esc(x)}</span>`),...ch.dis.map(x=>`<span class="dis">－ ${esc(x)}</span>`),
     ...(ci.lvDiff?[`<span class="dis">－ 對方高你 ${ci.lvDiff} 級</span>`]:[])].join("");
   const war=ch.war&&S.war, raid=ch.raid&&S.raid;
   const sacs=war||raid?[["","不舍身"],["hp","HP 上限 -5"],["maim","留下【殘缺】"],...S.skills.filter(x=>x.sys!=="Unique").map(x=>[`sk:${x.n}`,`失去技能「${x.n}」`])]:[];
@@ -202,6 +202,9 @@ function bindStory(){
   document.querySelectorAll("[data-ecp]").forEach(b=>b.onclick=()=>{const [i,h]=b.dataset.ecp.split("|");EA=-1;eatCorpse(+i,null,h)});
   document.querySelectorAll("[data-ei]").forEach(b=>b.onclick=()=>eatItem(+b.dataset.ei));
   document.querySelectorAll("[data-dp]").forEach(b=>b.onclick=()=>drinkPotion(+b.dataset.dp));
+  if($("fgw"))$("fgw").onchange=e=>{FGW=e.target.value===""?-1:+e.target.value;render()};
+  if($("fgm"))$("fgm").onchange=e=>{FGM=e.target.value===""?-1:+e.target.value;render()};
+  if($("fgdo"))$("fgdo").onclick=()=>forge();
   document.querySelectorAll("[data-hv]").forEach(b=>b.onclick=()=>harvest(+b.dataset.hv));
   document.querySelectorAll("[data-bi]").forEach(b=>b.onclick=()=>{const i=+b.dataset.bi;if(BI!==i){BI=i;render();return}BI=-1;eatItem(i)});
   document.querySelectorAll("[data-l]").forEach(b=>b.onclick=()=>learn(+b.dataset.l));
@@ -260,7 +263,7 @@ function skillHTML(){
       <div class="note" style="margin-top:6px">狀態在故事裡解決了就會自動拿掉；程序沒拿掉的，可以點兩下手動拿掉。</div>
       <div class="note" style="margin-top:8px">${hasTag("飢餓")?"正餓著。":`飽足還能撐 ${S.full} 小時。`}${S.stage}餓著的時候，每 ${hungerOf().every} 小時 HP -1。</div></div>
     <div class="card"><h3>背包</h3>${S.corpses.length+S.items.length?`${S.corpses.map((c,i)=>`<div class="crow">🍖 ${esc(c.name)}（${c.lv}級・${c.harvested?"原料已拆・":""}${isFresh(c)?`新鮮，還有 ${24-ageOf(c)} 小時`:`不新鮮了，${Math.max(0,72-ageOf(c))} 小時後爛掉`}）${c.evo?"":`<button class="tl" data-cd="${i}">${CD===i?"確定拿掉？":"已經給人／丟掉"}</button>`}</div>`).join("")}${S.items.map((it,i)=>{const m=matOf(it);return `<div class="crow">${m?`✦ ${esc(it)}（${m.skill?`魔法物品，附帶「${esc(m.skill.n)}」`:"魔法原料"}・${m.lv}級）`:esc(it)}${POTION(it)?`<button class="tl" data-dp="${i}">喝掉</button>`:""}<button class="tl" data-di="${i}">${DI===i?"確定拿掉？":"已經給人／丟掉"}</button></div>`}).join("")}`:`<div class="empty">什麼都沒有。</div>`}
-      <div class="note" style="margin-top:6px">🍖 是食材：新鮮的吃了能學技能。✦ 是魔法原料或魔法物品：不會壞，吃了能學技能；魔法物品帶在身上時，它的技能可以在判定時拿來用。魔獸（E 級以上）的屍體可以拆出一項原料，拆了就只剩肉。其他物品吃了只是硬吞。</div></div>
+      ${forgeHTML()}<div class="note" style="margin-top:6px">🍖 是食材：新鮮的吃了能學技能。✦ 是魔法原料或魔法物品：不會壞，吃了能學技能；魔法物品帶在身上時，它的技能可以在判定時拿來用。魔獸（E 級以上）的屍體可以拆出一項原料，拆了就只剩肉。其他物品吃了只是硬吞。</div></div>
     <div class="note">用技能：判定卡上選一個技能來用，攻擊、輔助、強化都一樣，用了就多一層優勢（少付一項）。一次一個，沒有組合技，不花 MP。<br>技能沒有 Lv，只有等級字母（學到時你的等級）。可用的位置滿了，新技能自動放進倉庫；已經會的技能不會再出現在吸收選單裡。只有新鮮的東西（死去 24 小時內的屍體、活捉的小生物、蛋、新鮮植物）能學到技能。同級保底 1 個，每高一級多 1 個，大成功再 +1。</div>
     <div class="note" style="margin-top:6px">恢復：醒著沒餓，每 3 小時 HP +1（有「再生」就 +再生等級）、MP +1。夜裡睡到天亮：沒餓 HP 回一半、MP 回滿，疲勞和小傷一起消掉；餓著 HP 不回、MP 回一半。白天小睡 3 小時：HP、MP 各回四分之一，消掉【疲憊】。吃東西 HP +1~2。</div>
     ${S.sub?`<div class="card" style="margin-top:12px"><h3>種族：${esc(S.sub.name)}</h3><div>${esc(S.sub.essence)}</div><div class="note">${esc(S.sub.look||"")}</div></div>`:""}`;
