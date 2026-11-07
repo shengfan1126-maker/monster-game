@@ -348,6 +348,10 @@ function pay(sel,sac){
   S.log.push({who:"you",text:`${ch.useSk?`用「${ch.useSk}」，`:""}${paidT.length?`付出：${paidT.join("、")}（${tier}）`:`不付代價，硬上（${tier}）`}`,pre});
   const skMp=skillMp(ch);
   if(ch.useSk&&!skUsed(ch.useSk)&&(!skMp||S.mp>=skMp)){S.usedSk=S.usedSk||[];S.usedSk.push(ch.useSk)}
+  if(ch.useItem&&S.items.includes(ch.useItem)){S.items=S.items.filter(x=>x!==ch.useItem);notes.push(`用掉了 ${ch.useItem}（普通武器防具，一次性）：多一層優勢。`)}
+  if(weakSk(ch)){const wn=itemOfSk(ch.useSk), wl=matOf(wn).lv;       // 等級不夠硬用：物品壞掉，無法修復
+    S.items=S.items.filter(x=>x!==wn);delete S.mat[wn];S.party.forEach(p=>{if(p.gear===wn){p.gear=null;p.gearMat=null}});
+    notes.push(`✦${wn}（${wl}級）撐不住 ${ch.foeLv} 級的對手，碎掉了，沒辦法修復。`)}
   if(skMp&&S.mp>=skMp){S.mp-=skMp;notes.push(`用「${ch.useSk}」：MP -${skMp}`)}
   chosen.forEach(c=>applyCost(c,notes)); if(sac)sacDo(sac,notes);
   const stall=!!ch.foe&&!ch.war&&!ch.raid&&chosen.some(c=>c.time);
@@ -464,4 +468,13 @@ async function swapSkills(){
   await fourHours("整理技能",notes);
   const an=[]; checkAroma(an); notes.push(...an);
   busy=false; S.log.push(sysEntry(notes.join("\n"))); save(); render();
+}
+
+/* 藥水：紅回 HP、藍回 MP、紫兩個都回；喝掉就沒了，不花時間，也擋不住對手（戰鬥中判定照樣進行） */
+function drinkPotion(i){
+  const it=S.items[i], c=POTION(it); if(!c||busy||S.dead)return;
+  const hp=c!=="藍"?Math.min(S.hpMax-S.hp,Math.ceil(S.hpMax*0.4)):0, mp=c!=="紅"?Math.min(S.mpMax-S.mp,Math.ceil(S.mpMax*0.5)):0;
+  S.items.splice(i,1);S.hp+=hp;S.mp+=mp;
+  S.log.push(sysEntry(`你喝掉了 ${it}：${[hp?`HP +${hp}`:"",mp?`MP +${mp}`:""].filter(Boolean).join("、")||"沒有需要回復的地方，白喝了"}。`));
+  save();render();
 }

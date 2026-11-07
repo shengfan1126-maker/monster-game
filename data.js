@@ -323,6 +323,10 @@ const PART_RE=/核|牙|爪|角|鱗|甲片|殼|皮|囊|腺|翼|心臟|血|精華|
 /* 魔法物品等級上限：最多比主角高一級、最高 A（從屍體拆的原料照屍體等級，不受限） */
 /* 一天一次：S.usedSk 記今天用過的技能（自己的技能用技能名；魔法物品的用「技能（物品）」，每件各自算），隔天（dayChange）清空 */
 const skUsed=k=>!!k&&(S.usedSk||[]).includes(k);
+/* 白字（普通）武器防具：帶在身上可當一次性物品，用掉換一層優勢；藥水：紅回 HP、藍回 MP、紫兩個都回 */
+const GEAR_RE=/劍|刀|匕首|矛|斧|弓|盾|甲|護|棍|錘|槌|鞭|弩/;
+const POTION=n=>{const m=/(紅|藍|紫)(色)?(藥水|藥劑|藥)/.exec(n||"");return m?m[1]:null};
+const oneShots=()=>S.items.filter(n=>!matOf(n)&&GEAR_RE.test(n)&&!POTION(n));
 const capItemLv=l=>GRADES[Math.min(gIdx(l),gIdx(S.lv)+1,5)];
 const cleanItemName=n=>String(n||"").replace(/\s*[（(][^）)]*級[）)]\s*$/,"").trim();
 function newGame(name){

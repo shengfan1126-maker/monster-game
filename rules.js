@@ -81,10 +81,13 @@ function normCheck(c){
     foeLv:GRADES.includes(c.foeLv)?c.foeLv:null,useSk:sug||null,adv:arr(c.adv).filter(noSk),dis:arr(c.dis).filter(x=>!/技能.*(低|不足|不夠)|等級.*(低|差)/.test(x)),costs};
 }
 /* 用技能扣 MP：自己的技能 1 點；魔法物品附帶的技能不用 */
+/* 魔法物品的技能：物品等級低於對手 → 視同白字，沒有魔法效果（不算優勢），硬用物品會壞掉 */
+const itemOfSk=k=>{const m=/（(.+)）$/.exec(k||"");return m&&S.items.includes(m[1])?m[1]:null};
+const weakSk=ch=>{const n=ch&&itemOfSk(ch.useSk),m=n&&matOf(n);return !!(m&&ch.foeLv&&gIdx(m.lv)<gIdx(ch.foeLv))};
 const skillMp=ch=>ch&&ch.useSk&&!/（.+）$/.test(ch.useSk)?1:0;
 function checkInfo(ch){
   const lvDiff=ch.foeLv?Math.max(0,gIdx(ch.foeLv)-gIdx(S.lv)):0;
-  const net=ch.adv.length+(ch.useSk&&!skUsed(ch.useSk)&&S.mp>=skillMp(ch)?1:0)-ch.dis.length-lvDiff;
+  const net=ch.adv.length+(ch.useSk&&!skUsed(ch.useSk)&&!weakSk(ch)&&S.mp>=skillMp(ch)?1:0)+(ch.useItem&&S.items.includes(ch.useItem)?1:0)-ch.dis.length-lvDiff;
   const need=Math.max(0,1-net), big=need+1;
   const d=dmgOf(ch.foeLv), fight=!!ch.foe, stalled=fight&&S.fightDelay&&S.fightDelay===ch.foe;
   const half=Math.ceil(S.mpMax/2), skMp=skillMp(ch);
