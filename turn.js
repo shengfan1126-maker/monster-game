@@ -263,13 +263,14 @@ function gains(a,big,notes,guard){
   (a.untag||[]).forEach(x=>{const t=S.tags.find(y=>y===x||y.includes(x)||x.includes(y));if(t&&!/幼體|飢餓|瀕死|殘缺/.test(t)){delTag(t);notes.push(`【${t}】解除`)}});
   const eatenNames=S.eaten.slice(0,12).map(x=>x.what);
   (a.found||[]).filter(x=>!S.items.includes(x)&&!eatenNames.includes(x)&&!S.corpses.some(c=>c.name===x)).forEach(x=>{
-    let m=a.mats&&a.mats[x];
+    let m=a.mats&&a.mats[x], fromCorpse=false;
     if(m&&!m.skill){const c=S.corpses.find(c=>!c.evo&&(x.includes(cleanName(c.name))||String(m.sp).includes(cleanName(c.name))));
       if(c&&c.harvested)m=null;                       // 這具屍體已經拆過了：當普通物品
-      else if(c){c.harvested=true;m.lv=c.lv;m.sp=c.sp||m.sp}
+      else if(c){c.harvested=true;m.lv=c.lv;m.sp=c.sp||m.sp;fromCorpse=true}
       else if(MUNDANE.test(x)||!PART_RE.test(x))m=null;     // 沒有來源屍體、名字又不像部位／魔核：普通東西，不是魔法原料
     }
-    if(m&&MUNDANE.test(x))m=null;                           // 金幣袋、文件、食物之類，就算模型填了技能也只是普通物品
+    if(m&&MUNDANE.test(x))m=null;
+    if(m&&!fromCorpse&&gIdx(m.lv)>gIdx(capItemLv(m.lv))){notes.push(`（${x}的等級被壓到 ${capItemLv(m.lv)} 級：魔法物品最多比你高一級）`);m.lv=capItemLv(m.lv)}                           // 金幣袋、文件、食物之類，就算模型填了技能也只是普通物品
     if(m){S.items.push(x);S.mat[x]=m;notes.push(`得到 ✦${x}（${m.skill?`魔法物品，附帶「${m.skill.n}」`:"魔法原料"}・${m.lv}級）`)}
     else receive(x,notes)});
   (a.equip||[]).forEach(q=>equipAlly(q.who,q.item,q.off,notes));
