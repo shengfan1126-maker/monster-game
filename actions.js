@@ -397,7 +397,7 @@ function pay(sel,sac){
 /* ═════════ 技能整合與換技能（v0.26）═════════
    整合：5 個同功能、同等級的技能併成 1 個高一級的，結果不能超過「主角等級＋1」。
    整合、可用↔倉庫互換都花 4 小時，而且有機率出一件小麻煩（程式抽機率，模型寫內容，只扣一點 HP）。 */
-let MG=[], MGK="", SW=-1;
+let MG=[], MGK="", SWI=[], SWO=[];   // SWI：要換進可用的（倉庫裡勾的）、SWO：要換出去的（可用裡勾的）
 function mergeGroups(){
   const m={};
   realSk().forEach(s=>{const k=`${fnOf(s)}:${s.g}`;(m[k]=m[k]||[]).push(s)});
@@ -446,15 +446,19 @@ async function mergeSkills(){
   fillAct(notes);
   busy=false; S.log.push(sysEntry(notes.join("\n"))); save(); render();
 }
-async function swapSkills(si,ai){
-  if(busy||S.dead)return;
-  const a=S.skills[si], b=S.skills[ai];
-  if(!a||!b||isUq(a)||isUq(b)||(a.box||"act")!=="store"||(b.box||"act")!=="act")return;
+/* 整理技能：倉庫裡勾幾個換進可用、可用裡勾幾個換出去，不管幾個合計 4 小時。換完可用的數量不能超過上限。 */
+const swapOk=()=>SWI.length+SWO.length>0&&boxList("act").length+SWI.length-SWO.length<=boxCap(S.lv)[0];
+async function swapSkills(){
+  if(busy||S.dead||!swapOk())return;
+  const ins=SWI.map(i=>S.skills[i]).filter(s=>s&&!isUq(s)&&(s.box||"act")==="store");
+  const outs=SWO.map(i=>S.skills[i]).filter(s=>s&&!isUq(s)&&(s.box||"act")==="act");
+  if(!ins.length&&!outs.length)return;
   const pre=snap();
-  S.log.push({who:"you",text:`換技能：${a.n} 換進可用，${b.n} 放回倉庫`,pre});
-  SW=-1; busy=true; render();
-  a.box="act"; b.box="store";
-  const notes=[`你花了 4 小時重新整理力量：${a.n} 換進可用，${b.n} 放回倉庫。`];
+  S.log.push({who:"you",text:`整理技能：${ins.length?`換進 ${ins.map(s=>s.n).join("、")}`:""}${ins.length&&outs.length?"，":""}${outs.length?`換出 ${outs.map(s=>s.n).join("、")}`:""}`,pre});
+  SWI=[]; SWO=[]; busy=true; render();
+  ins.forEach(s=>s.box="act"); outs.forEach(s=>s.box="store");
+  const notes=[`你花了 4 小時重新整理力量：${ins.length?`${ins.map(s=>s.n).join("、")} 換進可用`:""}${ins.length&&outs.length?"，":""}${outs.length?`${outs.map(s=>s.n).join("、")} 放回倉庫`:""}。`];
   await fourHours("整理技能",notes);
+  const an=[]; checkAroma(an); notes.push(...an);
   busy=false; S.log.push(sysEntry(notes.join("\n"))); save(); render();
 }

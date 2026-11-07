@@ -9,9 +9,10 @@ function render(){
   if(TAB==="story") bindStory();
   if(TAB==="nest") bindNest();
   if(TAB==="map") bindMap();
-  if(TAB==="skill") document.querySelectorAll("[data-sd]").forEach(b=>b.onclick=()=>{const i=+b.dataset.sd;if(SD!==i){SD=i;render();return}SD=-1;const s=S.skills[i];if(s&&!isUq(s)){S.skills.splice(i,1);SW=-1;MG=[];MGK="";const n=[];fillAct(n);if(n.length)S.log.push(sysEntry(n.join("\n")))}save();render()});
-  if(TAB==="skill") document.querySelectorAll("[data-sw]").forEach(b=>b.onclick=()=>{const i=+b.dataset.sw;SW=SW===i?-1:i;render()});
-  if(TAB==="skill") document.querySelectorAll("[data-sx]").forEach(b=>b.onclick=()=>swapSkills(SW,+b.dataset.sx));
+  if(TAB==="skill") document.querySelectorAll("[data-sd]").forEach(b=>b.onclick=()=>{const i=+b.dataset.sd;if(SD!==i){SD=i;render();return}SD=-1;const s=S.skills[i];if(s&&!isUq(s)){S.skills.splice(i,1);SWI=[];SWO=[];MG=[];MGK="";const n=[];fillAct(n);if(n.length)S.log.push(sysEntry(n.join("\n")))}save();render()});
+  if(TAB==="skill") document.querySelectorAll("[data-sw]").forEach(b=>b.onclick=()=>{const i=+b.dataset.sw;SWI=SWI.includes(i)?SWI.filter(x=>x!==i):[...SWI,i];render()});
+  if(TAB==="skill") document.querySelectorAll("[data-sx]").forEach(b=>b.onclick=()=>{const i=+b.dataset.sx;SWO=SWO.includes(i)?SWO.filter(x=>x!==i):[...SWO,i];render()});
+  if(TAB==="skill"&&$("swdo"))$("swdo").onclick=()=>swapSkills();
   if(TAB==="skill") document.querySelectorAll("[data-mg]").forEach(b=>b.onclick=()=>{const [k,i]=b.dataset.mg.split("|"),n=+i;if(MGK!==k){MGK=k;MG=[]}MG=MG.includes(n)?MG.filter(x=>x!==n):MG.length<5?[...MG,n]:MG;render()});
   if(TAB==="skill"&&$("mgdo"))$("mgdo").onclick=()=>mergeSkills();
   if(TAB==="skill") document.querySelectorAll("[data-di]").forEach(b=>b.onclick=()=>{const i=+b.dataset.di;if(DI!==i){DI=i;render();return}DI=-1;const it=S.items[i];if(it!=null){S.items.splice(i,1);delete S.mat[it]}save();render()});
@@ -238,7 +239,7 @@ function bindStory(){
 function skillHTML(){
   const row=s=>{const i=S.skills.indexOf(s), st=(s.box||"act")==="store";
     return `<div class="sk"><span class="n">${esc(s.n)}</span><span class="s">${esc(s.sys)}・${esc(fnOf(s))}</span><span class="lv">${esc(s.g||"")}</span>
-      ${st?`<button class="tl" data-sw="${i}">${SW===i?"取消換入":"換進可用"}</button>`:SW>=0?`<button class="tl" data-sx="${i}">換出這個（4 小時）</button>`:""}
+      ${st?`<button class="tl" data-sw="${i}">${SWI.includes(i)?"取消換入":"換進可用"}</button>`:`<button class="tl" data-sx="${i}">${SWO.includes(i)?"取消換出":"換出到倉庫"}</button>`}
       <button class="tl" data-sd="${i}">${SD===i?"確定放棄？":"放棄"}</button></div>`};
   const mg=mergeGroups().map(g=>`<div class="note" style="margin:8px 0 4px"><b>${esc(g.fn)}・${g.g}級</b>：有 ${g.list.length} 個${g.ok&&g.to?`，選 5 個併成 1 個 ${g.to} 級`:g.to?`，要進化到 ${g.to} 級才能併成 ${g.to} 級`:""}</div>
     ${g.ok&&g.to?`<div class="tags">${g.list.map(s=>{const i=S.skills.indexOf(s);return `<button class="tag ut" data-mg="${esc(g.k)}|${i}" style="${MGK===g.k&&MG.includes(i)?"outline:2px solid currentColor":""}">${esc(s.n)}</button>`}).join("")}</div>
@@ -249,7 +250,8 @@ function skillHTML(){
   const over=sto.length>sc?`<div class="note" style="color:var(--bad,#c33);margin:6px 0">倉庫滿了（${sto.length}／${sc}）。請整合或放棄技能。</div>`:"";
   const sk=`${uq}<h4 style="margin:10px 0 4px">可用（${act.length}／${ac}）</h4>${act.map(row).join("")||`<div class="empty">還沒有。</div>`}
     <h4 style="margin:10px 0 4px">倉庫（${sto.length}／${sc}）</h4>${over}${sto.map(row).join("")||`<div class="empty">空的。</div>`}`;
-  return `<div class="card"><h3>技能</h3>${sk}</div>${mgBox}
+  const swBar=SWI.length||SWO.length?`<div class="note" style="margin:8px 0">要整理：${SWI.length} 個換進可用、${SWO.length} 個換出。${swapOk()?"":"換完可用的數量會超過上限，請多勾幾個要換出的。"}</div>${swapOk()?`<button class="paybtn" id="swdo">確定整理（合計 4 小時）</button>`:""}`:`<div class="note" style="margin:6px 0">想換技能：在倉庫勾「換進可用」，在可用勾「換出到倉庫」，勾幾個都行，一次合計 4 小時。</div>`;
+  return `<div class="card"><h3>技能</h3>${swBar}${sk}</div>${mgBox}
     <div class="card"><h3>狀態</h3>${S.tags.length?`<div class="tags">${S.tags.map((t,i)=>/幼體|飢餓|瀕死/.test(t)?`<span class="tag">${esc(t)}</span>`:`<button class="tag ut" data-ut="${i}">${esc(t)}${UT===i?"　再點一次拿掉":"　×"}</button>`).join("")}</div>`:`<div class="empty">沒有。</div>`}
       <div class="note" style="margin-top:6px">狀態在故事裡解決了就會自動拿掉；程序沒拿掉的，可以點兩下手動拿掉。</div>
       <div class="note" style="margin-top:8px">${hasTag("飢餓")?"正餓著。":`飽足還能撐 ${S.full} 小時。`}${S.stage}餓著的時候，每 ${hungerOf().every} 小時 HP -1。</div></div>
