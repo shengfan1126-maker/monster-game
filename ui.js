@@ -248,10 +248,10 @@ function skillHTML(){
     return `<div class="sk"${used?` style="opacity:.45"`:""}><span class="n">${esc(s.n)}${used?"（今天已用）":""}</span><span class="s">${esc(s.sys)}・${esc(fnOf(s))}</span><span class="lv">${esc(s.g||"")}</span>
       ${st?`<button class="tl" data-sw="${i}">${SWI.includes(i)?"取消換入":"換進可用"}</button>`:`<button class="tl" data-sx="${i}">${SWO.includes(i)?"取消換出":"換出到倉庫"}</button>`}
       <button class="tl" data-sd="${i}">${SD===i?"確定放棄？":"放棄"}</button></div>`};
-  const mg=mergeGroups().map(g=>`<div class="note" style="margin:8px 0 4px"><b>${esc(g.fn)}・${g.g}級</b>：有 ${g.list.length} 個${g.ok&&g.to?`，選 5 個併成 1 個 ${g.to} 級`:g.to?`，要進化到 ${g.to} 級才能併成 ${g.to} 級`:""}</div>
+  const mg=mergeGroups().map(g=>`<div class="note" style="margin:8px 0 4px"><b>${esc(g.fn)}類・${g.g}級</b>：有 ${g.list.length} 個${g.ok&&g.to?`，選 5 個併成 1 個 ${g.to} 級`:g.to?`，要進化到 ${g.to} 級才能併成 ${g.to} 級`:""}</div>
     ${g.ok&&g.to?`<div class="tags">${g.list.map(s=>{const i=S.skills.indexOf(s);return `<button class="tag ut" data-mg="${esc(g.k)}|${i}" style="${MGK===g.k&&MG.includes(i)?"outline:2px solid currentColor":""}">${esc(s.n)}</button>`}).join("")}</div>
     ${MGK===g.k&&MG.length===5?`<button class="paybtn" id="mgdo" style="margin-top:6px">整合這 5 個（4 小時）</button>`:`<div class="note">已選 ${MGK===g.k?MG.length:0}／5</div>`}`:""}`).join("");
-  const mgBox=mg?`<div class="card"><h3>整合</h3>${mg}<div class="note" style="margin-top:6px">5 個同功能、同等級的技能可以併成 1 個高一級的（最高只能比你高一級）。整合和換技能都要花 4 小時，這段時間可能出小麻煩。</div></div>`:"";
+  const mgBox=mg?`<div class="card"><h3>整合</h3>${mg}<div class="note" style="margin-top:6px">5 個同大類（戰鬥＝攻擊／防禦／威懾，機動＝感知／移動，生存＝恢復／生活／其他）、同等級的技能可以併成 1 個高一級的（最高只能比你高一級）。整合和換技能都要花 4 小時，這段時間可能出小麻煩。</div></div>`:"";
   const uq=S.skills.filter(isUq).map(s=>`<div class="sk"><span class="n">${esc(s.n)}</span><span class="uniq">UNIQUE</span></div>${s.note?`<div class="note" style="margin:-2px 0 6px">${esc(s.note)}</div>`:""}`).join("");
   const [ac,sc]=boxCap(S.lv), act=boxList("act"), sto=boxList("store");
   const over=sto.length>sc?`<div class="note" style="color:var(--bad,#c33);margin:6px 0">倉庫滿了（${sto.length}／${sc}）。請整合或放棄技能。</div>`:"";

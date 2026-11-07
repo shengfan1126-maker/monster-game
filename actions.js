@@ -401,12 +401,12 @@ function pay(sel,sac){
 
 
 /* ═════════ 技能整合與換技能（v0.26）═════════
-   整合：5 個同功能、同等級的技能併成 1 個高一級的，結果不能超過「主角等級＋1」。
+   整合：5 個同大類（戰鬥／機動／生存）、同等級的技能併成 1 個高一級的，結果不能超過「主角等級＋1」。
    整合、可用↔倉庫互換都花 4 小時，而且有機率出一件小麻煩（程式抽機率，模型寫內容，只扣一點 HP）。 */
 let MG=[], MGK="", SWI=[], SWO=[];   // SWI：要換進可用的（倉庫裡勾的）、SWO：要換出去的（可用裡勾的）
 function mergeGroups(){
   const m={};
-  realSk().forEach(s=>{const k=`${fnOf(s)}:${s.g}`;(m[k]=m[k]||[]).push(s)});
+  realSk().forEach(s=>{const k=`${clsOf(s)}:${s.g}`;(m[k]=m[k]||[]).push(s)});
   return Object.entries(m).filter(([,a])=>a.length>=5).map(([k,a])=>{const [fn,g]=k.split(":");
     return {k,fn,g,to:GRADES[gIdx(g)+1]||null,list:a,ok:gIdx(g)<=gIdx(S.lv)&&gIdx(g)<6}});
 }
@@ -429,8 +429,8 @@ const skBusy=()=>{if(S.err){TOAST="上一個動作還沒完成（有「重試」
 async function mergeSkills(){
   if(busy||S.dead||skBusy())return;
   const picks=MG.map(i=>S.skills[i]).filter(Boolean);
-  if(picks.length!==5||new Set(picks.map(s=>`${fnOf(s)}:${s.g}`)).size!==1)return;
-  const g0=picks[0].g, g1=GRADES[gIdx(g0)+1], fn=fnOf(picks[0]);
+  if(picks.length!==5||new Set(picks.map(s=>`${clsOf(s)}:${s.g}`)).size!==1)return;
+  const g0=picks[0].g, g1=GRADES[gIdx(g0)+1], cls=clsOf(picks[0]), fc={}; picks.forEach(s=>fc[fnOf(s)]=(fc[fnOf(s)]||0)+1); const fn=Object.entries(fc).sort((a,b)=>b[1]-a[1])[0][0];
   if(!g1||gIdx(g0)>gIdx(S.lv))return;
   const pre=snap(), names=picks.map(s=>s.n);
   S.log.push({who:"you",text:`整合技能：${names.join("、")}`,pre});
@@ -438,7 +438,7 @@ async function mergeSkills(){
   let nm=null;
   try{
     const res=await callModel([{role:"system",content:"你是文字遊戲的規則助手。只輸出 JSON。"},
-      {role:"user",content:`哥布林主角把 5 個「${fn}」類技能整合成一個高一級的技能：${names.join("、")}。取一個新技能名（2~4 個字，要像這幾個技能的上位版）。系別只能是：${SYSTEMS.join("、")}。只輸出：{"n":"技能名","sys":"系別"}`}],300,
+      {role:"user",content:`哥布林主角把 5 個「${cls}」類技能整合成一個高一級的技能：${names.join("、")}。取一個新技能名（2~4 個字，要像這幾個技能的上位版）。系別只能是：${SYSTEMS.join("、")}。只輸出：{"n":"技能名","sys":"系別"}`}],300,
       r=>{const o=parseObjs(r.txt).reverse().find(x=>x&&typeof x.n==="string"&&x.n.trim());if(!o)throw new Error("沒照格式");return o},null);
     nm=res.val;
   }catch(e){}
