@@ -103,7 +103,7 @@ function stateBrief(){
   const n=S.nest;
   return {
     主角:{名字:S.name,種族:S.sub?`${S.sub.name}（${S.sub.essence}）`:"哥布林",階段:S.stage,等級:S.lv,HP:`${S.hp}/${S.hpMax}`,MP:`${S.mp}/${S.mpMax}`,存在值:`${S.exist}/${existMax(S.lv)}`,
-      技能:S.skills.filter(s=>isUq(s)||(s.box||"act")==="act").map(s=>s.n+(s.g?`（${s.g}級・${s.sys}）`:`（${s.sys}）`)),"倉庫技能（現在不能用）":boxList("store").map(s=>s.n),狀態:S.tags,物品:S.items.map(n=>{const m=matOf(n);return m?`${n}（${m.skill?`魔法物品，附帶技能 ${m.skill.n}`:"魔法原料"}・${m.lv}級）`:n}),
+      技能:S.skills.filter(s=>isUq(s)||(s.box||"act")==="act").map(s=>s.n+(s.g?`（${s.g}級・${s.sys}）`:`（${s.sys}）`)),"倉庫技能（現在不能用）":boxList("store").map(s=>s.n),"今天已用過的技能（一天一次，今天不能再用）":S.usedSk||[],狀態:S.tags,物品:S.items.map(n=>{const m=matOf(n);return m?`${n}（${m.skill?`魔法物品，附帶技能 ${m.skill.n}`:"魔法原料"}・${m.lv}級）`:n}),
       身邊的屍體:S.corpses.map(c=>`${c.name}（${c.lv}級，${isFresh(c)?"新鮮":"不新鮮了"}）`),稱號:S.titles},
     時間:`${timeStr()}（${PERIOD(S.hour)}，${isDay(S.hour)?"白天":"夜裡"}）`,飽足:hasTag("飢餓")?"餓著":`還能撐 ${S.full} 小時`,地點:`${S.loc}（以這個為準）`,
     同伴:S.party.length?S.party.map(p=>({...(p.gear?{裝備:`${p.gear}（附帶技能 ${p.gearMat.skill.n}）`}:{}),拿著:(p.hold||[]).length?p.hold.join("、"):(p.gear?"只有裝備":"空手"),...(p.dir?{方向:p.dir}:{}),名字:p.n,...(p.alias&&p.alias.length?{以前叫:p.alias.join("、")}:{}),種族:p.kind,等級:p.lv,本事:p.knack,技能:p.skills.map(x=>`${x.n} Lv${x.lv}`),狀態:p.tags,位置:p.with?"跟在主角身邊":`留在${NEST()}`,...(!p.with&&p.job?{派工:p.job}:{}),...(p.note?{說明:p.note}:{})})):"沒有",

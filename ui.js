@@ -98,8 +98,8 @@ function checkHTML(ch){
       ${S.party.map((p,k)=>`<button class="tl" data-rt="ally|${k}">讓 ${esc(p.n)} 斷後（牠會死）</button>`).join("")}
       <button class="tl" data-rt="hp">HP 上限 -5</button><button class="tl" data-rt="maim">留下【殘缺】</button>
       ${S.items.map((it,i)=>`<button class="tl" data-rt="item|${i}">丟下 ${esc(it)}</button>`).join("")}</div>`:""}`:"";
-  const sks=boxList("act").map(x=>({v:x.n,t:`${x.n}（${x.sys}・${x.g}）MP -1`,off:S.mp<1}));
-  S.items.forEach(n=>{const m=matOf(n);if(m&&m.skill)sks.push({v:`${m.skill.n}（${n}）`,t:`${m.skill.n}（✦${n}）`})});
+  const sks=boxList("act").map(x=>({v:x.n,t:`${x.n}（${x.sys}・${x.g}）MP -1${skUsed(x.n)?"・今天已用":""}`,off:S.mp<1||skUsed(x.n)}));
+  S.items.forEach(n=>{const m=matOf(n);if(m&&m.skill){const k=`${m.skill.n}（${n}）`;sks.push({v:k,t:`${m.skill.n}（✦${n}）${skUsed(k)?"・今天已用":""}`,off:skUsed(k)})}});
   const skBox=sks.length?`<div class="sacbox"><label>用哪個技能（多一層優勢，一次一個；自己的技能 MP -1，魔法物品的不用）</label><select id="skillsel"><option value="">不用技能</option>${sks.map(x=>`<option value="${esc(x.v)}"${ch.useSk===x.v?" selected":""}${x.off?" disabled":""}>${esc(x.t)}</option>`).join("")}</select></div>`:"";
   return `<div class="check${war||raid?" war":""}">
     <h3>${raid?`討伐戰 ${ch.raid.stage}/${ch.raid.of}・${esc(S.raid.name)}：`:war?`進化戰 ${ch.war.stage}/5・${esc(S.war.foe.name)}：`:ch.multi?`連戰 ${ch.multi.n}/${ch.multi.of}・${ch.multi.cls?"小頭目 ":""}${esc(ch.foe)}：`:"判定："}${esc(ch.what)}</h3>
@@ -238,7 +238,8 @@ function bindStory(){
 }
 function skillHTML(){
   const row=s=>{const i=S.skills.indexOf(s), st=(s.box||"act")==="store";
-    return `<div class="sk"><span class="n">${esc(s.n)}</span><span class="s">${esc(s.sys)}・${esc(fnOf(s))}</span><span class="lv">${esc(s.g||"")}</span>
+    const used=!isUq(s)&&!st&&skUsed(s.n);
+    return `<div class="sk"${used?` style="opacity:.45"`:""}><span class="n">${esc(s.n)}${used?"（今天已用）":""}</span><span class="s">${esc(s.sys)}・${esc(fnOf(s))}</span><span class="lv">${esc(s.g||"")}</span>
       ${st?`<button class="tl" data-sw="${i}">${SWI.includes(i)?"取消換入":"換進可用"}</button>`:`<button class="tl" data-sx="${i}">${SWO.includes(i)?"取消換出":"換出到倉庫"}</button>`}
       <button class="tl" data-sd="${i}">${SD===i?"確定放棄？":"放棄"}</button></div>`};
   const mg=mergeGroups().map(g=>`<div class="note" style="margin:8px 0 4px"><b>${esc(g.fn)}・${g.g}級</b>：有 ${g.list.length} 個${g.ok&&g.to?`，選 5 個併成 1 個 ${g.to} 級`:g.to?`，要進化到 ${g.to} 級才能併成 ${g.to} 級`:""}</div>

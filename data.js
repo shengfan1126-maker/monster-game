@@ -321,11 +321,13 @@ const matOf=n=>S.mat&&S.mat[n];
 const MUNDANE=/金幣|銀幣|銅幣|錢袋|金錢|文件|情報|信件|地圖|徽記|肉乾|燻肉|乾糧|麵包|酒|打火石|火把|繩|布|劣質|鐵礦石|廢棄/;
 const PART_RE=/核|牙|爪|角|鱗|甲片|殼|皮|囊|腺|翼|心臟|血|精華|晶|結晶|嫩芽|骨|羽|毛|眼|舌|肢|牙齒/;
 /* 魔法物品等級上限：最多比主角高一級、最高 A（從屍體拆的原料照屍體等級，不受限） */
+/* 一天一次：S.usedSk 記今天用過的技能（自己的技能用技能名；魔法物品的用「技能（物品）」，每件各自算），隔天（dayChange）清空 */
+const skUsed=k=>!!k&&(S.usedSk||[]).includes(k);
 const capItemLv=l=>GRADES[Math.min(gIdx(l),gIdx(S.lv)+1,5)];
 const cleanItemName=n=>String(n||"").replace(/\s*[（(][^）)]*級[）)]\s*$/,"").trim();
 function newGame(name){
   return {
-    v:2, v025:1, v026:1, v0261:1, name, day:1, hour:5, lv:"F", stage:"幼體", growth:0, starve:0,
+    v:2, v025:1, v026:1, v0261:1, usedSk:[], name, day:1, hour:5, lv:"F", stage:"幼體", growth:0, starve:0,
     hp:8, hpMax:10, mp:10, mpMax:10, exist:0, full:0,
     loc:"灰岩洞・幼崽窩",
     skills:[{n:"吞噬",sys:"Unique",lv:null,note:"前世繼承。吃下新鮮的肉或死去一天內的屍體，可以從中學到技能。"}],

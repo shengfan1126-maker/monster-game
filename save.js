@@ -90,6 +90,7 @@ function heal(){
   if(!S)return;
   if(S.evo&&S.exist<existMax(S.lv))S.evo=null;
   if(!S.gone)S.gone=[];
+  if(!Array.isArray(S.usedSk))S.usedSk=[];
   skillsFix(S);
   S.skills.forEach(s=>{if(s.n==="異香"&&/Lv/.test(s.note||""))s.note="可用技能第一次滿格時覺醒。你越強，聞起來越香。"});   // 舊存檔的異香說明還寫 Lv3
   if(S.heat==null){S.heat=0;S.heatDay=S.day}

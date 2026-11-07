@@ -73,7 +73,7 @@ function normCheck(c){
     return o;
   }).filter(o=>!o.item||S.items.includes(o.item));
   const arr=a=>(Array.isArray(a)?a:[]).filter(x=>typeof x==="string"&&x.trim()).slice(0,3);
-  const skn=boxList("act").map(x=>x.n);
+  const skn=boxList("act").filter(x=>!skUsed(x.n)).map(x=>x.n);
   const noSk=x=>!/Lv\s*\d|技能/.test(x)&&!skn.some(n=>x.includes(n));        // 技能由玩家選，不讓模型重複算
   const sug=typeof c.skill==="string"?skn.find(n=>c.skill.includes(n)||n===c.skill.trim()):null;
   const group=Math.max(1,Math.min(8,parseInt(c.group,10)||1));
@@ -84,7 +84,7 @@ function normCheck(c){
 const skillMp=ch=>ch&&ch.useSk&&!/（.+）$/.test(ch.useSk)?1:0;
 function checkInfo(ch){
   const lvDiff=ch.foeLv?Math.max(0,gIdx(ch.foeLv)-gIdx(S.lv)):0;
-  const net=ch.adv.length+(ch.useSk&&S.mp>=skillMp(ch)?1:0)-ch.dis.length-lvDiff;
+  const net=ch.adv.length+(ch.useSk&&!skUsed(ch.useSk)&&S.mp>=skillMp(ch)?1:0)-ch.dis.length-lvDiff;
   const need=Math.max(0,1-net), big=need+1;
   const d=dmgOf(ch.foeLv), fight=!!ch.foe, stalled=fight&&S.fightDelay&&S.fightDelay===ch.foe;
   const half=Math.ceil(S.mpMax/2), skMp=skillMp(ch);

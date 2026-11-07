@@ -346,7 +346,9 @@ function pay(sel,sac){
   const paidT=[...chosen.map(c=>c.t),...(sac?[`舍身：${sacLabel(sac)}`]:[])];
   if(ch.foe&&!ch.war&&!ch.raid&&!ch.local)S.lastFoe={name:ch.foe,lv:ch.foeLv||"F",cls:ch.multi&&ch.multi.cls||null};
   S.log.push({who:"you",text:`${ch.useSk?`用「${ch.useSk}」，`:""}${paidT.length?`付出：${paidT.join("、")}（${tier}）`:`不付代價，硬上（${tier}）`}`,pre});
-  const skMp=skillMp(ch); if(skMp&&S.mp>=skMp){S.mp-=skMp;notes.push(`用「${ch.useSk}」：MP -${skMp}`)}
+  const skMp=skillMp(ch);
+  if(ch.useSk&&!skUsed(ch.useSk)&&(!skMp||S.mp>=skMp)){S.usedSk=S.usedSk||[];S.usedSk.push(ch.useSk)}
+  if(skMp&&S.mp>=skMp){S.mp-=skMp;notes.push(`用「${ch.useSk}」：MP -${skMp}`)}
   chosen.forEach(c=>applyCost(c,notes)); if(sac)sacDo(sac,notes);
   const stall=!!ch.foe&&!ch.war&&!ch.raid&&chosen.some(c=>c.time);
   if(stall)S.fightDelay=ch.foe;

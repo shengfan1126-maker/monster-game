@@ -13,6 +13,7 @@ function nestSync(){
 }
 function dayChange(notes){
   notes.push(`—— 第 ${S.day} 天 ——`);
+  if((S.usedSk||[]).length){S.usedSk=[];notes.push("技能和魔法物品的力量都恢復了。")}
   const n=S.nest; dayJobs(notes); raidDay(notes); const need=needOf(), hungry=(n.food||0)<need;
   dayCaptives(notes,hungry);
   if(!hungry){n.food-=need;n.fed=(n.fed||0)+1;
