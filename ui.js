@@ -9,6 +9,11 @@ function render(){
   if(TAB==="story") bindStory();
   if(TAB==="nest") bindNest();
   if(TAB==="map") bindMap();
+  if(TAB==="skill") document.querySelectorAll("[data-sd]").forEach(b=>b.onclick=()=>{const i=+b.dataset.sd;if(SD!==i){SD=i;render();return}SD=-1;const s=S.skills[i];if(s&&!isUq(s)){S.skills.splice(i,1);SW=-1;MG=[];MGK="";const n=[];fillAct(n);if(n.length)S.log.push(sysEntry(n.join("\n")))}save();render()});
+  if(TAB==="skill") document.querySelectorAll("[data-sw]").forEach(b=>b.onclick=()=>{const i=+b.dataset.sw;SW=SW===i?-1:i;render()});
+  if(TAB==="skill") document.querySelectorAll("[data-sx]").forEach(b=>b.onclick=()=>swapSkills(SW,+b.dataset.sx));
+  if(TAB==="skill") document.querySelectorAll("[data-mg]").forEach(b=>b.onclick=()=>{const [k,i]=b.dataset.mg.split("|"),n=+i;if(MGK!==k){MGK=k;MG=[]}MG=MG.includes(n)?MG.filter(x=>x!==n):MG.length<5?[...MG,n]:MG;render()});
+  if(TAB==="skill"&&$("mgdo"))$("mgdo").onclick=()=>mergeSkills();
   if(TAB==="skill") document.querySelectorAll("[data-di]").forEach(b=>b.onclick=()=>{const i=+b.dataset.di;if(DI!==i){DI=i;render();return}DI=-1;const it=S.items[i];if(it!=null){S.items.splice(i,1);delete S.mat[it]}save();render()});
   if(TAB==="skill") document.querySelectorAll("[data-cd]").forEach(b=>b.onclick=()=>{const i=+b.dataset.cd;if(CD!==i){CD=i;render();return}CD=-1;S.corpses.splice(i,1);save();render()});
   if(TAB==="skill") document.querySelectorAll("[data-ut]").forEach(b=>b.onclick=()=>{const i=+b.dataset.ut;
@@ -92,7 +97,7 @@ function checkHTML(ch){
       ${S.party.map((p,k)=>`<button class="tl" data-rt="ally|${k}">讓 ${esc(p.n)} 斷後（牠會死）</button>`).join("")}
       <button class="tl" data-rt="hp">HP 上限 -5</button><button class="tl" data-rt="maim">留下【殘缺】</button>
       ${S.items.map((it,i)=>`<button class="tl" data-rt="item|${i}">丟下 ${esc(it)}</button>`).join("")}</div>`:""}`:"";
-  const sks=S.skills.filter(x=>x.sys!=="Unique").map(x=>({v:x.n,t:`${x.n}（${x.sys}・Lv${x.lv}）MP -1`,off:S.mp<1}));
+  const sks=boxList("act").map(x=>({v:x.n,t:`${x.n}（${x.sys}・${x.g}）MP -1`,off:S.mp<1}));
   S.items.forEach(n=>{const m=matOf(n);if(m&&m.skill)sks.push({v:`${m.skill.n}（${n}）`,t:`${m.skill.n}（✦${n}）`})});
   const skBox=sks.length?`<div class="sacbox"><label>用哪個技能（多一層優勢，一次一個；自己的技能 MP -1，魔法物品的不用）</label><select id="skillsel"><option value="">不用技能</option>${sks.map(x=>`<option value="${esc(x.v)}"${ch.useSk===x.v?" selected":""}${x.off?" disabled":""}>${esc(x.t)}</option>`).join("")}</select></div>`:"";
   return `<div class="check${war||raid?" war":""}">
@@ -111,7 +116,7 @@ function candsHTML(cs){
   return `<div class="check"><h3>《大賢者》：選一項吸收</h3>
     <div class="cands">${cs.map((p,j)=>{const s=S.skills.find(x=>x.n===p.n);
       const gv=S.party.map((a,k)=>allyCan(a,p)?`<button class="tl give" data-lp="${j}|${k}">給 ${esc(a.n)}${a.dir&&DIRS[a.dir].sys.test(p.sys)?"（對路）":""}</button>`:"").join("");
-      return `<div><button class="opt" data-l="${j}" style="width:100%">${esc(p.n)}<span class="cs">${esc(p.sys)}・${s?`Lv${s.lv}→Lv${s.lv+1}`:"新技能 Lv1"}</span></button>${gv?`<div class="gives">${gv}</div>`:""}</div>`}).join("")}
+      return `<div><button class="opt" data-l="${j}" style="width:100%">${esc(p.n)}<span class="cs">${esc(p.sys)}・${s?"已經會了":`新技能 ${S.lv}`}</span></button>${gv?`<div class="gives">${gv}</div>`:""}</div>`}).join("")}
     <button class="tl" id="skip">都不要</button></div></div>`;
 }
 function storyHTML(){
@@ -231,17 +236,26 @@ function bindStory(){
   const lg=$("log"); if(lg&&lg.lastElementChild&&!EDIT) lg.lastElementChild.scrollIntoView({block:"start",behavior:"smooth"});
 }
 function skillHTML(){
-  const sk=S.skills.map(s=>`<div class="sk"><span class="n">${esc(s.n)}</span>
-     ${s.sys==="Unique"?`<span class="uniq">UNIQUE</span>`:`<span class="s">${esc(s.sys)}</span>`}
-     <span class="lv">${s.lv?"Lv"+s.lv:""}</span></div>
-     ${s.note?`<div class="note" style="margin:-2px 0 6px">${esc(s.note)}</div>`:""}`).join("");
-  return `<div class="card"><h3>技能</h3>${sk}</div>
+  const row=s=>{const i=S.skills.indexOf(s), st=(s.box||"act")==="store";
+    return `<div class="sk"><span class="n">${esc(s.n)}</span><span class="s">${esc(s.sys)}・${esc(fnOf(s))}</span><span class="lv">${esc(s.g||"")}</span>
+      ${st?`<button class="tl" data-sw="${i}">${SW===i?"取消換入":"換進可用"}</button>`:SW>=0?`<button class="tl" data-sx="${i}">換出這個（4 小時）</button>`:""}
+      <button class="tl" data-sd="${i}">${SD===i?"確定放棄？":"放棄"}</button></div>`};
+  const mg=mergeGroups().map(g=>`<div class="note" style="margin:8px 0 4px"><b>${esc(g.fn)}・${g.g}級</b>：有 ${g.list.length} 個${g.ok&&g.to?`，選 5 個併成 1 個 ${g.to} 級`:g.to?`，要進化到 ${g.to} 級才能併成 ${g.to} 級`:""}</div>
+    ${g.ok&&g.to?`<div class="tags">${g.list.map(s=>{const i=S.skills.indexOf(s);return `<button class="tag ut" data-mg="${esc(g.k)}|${i}" style="${MGK===g.k&&MG.includes(i)?"outline:2px solid currentColor":""}">${esc(s.n)}</button>`}).join("")}</div>
+    ${MGK===g.k&&MG.length===5?`<button class="paybtn" id="mgdo" style="margin-top:6px">整合這 5 個（4 小時）</button>`:`<div class="note">已選 ${MGK===g.k?MG.length:0}／5</div>`}`:""}`).join("");
+  const mgBox=mg?`<div class="card"><h3>整合</h3>${mg}<div class="note" style="margin-top:6px">5 個同功能、同等級的技能可以併成 1 個高一級的（最高只能比你高一級）。整合和換技能都要花 4 小時，這段時間可能出小麻煩。</div></div>`:"";
+  const uq=S.skills.filter(isUq).map(s=>`<div class="sk"><span class="n">${esc(s.n)}</span><span class="uniq">UNIQUE</span></div>${s.note?`<div class="note" style="margin:-2px 0 6px">${esc(s.note)}</div>`:""}`).join("");
+  const [ac,sc]=boxCap(S.lv), act=boxList("act"), sto=boxList("store");
+  const over=sto.length>sc?`<div class="note" style="color:var(--bad,#c33);margin:6px 0">倉庫滿了（${sto.length}／${sc}）。請整合或放棄技能。</div>`:"";
+  const sk=`${uq}<h4 style="margin:10px 0 4px">可用（${act.length}／${ac}）</h4>${act.map(row).join("")||`<div class="empty">還沒有。</div>`}
+    <h4 style="margin:10px 0 4px">倉庫（${sto.length}／${sc}）</h4>${over}${sto.map(row).join("")||`<div class="empty">空的。</div>`}`;
+  return `<div class="card"><h3>技能</h3>${sk}</div>${mgBox}
     <div class="card"><h3>狀態</h3>${S.tags.length?`<div class="tags">${S.tags.map((t,i)=>/幼體|飢餓|瀕死/.test(t)?`<span class="tag">${esc(t)}</span>`:`<button class="tag ut" data-ut="${i}">${esc(t)}${UT===i?"　再點一次拿掉":"　×"}</button>`).join("")}</div>`:`<div class="empty">沒有。</div>`}
       <div class="note" style="margin-top:6px">狀態在故事裡解決了就會自動拿掉；程序沒拿掉的，可以點兩下手動拿掉。</div>
       <div class="note" style="margin-top:8px">${hasTag("飢餓")?"正餓著。":`飽足還能撐 ${S.full} 小時。`}${S.stage}餓著的時候，每 ${hungerOf().every} 小時 HP -1。</div></div>
     <div class="card"><h3>背包</h3>${S.corpses.length+S.items.length?`${S.corpses.map((c,i)=>`<div class="crow">🍖 ${esc(c.name)}（${c.lv}級・${c.harvested?"原料已拆・":""}${isFresh(c)?`新鮮，還有 ${24-ageOf(c)} 小時`:`不新鮮了，${Math.max(0,72-ageOf(c))} 小時後爛掉`}）${c.evo?"":`<button class="tl" data-cd="${i}">${CD===i?"確定拿掉？":"已經給人／丟掉"}</button>`}</div>`).join("")}${S.items.map((it,i)=>{const m=matOf(it);return `<div class="crow">${m?`✦ ${esc(it)}（${m.skill?`魔法物品，附帶「${esc(m.skill.n)}」`:"魔法原料"}・${m.lv}級）`:esc(it)}<button class="tl" data-di="${i}">${DI===i?"確定拿掉？":"已經給人／丟掉"}</button></div>`}).join("")}`:`<div class="empty">什麼都沒有。</div>`}
       <div class="note" style="margin-top:6px">🍖 是食材：新鮮的吃了能學技能。✦ 是魔法原料或魔法物品：不會壞，吃了能學技能；魔法物品帶在身上時，它的技能可以在判定時拿來用。魔獸（E 級以上）的屍體可以拆出一項原料，拆了就只剩肉。其他物品吃了只是硬吞。</div></div>
-    <div class="note">用技能：判定卡上選一個技能來用，攻擊、輔助、強化都一樣，用了就多一層優勢（少付一項）。一次一個，沒有組合技，不花 MP。<br>技能等級上限：F 級 Lv3、E 級 Lv4、D 級以上 Lv5。只有新鮮的東西（死去 24 小時內的屍體、活捉的小生物、蛋、新鮮植物）能學到技能。同級保底 1 個，每高一級多 1 個，大成功再 +1。</div>
+    <div class="note">用技能：判定卡上選一個技能來用，攻擊、輔助、強化都一樣，用了就多一層優勢（少付一項）。一次一個，沒有組合技，不花 MP。<br>技能沒有 Lv，只有等級字母（學到時你的等級）。可用的位置滿了，新技能自動放進倉庫；已經會的技能不會再出現在吸收選單裡。只有新鮮的東西（死去 24 小時內的屍體、活捉的小生物、蛋、新鮮植物）能學到技能。同級保底 1 個，每高一級多 1 個，大成功再 +1。</div>
     <div class="note" style="margin-top:6px">恢復：醒著沒餓，每 3 小時 HP +1（有「再生」就 +再生等級）、MP +1。夜裡睡到天亮：沒餓 HP 回一半、MP 回滿，疲勞和小傷一起消掉；餓著 HP 不回、MP 回一半。白天小睡 3 小時：HP、MP 各回四分之一，消掉【疲憊】。吃東西 HP +1~2。</div>
     ${S.sub?`<div class="card" style="margin-top:12px"><h3>種族：${esc(S.sub.name)}</h3><div>${esc(S.sub.essence)}</div><div class="note">${esc(S.sub.look||"")}</div></div>`:""}`;
 }
@@ -286,7 +300,7 @@ function bindNest(){
   const a=$("padd"); if(a)a.onclick=()=>{const n=$("pn").value.trim();if(!n)return;
     const npc=S.npcs.find(x=>x.n===n);recruit({name:n,kind:npc?"哥布林":"哥布林",knack:$("pk").value.trim(),note:""},null);save();render()};
 }
-let DI=-1, PNOTE="", UT=-1, NG="", BI=-1, CD=-1, TRAVEL=false, RN=-1, EA=-1, NE={k:0,dir:"戰士",name:""};
+let SD=-1, DI=-1, PNOTE="", UT=-1, NG="", BI=-1, CD=-1, TRAVEL=false, RN=-1, EA=-1, NE={k:0,dir:"戰士",name:""};
 function alertNote(t){PNOTE=t;render();PNOTE=""}
 function nestGiveHTML(){
   if(!inNest())return `<div class="note" style="margin-top:6px">回到${NEST()}才能把食物交給巢穴。</div>`;

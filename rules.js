@@ -7,7 +7,7 @@ const delTag=t=>{S.tags=S.tags.filter(x=>x!==t)};
 const inNest=()=>S.at?S.at===NEST():String(S.loc||"").includes(NEST());
 /* 暫時狀態：睡一晚會好的 */
 const TEMP=t=>!/殘缺|幼體|飢餓|瀕死|（/.test(t)&&/疲|累|傷|痛|麻|凍|挫|擦|瘀|腫|流血|中毒|喘|虛|眩|酸|僵/.test(t);
-const regenLv=()=>{const r=S.skills.find(x=>x.n==="再生");return r?r.lv:0};
+const regenLv=()=>{const r=S.skills.find(x=>x.n==="再生");return r?Math.min(5,gIdx(r.g||S.lv)+1):0};   // 再生：F 回 1、E 回 2、D 回 3…最多 5
 function grow(notes){
   S.stage="成體"; const old=S.hpMax; S.hpMax=20; S.hp=Math.min(S.hpMax,S.hp+10); delTag("幼體");
   notes.push(`〈系統〉《大賢者》：「告。個體成長完成。」`);
@@ -73,7 +73,7 @@ function normCheck(c){
     return o;
   }).filter(o=>!o.item||S.items.includes(o.item));
   const arr=a=>(Array.isArray(a)?a:[]).filter(x=>typeof x==="string"&&x.trim()).slice(0,3);
-  const skn=S.skills.filter(x=>x.sys!=="Unique").map(x=>x.n);
+  const skn=boxList("act").map(x=>x.n);
   const noSk=x=>!/Lv\s*\d|技能/.test(x)&&!skn.some(n=>x.includes(n));        // 技能由玩家選，不讓模型重複算
   const sug=typeof c.skill==="string"?skn.find(n=>c.skill.includes(n)||n===c.skill.trim()):null;
   const group=Math.max(1,Math.min(8,parseInt(c.group,10)||1));
@@ -148,7 +148,7 @@ async function evolve(){
   busy=true; render();
   const next=nextLv(); let subs=null;
   try{
-    const innate=S.skills.filter(x=>x.sys==="天生").sort((a,b)=>(b.lv||0)-(a.lv||0)).map(x=>`${x.n} Lv${x.lv}`);
+    const innate=S.skills.filter(x=>x.sys==="天生").sort((a,b)=>gIdx(b.g)-gIdx(a.g)).map(x=>`${x.n}（${x.g}）`);
     const msg=[{role:"system",content:"你是文字遊戲的規則助手。只輸出 JSON。西式黑暗奇幻，禁止武俠、修仙詞彙。"},
       {role:"user",content:`哥布林「${S.name}」吃掉了進化戰的對手 ${f.name}（${f.kind}，${f.lv}級），要從 ${S.lv} 級進化成 ${next} 級。\n天生技能：${innate.join("、")||"無"}\n全部技能：${S.skills.filter(x=>x.sys!=="Unique").map(x=>x.n).join("、")}\n${S.sub?`目前的種族：${S.sub.name}（${S.sub.essence}）\n`:""}給 3 個不同方向的亞種。名字是「○○哥布林」（○○是 2~3 字）。三個方向分別來自：吃掉的${f.kind}、主角等級最高的天生技能、主角目前的打法。\n每個鎖定一個本質（一句話：擅長什麼、身體怎麼變），再加一句外觀。\n只輸出：{"subs":[{"name":"","essence":"","look":""}]}`}];
     const res=await callModel(msg,900,r=>{const o=parseObjs(r.txt).reverse().find(x=>Array.isArray(x.subs));if(!o)throw new Error("沒照格式");return o},null);
@@ -172,8 +172,9 @@ function pickSub(j){
   S.lv=nextLv(); S.hpMax+=10; S.mpMax+=5; S.hp=S.hpMax; S.mp=S.mpMax; S.exist=0; S.sub=sb; S.evoReady=null; S.evo=null; S.war=null;
   if(S.party.some(p=>!p.named))S.nameEvo=true;
   S.tags=S.tags.filter(t=>!TEMP(t)); S.party.forEach(p=>p.lv=allyLv());
+  const an=[]; fillAct(an);   // 可用位置變多：倉庫的技能自動補上來
   S.log.push(sysEntry([`〈系統〉《世界之聲》：「個體『${S.name}』進化完成：${old}→${S.lv}。種族：${sb.name}。」`,
-    `身體在一陣劇痛裡重新長了一遍。${sb.look}`,`HP 上限 ${oh}→${S.hpMax}、MP 上限 ${om}→${S.mpMax}，全部回滿。技能上限變成 Lv${capOf(S.lv)}。存在值歸零，下一次進化需要 ${existMax(S.lv)}。`,
+    `身體在一陣劇痛裡重新長了一遍。${sb.look}`,`HP 上限 ${oh}→${S.hpMax}、MP 上限 ${om}→${S.mpMax}，全部回滿。可用技能 ${boxCap(S.lv)[0]} 個、倉庫 ${boxCap(S.lv)[1]} 個。存在值歸零，下一次進化需要 ${existMax(S.lv)}。`,...an,
     `本質：${sb.essence}`,...(S.party.length?[`同伴跟著變強了：${S.party.map(p=>p.n).join("、")}（${S.party[0].lv}級）`]:[]),...hn].join("\n")));
   {const n=[];chapCheck(n);if(n.length)S.log[S.log.length-1].alts[0].text+="\n"+n.join("\n")}
   S.opts=["感受一下新的身體",inNest()?"在巢穴裡走一圈":`回${NEST()}`,S.party.some(p=>p.with)||inNest()&&S.party.length?"讓同伴看看你的樣子":"看看四周"]; S.log[S.log.length-1].alts[0].opts=S.opts.slice();

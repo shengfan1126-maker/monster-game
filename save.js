@@ -24,7 +24,15 @@ function migrate(o){
   if(o.err&&!o.err.job)o.err=null;
   for(const [k,v] of [["mat",{}],["gone",[]],["party",[]],["evo",null],["war",null],["sub",null],["evoReady",null],["beaten",[]]])if(o[k]===undefined)o[k]=v;
   if(!o.v025){o=renameDeep(o);o.v025=1}
+  if(!o.v026){skillsV026(o);o.v026=1}
   return o;
+}
+/* v0.26：技能拿掉 Lv。等級字母＝存檔時的主角等級；Lv 高的先進可用，其餘進倉庫（超過上限的留在倉庫，到技能頁整合或放棄） */
+function skillsV026(o){
+  const real=(o.skills||[]).filter(s=>s.sys!=="Unique"&&!s.g);
+  const ac=boxCap(o.lv)[0];
+  [...real].sort((a,b)=>(b.lv||0)-(a.lv||0)).forEach((s,i)=>{s.box=i<ac?"act":"store"});
+  real.forEach(s=>{s.g=o.lv||"F";delete s.lv});
 }
 /* v0.25：「地精」改名「諾姆」。舊存檔裡的地精部落、據點、俘虜、同伴、故事一起換 */
 const renameDeep=x=>typeof x==="string"?x.replace(/地精/g,"諾姆"):Array.isArray(x)?x.map(renameDeep):
@@ -67,6 +75,7 @@ function heal(){
   if(!S)return;
   if(S.evo&&S.exist<existMax(S.lv))S.evo=null;
   if(!S.gone)S.gone=[];
+  if(S.skills.some(s=>!isUq(s)&&!s.g))skillsV026(S);   // 復原到舊版快照時，技能補上字母
   if(S.heat==null){S.heat=0;S.heatDay=S.day}
   if(!S.v023){S.v023=1;                                   // v0.23：注目度門檻提高；灌水造成、還沒開打的討伐取消；同伴同行人數修正
     if(S.raid&&!S.raid.on&&!S.raid.now&&S.heat<HEAT[3].at){S.raid=null;S.raidCool=S.day+5}

@@ -33,6 +33,19 @@ const GEAR=/甲|盔|殼|劍|矛|斧|弓|箭|盾|鎧|護|衣|袍|鞋|靴|套|帽|
 const isFreshFood=n=>(CREATURE.test(n)||PLANT.test(n))&&!DRY.test(n)&&!GEAR.test(n);
 const EDIBLE_ITEM=n=>/果|莓|菇|根|苔|蟲|肉|蛋|籽|松子|蛹|草|葉|花|乾/.test(n)&&!/刀|繩|石|棍|骨|牙|齒|皮|鱗/.test(n)&&!GEAR.test(n);
 const SYSTEMS=["火","水","風","土","光","暗","武技","意圖","天生"];
+/* v0.26：主角技能沒有 Lv，只有等級字母（學到時的主角等級）。分「可用」和「倉庫」，
+   數量看主角等級：[可用上限, 倉庫上限]。總數可以超過可用上限，多的自動放倉庫；倉庫滿了要整合或放棄。 */
+const SKILL_BOX={F:[6,5],E:[9,10],D:[9,15],C:[9,20],B:[9,25],A:[9,30],S:[9,30]};
+const boxCap=g=>SKILL_BOX[g||"F"]||SKILL_BOX.F;
+const isUq=s=>s.sys==="Unique";
+/* 技能的功能類（整合時同功能才能併）。沒有存欄位，照名字猜；順序有關，前面先中 */
+const SK_FN=[["生活",/手巧|鍛冶|料理|野外求生|設陷阱|開鎖|挖掘|掘土|打洞|讀寫|草藥/],["恢復",/再生|治癒|淨化|蛻皮|斷尾/],
+  ["感知",/視|眼|聽|嗅|感知|警覺|定位|觸鬚|追蹤|鑑定|銳/],["威懾",/威嚇|統率|戰吼|咆哮|狡詐|交涉|學舌|鳴叫|群狩|祈禱/],
+  ["防禦",/殼|皮|甲|盾|抗|耐|堅|鱗|厚|硬|紮根|痛覺遲鈍/],["攻擊",/牙|爪|咬|擊|撞|術|斧|劍|矛|弓|毒|火|球|角|蠻力|怪力|狂暴|鉗|吸血|俯衝|獠|熊掌|投擲|硫磺|黏液|孢子|吐絲|長舌|岩蹄|尾/],
+  ["移動",/跳|走|游|爬|飛|滑|潛|敏捷|輕身|多足|擬態|方向感|疾/]];
+const fnOf=s=>s.fn||(SK_FN.find(([,re])=>re.test(s.n))||["其他"])[0];
+const realSk=()=>S.skills.filter(s=>!isUq(s));
+const boxList=b=>realSk().filter(s=>(s.box||"act")===b);
 const DMG=[3,5,8,12,17,23,30];
 const dmgOf=lv=>DMG[gIdx(lv||"F")];                 // 對手打你一下：F 3、E 5、D 8、C 12…
 const existGain=lv=>Math.max(0,1+gIdx(lv||"F")-gIdx((S&&S.lv)||"F"));
@@ -40,7 +53,7 @@ const existMax=lv=>10*2**gIdx(lv||"F");   // 存在值上限：F 10、E 20、D 4
 const rnd=a=>a[Math.floor(Math.random()*a.length)];
 const rint=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
 
-/* 常見生物的技能池：吃到同一種就從同一池抽，抽到已有的技能就升級 */
+/* 常見生物的技能池：吃到同一種就從同一池抽，已經會的技能不再出現 */
 const POOLS={
   "老鼠":[{n:"齧咬",sys:"天生"},{n:"夜視",sys:"天生"},{n:"病菌抗性",sys:"天生"}],
   "山鼠":[{n:"齧咬",sys:"天生"},{n:"夜視",sys:"天生"},{n:"打洞",sys:"土"}],
@@ -306,7 +319,7 @@ const isBeast=c=>!c.evo&&!c.harvested&&(c.magic||gIdx(c.lv)>=1)&&!c.small;
 const matOf=n=>S.mat&&S.mat[n];
 function newGame(name){
   return {
-    v:2, v025:1, name, day:1, hour:5, lv:"F", stage:"幼體", growth:0, starve:0,
+    v:2, v025:1, v026:1, name, day:1, hour:5, lv:"F", stage:"幼體", growth:0, starve:0,
     hp:8, hpMax:10, mp:10, mpMax:10, exist:0, full:0,
     loc:"灰岩洞・幼崽窩",
     skills:[{n:"吞噬",sys:"Unique",lv:null,note:"前世繼承。吃下新鮮的肉或死去一天內的屍體，可以從中學到技能。"}],

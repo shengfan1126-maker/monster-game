@@ -189,7 +189,7 @@ async function devour(i,tier){
       const cl=c.cls||classOf(c.name);
       if(cl&&CLASSES[cl]){pool=[...CLASSES[cl].pool,...pool.filter(p=>!CLASSES[cl].pool.some(q=>q.n===p.n))];n=Math.min(4,n+1)}
       busy=false;
-      const cand=pool.filter(p=>{const s=S.skills.find(x=>x.n===p.n);return !s||s.lv<capOf(S.lv)});
+      const cand=pool.filter(p=>!S.skills.some(x=>x.n===p.n));   // 已經會的不再出現
       {const cl2=c.cls||classOf(c.name), cp=cl2?cand.filter(p=>CLASSES[cl2].pool.some(q=>q.n===p.n)):[];   // 帶職業的：至少一個職業技能
        const first=cp.length?[rnd(cp)]:[]; cands=[...first,...cand.filter(p=>!first.includes(p)).sort(()=>Math.random()-0.5)].slice(0,n)}
     }
@@ -261,18 +261,30 @@ function learn(j){
   const pre=snap(), notes=[];
   S.log.push({who:"you",text:`學習：${p.n}`,pre});
   let s=S.skills.find(x=>x.n===p.n), line;
-  if(s){s.lv=Math.min(capOf(S.lv),s.lv+1); line=`〈系統〉《世界之聲》：「${p.n} Lv${s.lv-1}→Lv${s.lv}。」`}
-  else{s={n:p.n,sys:p.sys,lv:1};S.skills.push(s);line=`〈系統〉《世界之聲》：「習得 ${p.n} Lv1（${p.sys}）。」`}
-  notes.push(line);
-  if(S.eaten[0]&&!S.eaten[0].got)S.eaten[0].got=`${p.n} Lv${s.lv}`;
-  if(s.lv>=3&&!S.skills.some(x=>x.n==="異香")){
-    S.skills.push({n:"異香",sys:"Unique",lv:null,note:"任一技能首次達 Lv3 時覺醒。你越強，聞起來越香。"});
-    notes.push("〈系統〉《世界之聲》：「Unique skill『異香』覺醒。」");
-    notes.push("〈系統〉《世界之聲》（向所有吞噬者）：「第九名吞噬者已入場。」");
-    notes.push("洞裡所有的哥布林，同時抬起了頭。");
-  }
+  if(s){line=`〈系統〉《世界之聲》：「${p.n} 你已經會了，沒有學到新東西。」`}
+  else{s=addSkill(p);line=`〈系統〉《世界之聲》：「習得 ${p.n}（${s.g}級・${p.sys}）。${s.box==="store"?"可用的位置滿了，先放進倉庫。":""}」`}
+  notes.push(line); checkAroma(notes);
+  if(boxList("store").length>boxCap(S.lv)[1])notes.push("〈系統〉《大賢者》：「告。倉庫滿了。請到技能頁整合或放棄。」");
+  if(S.eaten[0]&&!S.eaten[0].got)S.eaten[0].got=`${p.n}（${s.g}）`;
   S.log.push(sysEntry(notes.join("\n"))); save(); render();
   if(S.evoReady)evolve();
+}
+/* 新技能：等級＝現在的主角等級；可用的位置還有就進可用，滿了進倉庫（超過上限也先收，到技能頁處理） */
+function addSkill(p,g){
+  const s={n:p.n,sys:p.sys,g:g||S.lv,box:boxList("act").length<boxCap(S.lv)[0]?"act":"store"};
+  S.skills.push(s); return s;
+}
+/* 可用的位置有空，就把倉庫最前面的補進來（進化、整合、放棄、換技能之後）；補完看要不要覺醒異香 */
+function fillAct(notes){
+  while(boxList("act").length<boxCap(S.lv)[0]){const s=boxList("store")[0];if(!s)break;s.box="act"}
+  checkAroma(notes);
+}
+const checkAroma=notes=>{if(boxList("act").length>=9)awakenAroma(notes)};
+/* 〈異香〉：可用技能第一次滿 9 格時覺醒（升到 E 級才有 9 格，所以通常在打獵吃東西、學到新技能的時候出現） */
+function awakenAroma(notes){
+  if(S.skills.some(x=>x.n==="異香"))return;
+  S.skills.push({n:"異香",sys:"Unique",lv:null,note:"可用技能第一次滿格時覺醒。你越強，聞起來越香。"});
+  notes.push("〈系統〉《世界之聲》：「Unique skill『異香』覺醒。」","〈系統〉《世界之聲》（向所有吞噬者）：「第九名吞噬者已入場。」","洞裡所有的哥布林，同時抬起了頭。");
 }
 function skipLearn(){
   const L=S.log, e=L[L.length-1]; if(busy||!e||e.kind!=="devour")return;
@@ -302,7 +314,7 @@ async function eatMagic(i,label){
   else{
     const diff=gIdx(m.lv)-gIdx(S.lv); let n=Math.min(4,diff<0?rint(0,1):1+diff);
     if(n>0){busy=true;render();const pool=await poolFor({name:it,sp:m.sp,lv:m.lv,mat:true});busy=false;
-      cands=pool.filter(p=>{const s=S.skills.find(x=>x.n===p.n);return !s||s.lv<capOf(S.lv)}).sort(()=>Math.random()-0.5).slice(0,n)}
+      cands=pool.filter(p=>!S.skills.some(x=>x.n===p.n)).sort(()=>Math.random()-0.5).slice(0,n)}
   }
   lines.push(cands.length?`〈系統〉《大賢者》：「告。可吸收：${cands.map(x=>x.n).join("、")}。請選擇一項。」`:"〈系統〉《大賢者》：「告。無可吸收。」");
   S.eaten.unshift({day:S.day,what:it,got:null});
@@ -381,3 +393,68 @@ function pay(sel,sac){
   doJob({kind:"resolve",ctx},snap(),S.log.length);
 }
 
+
+/* ═════════ 技能整合與換技能（v0.26）═════════
+   整合：5 個同功能、同等級的技能併成 1 個高一級的，結果不能超過「主角等級＋1」。
+   整合、可用↔倉庫互換都花 4 小時，而且有機率出一件小麻煩（程式抽機率，模型寫內容，只扣一點 HP）。 */
+let MG=[], MGK="", SW=-1;
+function mergeGroups(){
+  const m={};
+  realSk().forEach(s=>{const k=`${fnOf(s)}:${s.g}`;(m[k]=m[k]||[]).push(s)});
+  return Object.entries(m).filter(([,a])=>a.length>=5).map(([k,a])=>{const [fn,g]=k.split(":");
+    return {k,fn,g,to:GRADES[gIdx(g)+1]||null,list:a,ok:gIdx(g)<=gIdx(S.lv)&&gIdx(g)<6}});
+}
+const BAD_FALLBACK=["突然下起冷雨，你縮在角落裡發抖，等到雨停。","洞外傳來腳步聲，你屏住氣等它走遠，什麼都沒做成。","一陣落石滾下來，擦過你的肩膀。","風雪突然變大，你被困住了好一陣子。"];
+async function fourHours(what,notes){
+  const night=!isDay(S.hour), p=Math.min(0.6,(inNest()?0.10:0.35)+(night?0.10:0));
+  advanceTime(4,notes);
+  if(Math.random()>=p)return;
+  let txt=null;
+  try{
+    const res=await callModel([{role:"system",content:"你是文字遊戲的規則助手。只輸出 JSON。"},
+      {role:"user",content:`哥布林主角在「${S.loc}」（${inNest()?"巢穴裡":"野外"}，${night?"夜裡":"白天"}）花了 4 小時${what}。這段時間出了一件小麻煩：天氣突變、落石、巡邏的獵人經過、同伴出狀況之類，要符合地點，分量輕，沒人會死。用一兩句話寫發生了什麼。只輸出：{"event":""}`}],300,
+      r=>{const o=parseObjs(r.txt).reverse().find(x=>x&&typeof x.event==="string"&&x.event.trim());if(!o)throw new Error("沒照格式");return o},null);
+    txt=res.val.event.trim().slice(0,120);
+  }catch(e){}
+  const d=rint(1,3); S.hp=Math.max(1,S.hp-d);
+  notes.push(`${txt||rnd(BAD_FALLBACK)}（HP -${d}）`);
+}
+async function mergeSkills(){
+  if(busy||S.dead)return;
+  const picks=MG.map(i=>S.skills[i]).filter(Boolean);
+  if(picks.length!==5||new Set(picks.map(s=>`${fnOf(s)}:${s.g}`)).size!==1)return;
+  const g0=picks[0].g, g1=GRADES[gIdx(g0)+1], fn=fnOf(picks[0]);
+  if(!g1||gIdx(g0)>gIdx(S.lv))return;
+  const pre=snap(), names=picks.map(s=>s.n);
+  S.log.push({who:"you",text:`整合技能：${names.join("、")}`,pre});
+  MG=[]; MGK=""; busy=true; render();
+  let nm=null;
+  try{
+    const res=await callModel([{role:"system",content:"你是文字遊戲的規則助手。只輸出 JSON。"},
+      {role:"user",content:`哥布林主角把 5 個「${fn}」類技能整合成一個高一級的技能：${names.join("、")}。取一個新技能名（2~4 個字，要像這幾個技能的上位版）。系別只能是：${SYSTEMS.join("、")}。只輸出：{"n":"技能名","sys":"系別"}`}],300,
+      r=>{const o=parseObjs(r.txt).reverse().find(x=>x&&typeof x.n==="string"&&x.n.trim());if(!o)throw new Error("沒照格式");return o},null);
+    nm=res.val;
+  }catch(e){}
+  const cnt={}; picks.forEach(s=>cnt[s.sys]=(cnt[s.sys]||0)+1);
+  const sys=nm&&SYSTEMS.includes(nm.sys)?nm.sys:Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0][0];
+  let n=String((nm&&nm.n)||`${names[0]}・極`).trim().slice(0,6);
+  if(S.skills.some(x=>x.n===n&&!picks.includes(x)))n=(n+"・進").slice(0,6);
+  S.skills=S.skills.filter(s=>!picks.includes(s));
+  const s=addSkill({n,sys},g1); s.fn=fn;
+  const notes=[`〈系統〉《大賢者》：「告。技能整合完成：${names.join("、")} → ${n}（${g1}級・${sys}）。」`,`你花了 4 小時，把這幾種力量揉成一個。`];
+  await fourHours("整合技能",notes);
+  fillAct(notes);
+  busy=false; S.log.push(sysEntry(notes.join("\n"))); save(); render();
+}
+async function swapSkills(si,ai){
+  if(busy||S.dead)return;
+  const a=S.skills[si], b=S.skills[ai];
+  if(!a||!b||isUq(a)||isUq(b)||(a.box||"act")!=="store"||(b.box||"act")!=="act")return;
+  const pre=snap();
+  S.log.push({who:"you",text:`換技能：${a.n} 換進可用，${b.n} 放回倉庫`,pre});
+  SW=-1; busy=true; render();
+  a.box="act"; b.box="store";
+  const notes=[`你花了 4 小時重新整理力量：${a.n} 換進可用，${b.n} 放回倉庫。`];
+  await fourHours("整理技能",notes);
+  busy=false; S.log.push(sysEntry(notes.join("\n"))); save(); render();
+}
