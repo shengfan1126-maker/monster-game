@@ -33,6 +33,7 @@ function skillsV026(o){
   const ac=boxCap(o.lv)[0];
   [...real].sort((a,b)=>(b.lv||0)-(a.lv||0)).forEach((s,i)=>{s.box=i<ac?"act":"store"});
   real.forEach(s=>{s.g=o.lv||"F";delete s.lv});
+  (o.skills||[]).forEach(s=>{if(s.n==="異香")s.note="可用技能第一次滿格時覺醒。你越強，聞起來越香。"});
 }
 /* v0.25：「地精」改名「諾姆」。舊存檔裡的地精部落、據點、俘虜、同伴、故事一起換 */
 const renameDeep=x=>typeof x==="string"?x.replace(/地精/g,"諾姆"):Array.isArray(x)?x.map(renameDeep):
@@ -76,6 +77,7 @@ function heal(){
   if(S.evo&&S.exist<existMax(S.lv))S.evo=null;
   if(!S.gone)S.gone=[];
   if(S.skills.some(s=>!isUq(s)&&!s.g))skillsV026(S);   // 復原到舊版快照時，技能補上字母
+  S.skills.forEach(s=>{if(s.n==="異香"&&/Lv/.test(s.note||""))s.note="可用技能第一次滿格時覺醒。你越強，聞起來越香。"});   // 舊存檔的異香說明還寫 Lv3
   if(S.heat==null){S.heat=0;S.heatDay=S.day}
   if(!S.v023){S.v023=1;                                   // v0.23：注目度門檻提高；灌水造成、還沒開打的討伐取消；同伴同行人數修正
     if(S.raid&&!S.raid.on&&!S.raid.now&&S.heat<HEAT[3].at){S.raid=null;S.raidCool=S.day+5}
