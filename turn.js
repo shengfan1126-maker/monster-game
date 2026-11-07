@@ -56,12 +56,12 @@ function getGains(o,a){
     {const h=one(o.heat);if(h&&typeof h==="object"&&h.d)a.heat={d:Math.max(-2,Math.min(2,parseInt(h.d,10)||0)),why:String(h.why||"").slice(0,16)}}
     a.mats={};
     a.found=(Array.isArray(o.found)?o.found:[]).map(x=>{
-      if(x&&typeof x==="object"&&x.name){const n=String(x.name).trim().slice(0,16), m=x.magic;
+      if(x&&typeof x==="object"&&x.name){const n=cleanItemName(x.name).slice(0,16), m=x.magic;
         if(m&&typeof m==="object"){a.mats[n]={lv:GRADES.includes(m.lv)?m.lv:"E",sp:String(m.kind||n).slice(0,12),...(m.skill?{skill:{n:String(m.skill).slice(0,6),sys:SYSTEMS.includes(m.sys)?m.sys:"天生"}}:{})}}
         return n}
       if(typeof x==="string"){const mm=x.trim().match(/^(.+?)\s*[（(]\s*(魔法原料|魔法物品)?[・·、,，\s]*([FEDCBAS])\s*級?\s*[）)]\s*$/);
-        if(mm){const n=mm[1].trim().slice(0,16);a.mats[n]={lv:mm[3],sp:n};return n}
-        return x.trim().replace(/\s*[（(][^）)]*[）)]\s*$/,"").slice(0,16)}
+        if(mm){const n=cleanItemName(mm[1]).slice(0,16);a.mats[n]={lv:mm[3],sp:n};return n}
+        return cleanItemName(x.trim().replace(/\s*[（(][^）)]*[）)]\s*$/,"")).slice(0,16)}
       return ""}).filter(Boolean).slice(0,2);
     a.caught=(Array.isArray(o.caught)?o.caught:[]).filter(x=>x&&x.name).slice(0,3).map(x=>({name:String(x.name).slice(0,16),kind:String(x.kind||x.name).replace(/\s*[x×]\s*\d+$/,"").slice(0,12),lv:GRADES.includes(x.lv)?x.lv:"F"}));
 }
@@ -266,7 +266,10 @@ function gains(a,big,notes,guard){
     let m=a.mats&&a.mats[x];
     if(m&&!m.skill){const c=S.corpses.find(c=>!c.evo&&(x.includes(cleanName(c.name))||String(m.sp).includes(cleanName(c.name))));
       if(c&&c.harvested)m=null;                       // 這具屍體已經拆過了：當普通物品
-      else if(c){c.harvested=true;m.lv=c.lv;m.sp=c.sp||m.sp}}
+      else if(c){c.harvested=true;m.lv=c.lv;m.sp=c.sp||m.sp}
+      else if(MUNDANE.test(x)||!PART_RE.test(x))m=null;     // 沒有來源屍體、名字又不像部位／魔核：普通東西，不是魔法原料
+    }
+    if(m&&MUNDANE.test(x))m=null;                           // 金幣袋、文件、食物之類，就算模型填了技能也只是普通物品
     if(m){S.items.push(x);S.mat[x]=m;notes.push(`得到 ✦${x}（${m.skill?`魔法物品，附帶「${m.skill.n}」`:"魔法原料"}・${m.lv}級）`)}
     else receive(x,notes)});
   (a.equip||[]).forEach(q=>equipAlly(q.who,q.item,q.off,notes));
@@ -340,6 +343,7 @@ function applyAlt(e){
     if(a.odef){const lf=S.lastFoe;                       // 只補上最近一次交手的對手，等級照判定卡
       if(lf&&sameFoe(a.odef.name,lf.name))applyDefeat({...a.odef,lv:lf.lv,cls:lf.cls},notes);
       else notes.push(`程序只能補上最近一次交手的對手${lf?`（${lf.name}）`:"（目前沒有）"}，${a.odef.name}沒有補。`)}
+    if(/巢穴|據點/.test(a.text)&&/位置|搬|遷|落腳|更正為/.test(a.text))notes.push("巢穴位置不能用 OOC 改：到「同伴・巢穴」頁最下面用「搬家」（可選營地，或友好聚落旁邊的「○○外圍營地」）。");
     if(!notes.length&&/修正|更正|切換|已經?(加入|改|移除|拿掉|補上|放進|調整|新增|升|降|刪|設定|成為|移到|移動|換到|設為)/.test(a.text))
       notes.push("程序這次沒有改到任何東西——上面說的「已修正」不算數。可以換個說法再問一次，或用頁面上的按鈕手動改（例如「同伴・巢穴」頁最下面可以補同伴）。");if(a.setChap&&a.setChap!==S.chap){S.chap=a.setChap;notes.push(`〈系統〉《世界之聲》：「第${S.chap}章・${chapOf().name}」`)}}
   if(e.kind==="war"&&a.win&&S.war){
@@ -445,6 +449,8 @@ const OOC_SYS=`你是文字遊戲《權能進化・魔物篇》的規則助手�
 - 位置錯了（例如被寫回巢穴）：在 fix 填 loc："地名"（已知的地點或地區），程序會把主角放回那裡。
 - 主角在故事裡已經當上巢穴之主（老首領退位、交出位子）而程序沒記到：在 fix 填 chief：true。
 - 同伴跟不跟在身邊，由「同伴・巢穴」頁的按鈕切換，OOC 改不了；遇到這種問題，請玩家去按按鈕，不要說已修正。
+- 巢穴的位置（程序記的 nestAt）OOC 改不了，fix 裡也沒有這個欄位：玩家說巢穴不在這裡、要把巢穴搬到別處，只能請他到「同伴・巢穴」頁最下面用「搬家」（可以選已知的營地，或友好聚落旁邊的「○○外圍營地」），不要說「已更正」「已在後台改好」。
+- 存糧、人口、標籤一律以【目前狀態】為準，不要編造「系統在低於幾天會自動掛標籤」之類的規則；狀態裡沒有的標籤就說沒有。
 - 同伴會變強：主角每次進化，可以替一名同伴命名進化（選方向、換種族名、多一個技能位）；吃東西學到的技能也能給同伴。光留在家裡不會變強。
 - 戰鬥判定成功了卻沒有屍體、存在值沒加：故事裡對手確實死了，就在 fix 填 defeated {"name":"名字","kind":"種族","lv":"E","dead":true}。存在值滿了本來就不會再加，要照實說。
 - 巢穴：存糧是份數，交給巢穴的屍體 F 1 份、E 3 份、D 6 份，肉類 1~2 份；每天吃掉人口格數份；吃光人口掉一格，連吃飽 3 天人口漲一格；存糧夠吃 3 天以上〔需求（食物）〕自動拿掉。人口、戰力、巢穴標籤照故事事件變動。

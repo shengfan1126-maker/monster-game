@@ -181,7 +181,12 @@ function raidDay(notes){
 }
 /* 搬家：整窩搬到一個已知的地點。討伐隊會撲空。 */
 function moveNest(dest,flee){
-  if(busy||!S.world[dest]||dest===NEST())return;
+  if(busy||dest===NEST())return;
+  if(!S.world[dest]&&/外圍營地$/.test(dest)){               // 友好聚落旁邊的外圍營地：搬過去時才建立
+    const b=dest.replace(/外圍營地$/,""), bw=S.world[b];
+    if(bw&&bw.known&&(bw.st||0)>=1){S.world[dest]={kind:"營地",region:bw.region,note:`${b}外圍的空地，聚落的人准你們在這裡落腳。`,links:{[b]:1},known:true,custom:true,st:bw.st};
+      bw.links=bw.links||{};bw.links[dest]=1}}
+  if(!S.world[dest])return;
   const pre=snap(), old=NEST(), notes=[], n=S.nest, h=flee?0:(pathHours(S.at,old)||0)+(pathHours(old,dest)||2);
   S.log.push({who:"you",text:flee?`放棄${old}，帶著大家往${dest}逃`:`把巢穴從${old}搬到${dest}`,pre});
   if(h)advanceTime(h,notes);

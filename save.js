@@ -24,8 +24,22 @@ function migrate(o){
   if(o.err&&!o.err.job)o.err=null;
   for(const [k,v] of [["mat",{}],["gone",[]],["party",[]],["evo",null],["war",null],["sub",null],["evoReady",null],["beaten",[]]])if(o[k]===undefined)o[k]=v;
   if(!o.v025){o=renameDeep(o);o.v025=1}
-  if(!o.v026){skillsV026(o);o.v026=1}
+  skillsFix(o); o.v026=1; if(o.err&&o.err.pre)skillsFix(o.err.pre);
   return o;
+}
+/* 技能整理（讀檔、撤回／重試還原快照、heal 都會跑）：舊式 Lv 技能補字母、缺字母的當主角現在等級、同名去重留等級高的、
+   可用超過上限的放回倉庫；v0.26.1 一次性修復：低於主角等級的技能（被舊快照弄出來的 E 級）補成主角等級 */
+function skillsFix(o){
+  if(!o||!Array.isArray(o.skills))return;
+  if(o.skills.some(s=>s.sys!=="Unique"&&!s.g))skillsV026(o);
+  const keep=[], by={};
+  o.skills.forEach(s=>{const p=by[s.n];
+    if(!p){by[s.n]=s;keep.push(s)}
+    else if(s.sys!=="Unique"&&gIdx(s.g)>gIdx(p.g)){keep[keep.indexOf(p)]=s;by[s.n]=s}});
+  o.skills=keep;
+  if(!o.v0261){o.skills.forEach(s=>{if(s.sys!=="Unique"&&gIdx(s.g)<gIdx(o.lv))s.g=o.lv});o.v0261=1}
+  const cap=boxCap(o.lv)[0]; let n=0;
+  o.skills.forEach(s=>{if(s.sys==="Unique")return;if((s.box||"act")==="act"){if(++n>cap)s.box="store"}else s.box="store"});
 }
 /* v0.26：技能拿掉 Lv。等級字母＝存檔時的主角等級；Lv 高的先進可用，其餘進倉庫（超過上限的留在倉庫，到技能頁整合或放棄） */
 function skillsV026(o){
@@ -76,7 +90,7 @@ function heal(){
   if(!S)return;
   if(S.evo&&S.exist<existMax(S.lv))S.evo=null;
   if(!S.gone)S.gone=[];
-  if(S.skills.some(s=>!isUq(s)&&!s.g))skillsV026(S);   // 復原到舊版快照時，技能補上字母
+  skillsFix(S);
   S.skills.forEach(s=>{if(s.n==="異香"&&/Lv/.test(s.note||""))s.note="可用技能第一次滿格時覺醒。你越強，聞起來越香。"});   // 舊存檔的異香說明還寫 Lv3
   if(S.heat==null){S.heat=0;S.heatDay=S.day}
   if(!S.v023){S.v023=1;                                   // v0.23：注目度門檻提高；灌水造成、還沒開打的討伐取消；同伴同行人數修正
@@ -126,7 +140,7 @@ function heal(){
 const gmText=e=>e.alts[e.i].text;
 /* 每個行動開始前拍一張狀態快照，撤回和重新回答都退回這張 */
 function snap(){const o={...S};delete o.log;delete o.err;return JSON.parse(JSON.stringify(o))}
-function restore(pre){const log=S.log;S=JSON.parse(JSON.stringify(pre));S.log=log;S.err=null;fixFac(S)}
+function restore(pre){const log=S.log;S=JSON.parse(JSON.stringify(pre));S.log=log;S.err=null;fixFac(S);skillsFix(S)}
 
 
 /* ═════════ 設定與存檔 ═════════ */

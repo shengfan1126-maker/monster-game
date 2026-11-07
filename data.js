@@ -317,9 +317,13 @@ const PART=[[/狼|犬/,"毛皮"],[/蛛/,"毒囊"],[/蝠/,"翼膜"],[/貓|豹|虎
 const partOf=sp=>(PART.find(([re])=>re.test(sp))||[0,"魔核"])[1];
 const isBeast=c=>!c.evo&&!c.harvested&&(c.magic||gIdx(c.lv)>=1)&&!c.small;
 const matOf=n=>S.mat&&S.mat[n];
+/* ✦ 魔法原料／魔法物品的守門：錢、文件、食物、工具、礦料這類普通東西不算；沒有附帶技能的「原料」要有來源屍體，或名字像魔獸部位／魔核／晶石 */
+const MUNDANE=/金幣|銀幣|銅幣|錢袋|金錢|文件|情報|信件|地圖|徽記|肉乾|燻肉|乾糧|麵包|酒|打火石|火把|繩|布|劣質|鐵礦石|廢棄/;
+const PART_RE=/核|牙|爪|角|鱗|甲片|殼|皮|囊|腺|翼|心臟|血|精華|晶|結晶|嫩芽|骨|羽|毛|眼|舌|肢|牙齒/;
+const cleanItemName=n=>String(n||"").replace(/\s*[（(][^）)]*級[）)]\s*$/,"").trim();
 function newGame(name){
   return {
-    v:2, v025:1, v026:1, name, day:1, hour:5, lv:"F", stage:"幼體", growth:0, starve:0,
+    v:2, v025:1, v026:1, v0261:1, name, day:1, hour:5, lv:"F", stage:"幼體", growth:0, starve:0,
     hp:8, hpMax:10, mp:10, mpMax:10, exist:0, full:0,
     loc:"灰岩洞・幼崽窩",
     skills:[{n:"吞噬",sys:"Unique",lv:null,note:"前世繼承。吃下新鮮的肉或死去一天內的屍體，可以從中學到技能。"}],

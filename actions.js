@@ -419,8 +419,9 @@ async function fourHours(what,notes){
   const d=rint(1,3); S.hp=Math.max(1,S.hp-d);
   notes.push(`${txt||rnd(BAD_FALLBACK)}（HP -${d}）`);
 }
+const skBusy=()=>{if(S.err){TOAST="上一個動作還沒完成（有「重試」或「撤回」沒按），先處理它，再整理技能。";render();return true}return false};
 async function mergeSkills(){
-  if(busy||S.dead)return;
+  if(busy||S.dead||skBusy())return;
   const picks=MG.map(i=>S.skills[i]).filter(Boolean);
   if(picks.length!==5||new Set(picks.map(s=>`${fnOf(s)}:${s.g}`)).size!==1)return;
   const g0=picks[0].g, g1=GRADES[gIdx(g0)+1], fn=fnOf(picks[0]);
@@ -449,7 +450,7 @@ async function mergeSkills(){
 /* 整理技能：倉庫裡勾幾個換進可用、可用裡勾幾個換出去，不管幾個合計 4 小時。換完可用的數量不能超過上限。 */
 const swapOk=()=>SWI.length+SWO.length>0&&boxList("act").length+SWI.length-SWO.length<=boxCap(S.lv)[0];
 async function swapSkills(){
-  if(busy||S.dead||!swapOk())return;
+  if(busy||S.dead||!swapOk()||skBusy())return;
   const ins=SWI.map(i=>S.skills[i]).filter(s=>s&&!isUq(s)&&(s.box||"act")==="store");
   const outs=SWO.map(i=>S.skills[i]).filter(s=>s&&!isUq(s)&&(s.box||"act")==="act");
   if(!ins.length&&!outs.length)return;

@@ -9,7 +9,7 @@ function render(){
   if(TAB==="story") bindStory();
   if(TAB==="nest") bindNest();
   if(TAB==="map") bindMap();
-  if(TAB==="skill") document.querySelectorAll("[data-sd]").forEach(b=>b.onclick=()=>{const i=+b.dataset.sd;if(SD!==i){SD=i;render();return}SD=-1;const s=S.skills[i];if(s&&!isUq(s)){S.skills.splice(i,1);SWI=[];SWO=[];MG=[];MGK="";const n=[];fillAct(n);if(n.length)S.log.push(sysEntry(n.join("\n")))}save();render()});
+  if(TAB==="skill") document.querySelectorAll("[data-sd]").forEach(b=>b.onclick=()=>{const i=+b.dataset.sd;if(SD!==i){SD=i;render();return}SD=-1;const s=S.skills[i];if(s&&!isUq(s)&&!S.err){S.skills.splice(i,1);SWI=[];SWO=[];MG=[];MGK="";const n=[];fillAct(n);if(n.length)S.log.push(sysEntry(n.join("\n")))}save();render()});
   if(TAB==="skill") document.querySelectorAll("[data-sw]").forEach(b=>b.onclick=()=>{const i=+b.dataset.sw;SWI=SWI.includes(i)?SWI.filter(x=>x!==i):[...SWI,i];render()});
   if(TAB==="skill") document.querySelectorAll("[data-sx]").forEach(b=>b.onclick=()=>{const i=+b.dataset.sx;SWO=SWO.includes(i)?SWO.filter(x=>x!==i):[...SWO,i];render()});
   if(TAB==="skill"&&$("swdo"))$("swdo").onclick=()=>swapSkills();
@@ -335,7 +335,13 @@ function bindMap(){
   const b=$("madd"); if(b)b.onclick=()=>{const n=$("mn").value.trim();if(!n)return;
     addNode({name:n,kind:$("mk").value,note:$("mt").value.trim()},S.at,+$("mh").value,null);save();render()};
 }
-const moveDests=()=>Object.keys(S.world).filter(k=>S.world[k].known&&k!==NEST()&&!isSettle(k)&&S.world[k].kind!=="廢棄的巢穴");
+/* 搬家目的地：已知的非聚落地點、營地（isSettle 把營地也算聚落，這裡要放行）、友好聚落（態度 ≥1）旁邊的「○○外圍營地」（搬過去時自動建立） */
+const moveDests=()=>{
+  const ks=Object.keys(S.world), nest=NEST();
+  const base=ks.filter(k=>S.world[k].known&&k!==nest&&S.world[k].kind!=="廢棄的巢穴"&&(!isSettle(k)||S.world[k].kind==="營地"));
+  const out=ks.filter(k=>S.world[k].known&&k!==nest&&isSettle(k)&&S.world[k].kind!=="營地"&&S.world[k].kind!=="巢穴"&&(S.world[k].st||0)>=1&&!k.endsWith("外圍營地")).map(k=>k+"外圍營地").filter(n=>n!==nest&&!ks.includes(n));
+  return [...base,...out];
+};
 function heatHTML(){
   const k=heatLv(), r=S.raid, left=r?Math.max(0,Math.ceil((r.due-nowH())/24)):0;
   return `<div class="card"><h3>外面的眼光</h3>${track("heat","注目度",HEAT.map(h=>h.n),k+1)}
