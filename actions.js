@@ -228,7 +228,7 @@ function learnFor(j,k){
   S.log.push(sysEntry(`你把湧上來的力量分了出去。\n${line}`)); save(); render();
   if(S.evoReady)evolve();
 }
-const maxSk=a=>a.named?4:3;
+const maxSk=a=>5;   // v0.32：同伴技能最多 5 個，滿了由主角放棄再學
 const allyCan=(a,p)=>{const s=a.skills.find(x=>x.n===p.n);return s?gIdx(s.g)<gIdx(a.lv):a.skills.length<maxSk(a)};
 const DIRS={"戰士":{sys:/武技|天生/,skill:{n:"劍術",sys:"武技"}},"斥候":{sys:/暗|風|意圖/,skill:{n:"追蹤",sys:"意圖"}},"法師":{sys:/火|水|風|土|光|暗/,skill:{n:"火花",sys:"火"}},"工匠":{sys:/意圖|土/,skill:{n:"手巧",sys:"意圖"}},"祭司":{sys:/光|水/,skill:{n:"治癒",sys:"光"}}};
 /* 同伴拿東西：魔法物品（附帶技能）放 gear，其餘放 hold（最多 3 件） */
@@ -252,7 +252,7 @@ function nameEvolve(k,name,dir){
   if(name&&name!==p.n)renameChar(p.n,name,notes);
   p.kind0=p.kind0||p.kind; p.kind=`${p.kind0}${dir}`; p.dir=dir; p.named=true;
   const sk=DIRS[dir].skill; if(!p.skills.some(x=>x.n===sk.n))p.skills.push({...sk,g:p.lv});
-  notes.push(`〈系統〉《世界之聲》：「${p.n} 進化為 ${p.kind}。」`,`${p.n}習得 ${sk.n}（${p.lv}級・${sk.sys}）。技能上限多一格（4 個）。之後給牠「${dir}」對路的技能會長得比較快。`);
+  notes.push(`〈系統〉《世界之聲》：「${p.n} 進化為 ${p.kind}。」`,`${p.n}習得 ${sk.n}（${p.lv}級・${sk.sys}）。之後給牠「${dir}」對路的技能會長得比較快。`);
   S.nameEvo=false; S.log.push(sysEntry(notes.join("\n"))); save(); render();
 }
 function learn(j){
@@ -481,6 +481,16 @@ function potionAlly(i,k){
   S.log.push(sysEntry(`你把 ${it} 餵給了 ${p.n}：${had==="重傷"?`重傷減輕成負傷`:had==="負傷"?`負傷好了`:"他沒有傷，白用了"}。`));
   save();render();
 }
+/* 藥水給 NPC／俘虜／想收服的魔物：回復 + 好感 +1（最多到「信賴」），所以也能拿來收服 */
+function potionNpc(i,n){
+  const it=S.items[i], c=POTION(it), x=S.npcs[n]; if(!c||!x||busy||S.dead)return;
+  S.items.splice(i,1);
+  const o=relOf(x); let up="";
+  if(o<2){x.r=o+1;x.rel=REL[x.r+2];up=`，對你的態度變成「${x.rel}」`}
+  S.log.push(sysEntry(`你把 ${it} 給了 ${x.n}：傷勢緩和了${up}。`));
+  save();render();
+}
+function abandonAllySk(k,j){const p=S.party[k]; if(!p||!p.skills[j])return; const n=p.skills[j].n; p.skills.splice(j,1);S.log.push(sysEntry(`${p.n}忘掉了 ${n}。`));save();render()}
 function drinkPotion(i){
   const it=S.items[i], c=POTION(it); if(!c||busy||S.dead)return;
   const hp=c!=="藍"?Math.min(S.hpMax-S.hp,Math.ceil(S.hpMax*0.4)):0, mp=c!=="紅"?Math.min(S.mpMax-S.mp,Math.ceil(S.mpMax*0.5)):0;

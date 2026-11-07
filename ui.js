@@ -202,6 +202,8 @@ function bindStory(){
   document.querySelectorAll("[data-ecp]").forEach(b=>b.onclick=()=>{const [i,h]=b.dataset.ecp.split("|");EA=-1;eatCorpse(+i,null,h)});
   document.querySelectorAll("[data-ei]").forEach(b=>b.onclick=()=>eatItem(+b.dataset.ei));
   document.querySelectorAll("[data-dp]").forEach(b=>b.onclick=()=>drinkPotion(+b.dataset.dp));
+  document.querySelectorAll("[data-pn]").forEach(b=>b.onclick=()=>{const [i,n]=b.dataset.pn.split("|");potionNpc(+i,+n)});
+  document.querySelectorAll("[data-as]").forEach(b=>b.onclick=()=>{const [k,j]=b.dataset.as.split("|").map(Number);if(ASD===k+":"+j){ASD="";abandonAllySk(k,j)}else{ASD=k+":"+j;render()}});
   document.querySelectorAll("[data-pa]").forEach(b=>b.onclick=()=>{const [i,k]=b.dataset.pa.split("|");potionAlly(+i,+k)});
   if($("fgw"))$("fgw").onchange=e=>{FGW=e.target.value===""?-1:+e.target.value;render()};
   if($("fgm"))$("fgm").onchange=e=>{FGM=e.target.value===""?-1:+e.target.value;render()};
@@ -263,7 +265,7 @@ function skillHTML(){
     <div class="card"><h3>狀態</h3>${S.tags.length?`<div class="tags">${S.tags.map((t,i)=>/幼體|飢餓|瀕死/.test(t)?`<span class="tag">${esc(t)}</span>`:`<button class="tag ut" data-ut="${i}">${esc(t)}${UT===i?"　再點一次拿掉":"　×"}</button>`).join("")}</div>`:`<div class="empty">沒有。</div>`}
       <div class="note" style="margin-top:6px">狀態在故事裡解決了就會自動拿掉；程序沒拿掉的，可以點兩下手動拿掉。</div>
       <div class="note" style="margin-top:8px">${hasTag("飢餓")?"正餓著。":`飽足還能撐 ${S.full} 小時。`}${S.stage}餓著的時候，每 ${hungerOf().every} 小時 HP -1。</div></div>
-    <div class="card"><h3>背包</h3>${S.corpses.length+S.items.length?`${S.corpses.map((c,i)=>`<div class="crow">🍖 ${esc(c.name)}（${c.lv}級・${c.harvested?"原料已拆・":""}${isFresh(c)?`新鮮，還有 ${24-ageOf(c)} 小時`:`不新鮮了，${Math.max(0,72-ageOf(c))} 小時後爛掉`}）${c.evo?"":`<button class="tl" data-cd="${i}">${CD===i?"確定拿掉？":"已經給人／丟掉"}</button>`}</div>`).join("")}${S.items.map((it,i)=>{const m=matOf(it);return `<div class="crow">${m?`✦ ${esc(it)}（${m.skill?`魔法物品，附帶「${esc(m.skill.n)}」`:"魔法原料"}・${m.lv}級）`:esc(it)}${POTION(it)?`<button class="tl" data-dp="${i}">喝掉</button>${POTION(it)!=="藍"?S.party.filter(p=>p.tags.includes("負傷")||p.tags.includes("重傷")).map(p=>`<button class="tl" data-pa="${i}|${S.party.indexOf(p)}">給 ${esc(p.n)}</button>`).join(""):""}`:""}<button class="tl" data-di="${i}">${DI===i?"確定拿掉？":"已經給人／丟掉"}</button></div>`}).join("")}`:`<div class="empty">什麼都沒有。</div>`}
+    <div class="card"><h3>背包</h3>${S.corpses.length+S.items.length?`${S.corpses.map((c,i)=>`<div class="crow">🍖 ${esc(c.name)}（${c.lv}級・${c.harvested?"原料已拆・":""}${isFresh(c)?`新鮮，還有 ${24-ageOf(c)} 小時`:`不新鮮了，${Math.max(0,72-ageOf(c))} 小時後爛掉`}）${c.evo?"":`<button class="tl" data-cd="${i}">${CD===i?"確定拿掉？":"已經給人／丟掉"}</button>`}</div>`).join("")}${S.items.map((it,i)=>{const m=matOf(it);return `<div class="crow">${m?`✦ ${esc(it)}（${m.skill?`魔法物品，附帶「${esc(m.skill.n)}」`:"魔法原料"}・${m.lv}級）`:esc(it)}${POTION(it)?`<button class="tl" data-dp="${i}">喝掉</button>${S.npcs.map((x,n)=>({x,n})).filter(o=>o.x.where===S.at&&!S.party.some(p=>p.n===o.x.n)&&relOf(o.x)<2).map(o=>`<button class="tl" data-pn="${i}|${o.n}">給 ${esc(o.x.n)}</button>`).join("")}${POTION(it)!=="藍"?S.party.filter(p=>p.tags.includes("負傷")||p.tags.includes("重傷")).map(p=>`<button class="tl" data-pa="${i}|${S.party.indexOf(p)}">給 ${esc(p.n)}</button>`).join(""):""}`:""}<button class="tl" data-di="${i}">${DI===i?"確定拿掉？":"已經給人／丟掉"}</button></div>`}).join("")}`:`<div class="empty">什麼都沒有。</div>`}
       ${forgeHTML()}<div class="note" style="margin-top:6px">🍖 是食材：新鮮的吃了能學技能。✦ 是魔法原料或魔法物品：不會壞，吃了能學技能；魔法物品帶在身上時，它的技能可以在判定時拿來用。魔獸（E 級以上）的屍體可以拆出一項原料，拆了就只剩肉。其他物品吃了只是硬吞。</div></div>
     <div class="note">用技能：判定卡上選一個技能來用，攻擊、輔助、強化都一樣，用了就多一層優勢（少付一項）。一次一個，沒有組合技，不花 MP。<br>技能沒有 Lv，只有等級字母（學到時你的等級）。可用的位置滿了，新技能自動放進倉庫；已經會的技能不會再出現在吸收選單裡。只有新鮮的東西（死去 24 小時內的屍體、活捉的小生物、蛋、新鮮植物）能學到技能。同級保底 1 個，每高一級多 1 個，大成功再 +1。</div>
     <div class="note" style="margin-top:6px">恢復：醒著沒餓，每 3 小時 HP +1（有「再生」就 +再生等級）、MP +1。夜裡睡到天亮：沒餓 HP 回一半、MP 回滿，疲勞和小傷一起消掉；餓著 HP 不回、MP 回一半。白天小睡 3 小時：HP、MP 各回四分之一，消掉【疲憊】。吃東西 HP +1~2。</div>
@@ -273,9 +275,10 @@ function track(k,label,list,v){
   const pips=list.map((_,i)=>`<span class="pip${i<v?" on":""}"></span>`).join("");
   return `<div class="trk"><span class="k">${label}</span><span class="v">${list[v-1]}</span><span class="pips" title="${TRACK_HINT[k]}">${pips}</span></div>`;
 }
+let ASD="";
 function partyHTML(){
   const rows=S.party.map((p,k)=>`<div class="npc"><div class="h"><b>${esc(p.n)}</b><span>${esc(p.kind)}・${p.lv} 級${p.knack?`・本事：${esc(p.knack)}`:""}</span></div>
-      <div class="d">${p.skills.length?p.skills.map(x=>`${esc(x.n)}（${esc(x.g||p.lv)}級）`).join("、"):"還沒有技能"}${p.tags.length?`　【${p.tags.map(esc).join("】【")}】`:""}</div>
+      <div class="d">${p.skills.length?p.skills.map((x,j)=>`${esc(x.n)}（${esc(x.g||p.lv)}級）<button class="tl" data-as="${k}|${j}">${ASD===k+":"+j?"確定忘掉？":"忘掉"}</button>`).join("　"):"還沒有技能"}${p.tags.length?`　【${p.tags.map(esc).join("】【")}】`:""}</div>
       ${p.note?`<div class="d" style="color:var(--mute)">${esc(p.note)}</div>`:""}
       <div class="pbtn"><button class="tl" data-pw="${k}">${p.with?"同行中 → 留在巢穴":"留在巢穴 → 帶在身邊"}</button><button class="tl" data-pq="${k}">${PQ===k?"確定讓牠離開？":"離隊"}</button><button class="tl" data-rn="${k}">改名</button></div>
       ${RN===k?`<div class="padd" style="margin-top:6px"><input id="rnv" maxlength="10" placeholder="新名字"><button class="tl" id="rnok">確定</button></div>`:""}
