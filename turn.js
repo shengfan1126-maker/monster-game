@@ -98,7 +98,7 @@ async function runJob(job,ctx){
     if(typeof fx.narr==="string"&&fx.narr.trim())a.onarr=fx.narr.trim().slice(0,80);
     if(typeof fx.lang==="string"&&/語$/.test(fx.lang.trim()))a.olang=fx.lang.trim().slice(0,8);
     if(typeof fx.loc==="string"&&fx.loc.trim())a.oloc=fx.loc.trim().slice(0,30);
-    {const d=fx.defeated;if(d&&typeof d==="object"&&d.name)a.odef={name:String(d.name).slice(0,16),kind:String(d.kind||d.name).slice(0,12),dead:d.dead!==false&&d.dead!=="false"}}
+    {const d=fx.defeated;if(d&&typeof d==="object"&&d.name)a.odef={name:String(d.name).slice(0,16),kind:String(d.kind||d.name).slice(0,12),dead:d.dead!==false&&d.dead!=="false",lv:GRADES.includes(d.lv)?d.lv:null,n:Math.min(3,Math.max(1,parseInt(d.n,10)||1))}}
     return a;
   }
   if(job.kind==="war"){
@@ -267,6 +267,11 @@ function gains(a,big,notes,guard){
     else{if(x){x.r=Math.max(relOf(x),3);x.rel="追隨";x.captive=false}recruit({...a.recruit,name:x?x.n:a.recruit.name,kind:x?(raceOf(x.role)||a.recruit.kind):a.recruit.kind},notes)}}
   (a.untag||[]).forEach(x=>{const t=S.tags.find(y=>y===x||y.includes(x)||x.includes(y));if(t&&!/幼體|飢餓|瀕死|殘缺/.test(t)){delTag(t);notes.push(`【${t}】解除`)}});
   const eatenNames=S.eaten.slice(0,12).map(x=>x.what); let plainN=0; const plainMax=RAIDNOW?1:3;   // 一次最多帶走幾件普通物品（掠奪的魔法物品由程式另外給）
+  {const cr={}; const keep=[];   // 「○○屍體」不是普通物品：改成真的屍體（身邊的屍體清單），且不重複造
+   (a.found||[]).forEach(x=>{const mm=String(x).match(/^(.+?)(?:的)?(?:屍體|屍骸|屍首|尸体)$/);if(mm){const k=cleanName(mm[1]);cr[k]=(cr[k]||0)+1}else keep.push(x)});
+   a.found=keep;
+   Object.keys(cr).forEach(k=>{const ex=S.corpses.filter(c=>sameFoe(k,c.name)&&c.t>=nowH()-24).length, need=Math.min(3,cr[k])-ex;
+     if(need>0){const lv=(S.lastFoe&&S.lastFoe.lv)||"F";for(let i=0;i<need;i++)toCorpses(k,k,lv).forEach(c=>{c.small=false;S.corpses.push(c)});notes.push(`${k}的屍體 ×${need}放進了身邊的屍體清單。`)}})}
   (a.found||[]).filter(x=>!S.items.includes(x)&&!eatenNames.includes(x)&&!S.corpses.some(c=>c.name===x)).forEach(x=>{
     let m=a.mats&&a.mats[x], fromCorpse=false;
     if(m&&!m.skill){const c=S.corpses.find(c=>!c.evo&&(x.includes(cleanName(c.name))||String(m.sp).includes(cleanName(c.name))));
@@ -320,6 +325,11 @@ function applyAlt(e){
     if(td)applyDefeat({...td,lv:lf.lv,cls:lf.cls},notes);
     else if(!a.check&&a.tdef&&a.tdef.dead!==false){const cx=S.npcs.find(x=>x.captive&&sameFoe(a.tdef.name,x.n));   // 殺掉被俘虜的對手：也要有屍體
       if(cx){a.defeated={...a.tdef,lv:cx.lv||a.tdef.lv,cls:cx.cls};applyDefeat(a.defeated,notes)}}
+    else if(!a.check&&you&&/處決|殺死|殺掉|殺了|斬殺|宰了|結果了|砍死|殺光|滅口/.test(you.text||"")&&!/不殺|別殺|不要殺/.test(you.text||"")){   // 處決俘虜／投降的對手：模型常忘了填 defeated
+      const t=String(you.text), vs=S.npcs.filter(x=>x.captive&&(()=>{const b=cleanName(x.n).replace(/[A-Z0-9一二三]+$/,"");return b&&(t.includes(b)||t.includes(b.slice(-2)))})());
+      vs.forEach(x=>{const b=cleanName(x.n).replace(/[A-Z0-9一二三]+$/,"");toCorpses(b,x.kind||b,x.lv||"F").forEach(c=>{c.small=false;S.corpses.push(c)});
+        if(/兩|二|雙|2/.test(t)&&vs.length===1)toCorpses(b,x.kind||b,x.lv||"F").forEach(c=>{c.small=false;S.corpses.push(c)});
+        npcGone(x.n,"被你處決了",notes);notes.push(`${b}的屍體放進了身邊的屍體清單。`)})}
     if(you&&!a.check)invite(you.text,notes);
   }
   if(e.kind==="resolve"){
@@ -350,8 +360,11 @@ function applyAlt(e){
       if(nb){S.world[nb].known=true;S.at=nb;S.loc=a.oloc.includes(nb)?a.oloc:nb;notes.push(`位置更正為：${S.loc}`)}
       else notes.push(`找不到「${a.oloc}」這個地點，位置沒有改。可以先到「地點」頁加上它。`)}
     if(a.odef){const lf=S.lastFoe;                       // 只補上最近一次交手的對手，等級照判定卡
-      if(lf&&sameFoe(a.odef.name,lf.name))applyDefeat({...a.odef,lv:lf.lv,cls:lf.cls},notes);
-      else notes.push(`程序只能補上最近一次交手的對手${lf?`（${lf.name}）`:"（目前沒有）"}，${a.odef.name}沒有補。`)}
+      const nm=cleanName(a.odef.name), ex=S.corpses.filter(c=>sameFoe(nm,c.name)&&c.t>=nowH()-24).length;
+      if(lf&&sameFoe(a.odef.name,lf.name)&&!ex)applyDefeat({...a.odef,lv:lf.lv,cls:lf.cls},notes);   // 最近一次交手的：完整結算
+      else if(a.odef.dead){const lv=(lf&&sameFoe(a.odef.name,lf.name)?lf.lv:a.odef.lv)||"F", need=a.odef.n-ex;   // 其他：只補屍體（不加存在值），不重複補
+        if(need>0){for(let i=0;i<need;i++)toCorpses(nm,a.odef.kind,lv).forEach(c=>{c.small=false;S.corpses.push(c)});notes.push(`補上了 ${need} 具${nm}的屍體（沒有加存在值）。`)}
+        else notes.push(`${nm}的屍體已經在清單裡了，沒有重複補。`)}}
     if(/巢穴|據點/.test(a.text)&&/位置|搬|遷|落腳|更正為/.test(a.text))notes.push("巢穴位置不能用 OOC 改：到「同伴・巢穴」頁最下面用「搬家」（可選營地、中立以上聚落旁邊的「○○外圍營地」、或某地區裡的「○○的新營地」）。");
     if(!notes.length&&/修正|更正|切換|已經?(加入|改|移除|拿掉|補上|放進|調整|新增|升|降|刪|設定|成為|移到|移動|換到|設為)/.test(a.text))
       notes.push("程序這次沒有改到任何東西——上面說的「已修正」不算數。可以換個說法再問一次，或用頁面上的按鈕手動改（例如「同伴・巢穴」頁最下面可以補同伴）。");if(a.setChap&&a.setChap!==S.chap){S.chap=a.setChap;notes.push(`〈系統〉《世界之聲》：「第${S.chap}章・${chapOf().name}」`)}}
@@ -466,7 +479,7 @@ const OOC_SYS=`你是文字遊戲《權能進化・魔物篇》的規則助手�
 - 巢穴的位置（程序記的 nestAt）OOC 改不了，fix 裡也沒有這個欄位：玩家說巢穴不在這裡、要把巢穴搬到別處，只能請他到「同伴・巢穴」頁最下面用「搬家」（可以選已知的營地、中立以上聚落旁邊的「○○外圍營地」、或某個地區裡的「○○的新營地」；敵對聚落旁邊不行），不要說「已更正」「已在後台改好」。
 - 存糧、人口、標籤一律以【目前狀態】為準，不要編造「系統在低於幾天會自動掛標籤」之類的規則；狀態裡沒有的標籤就說沒有。
 - 同伴會變強：主角每次進化，可以替一名同伴命名進化（選方向、換種族名、多一個技能位）；吃東西學到的技能也能給同伴。光留在家裡不會變強。
-- 戰鬥判定成功了卻沒有屍體、存在值沒加：故事裡對手確實死了，就在 fix 填 defeated {"name":"名字","kind":"種族","lv":"E","dead":true}。存在值滿了本來就不會再加，要照實說。
+- 戰鬥判定成功了卻沒有屍體、存在值沒加：故事裡對手確實死了，就在 fix 填 defeated {"name":"名字","kind":"種族","lv":"E","dead":true,"n":1}（n＝死了幾個，最多 3；屍體只能用 defeated 補，不能用 found 填「○○屍體」；程序會自己去重，不會多補）。存在值滿了本來就不會再加，要照實說。
 - 巢穴：存糧是份數，交給巢穴的屍體 F 1 份、E 3 份、D 6 份，肉類 1~2 份；每天吃掉人口格數份；吃光人口掉一格，連吃飽 3 天人口漲一格；存糧夠吃 3 天以上〔需求（食物）〕自動拿掉。人口、戰力、巢穴標籤照故事事件變動。
 只輸出 JSON：{"answer":"回答","fix":{"found":[],"lost":[],"untag":[],"recruit":null,"npc_new":null,"npc_gone":[],"to_nest":[],"nest":null,"faction":[],"rel":[],"place_new":null,"rename":[],"equip":[],"defeated":null,"loc":null,"chief":null,"narr":null,"lang":null}}`;
 

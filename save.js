@@ -32,6 +32,10 @@ function migrate(o){
 function skillsFix(o){
   if(!o||!Array.isArray(o.skills))return;
   nestFix(o);
+  {const bad=(o.items||[]).filter(x=>/(屍體|屍骸|屍首|尸体)$/.test(x));   // 舊版 OOC 把「○○屍體」當普通物品塞進背包：改成真的屍體
+   if(bad.length){o.corpses=o.corpses||[];bad.forEach(x=>{const b=cleanName(String(x).replace(/的?(屍體|屍骸|屍首|尸体)$/,""));
+     if(!o.corpses.some(c=>c.name===b&&c.t>=o.day*24+o.hour-24))o.corpses.push({name:b,sp:speciesOf(b,b),lv:"F",t:o.day*24+o.hour,small:false})});
+     o.items=o.items.filter(x=>!bad.includes(x))}}
   if(!o.langs){o.langs=["哥布林語"];const add=t=>{const l=langOf(t);if(l&&!o.langs.includes(l))o.langs.push(l)};
     (o.eaten||[]).forEach(e=>add(e.what));(o.party||[]).forEach(p=>add(p.kind))}
   (o.party||[]).forEach(p=>{if(p.xp==null)p.xp=0; if(o.nameEvo&&!p.named)p.ready=true}); if(o.nameEvo)o.nameEvo=false;
