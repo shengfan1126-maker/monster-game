@@ -255,9 +255,9 @@ function allyAbOn(ch){
   if(!ch||!ch.allyAb||allyUses()>=2)return null;
   const p=S.party.find(x=>x.n===ch.allyAb); return p&&allyElig(p)&&CHECK_AB.includes(allyAbOf(p))?allyAbOf(p):null;
 }
-/* 主角進化時：同伴的等級上限提高，之前到頂存著的點數結算；另外每個同伴 +8 存在值當作追趕 */
+/* 主角進化時：同伴的等級上限提高，之前到頂存著的點數結算（不送額外點數：同伴變強要靠狩獵、協助、花時間） */
 function allyCatchUp(notes){
-  S.party.forEach(p=>{if(p.xp==null)p.xp=0;allyXp(p,8,notes)});
+  S.party.forEach(p=>{if(p.xp==null)p.xp=0;allyXp(p,0,notes)});
 }
 function allyXp(p,n,notes){
   if(gIdx(p.lv)>=gIdx(allyLv())&&!p.ready){p.xp=Math.min(EVO_PTS,(p.xp||0)+n);return}   // 已經到頂：點數先存著，主角進化後再用

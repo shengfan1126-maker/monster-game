@@ -191,7 +191,7 @@ function pickSub(j){
   const an=[]; fillAct(an); const cu=[]; allyCatchUp(cu);   // 可用位置變多：倉庫的技能自動補上來
   S.log.push(sysEntry([`〈系統〉《世界之聲》：「個體『${S.name}』進化完成：${old}→${S.lv}。種族：${sb.name}。」`,
     `身體在一陣劇痛裡重新長了一遍。${sb.look}`,`HP 上限 ${oh}→${S.hpMax}、MP 上限 ${om}→${S.mpMax}，全部回滿。可用技能 ${boxCap(S.lv)[0]} 個、倉庫 ${boxCap(S.lv)[1]} 個。存在值歸零，下一次進化需要 ${existMax(S.lv)}。`,...an,
-    `本質：${sb.essence}`,...(S.party.length?[`同伴的等級上限提高到 ${allyLv()} 級。你進化的氣勢帶動了大家：每個同伴存在值 +8。`,...cu]:[]),...hn].join("\n")));
+    `本質：${sb.essence}`,...(S.party.length?[`同伴的等級上限提高到 ${allyLv()} 級。同伴要靠狩獵和協助慢慢累積存在值才能跟上。`,...cu]:[]),...hn].join("\n")));
   {const n=[];chapCheck(n);if(n.length)S.log[S.log.length-1].alts[0].text+="\n"+n.join("\n")}
   S.opts=["感受一下新的身體",inNest()?"在巢穴裡走一圈":`回${NEST()}`,S.party.some(p=>p.with)||inNest()&&S.party.length?"讓同伴看看你的樣子":"看看四周"]; S.log[S.log.length-1].alts[0].opts=S.opts.slice();
   save(); render();
