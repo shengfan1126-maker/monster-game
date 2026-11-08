@@ -376,9 +376,10 @@ function bindMap(){
 /* 搬家目的地：已知的非聚落地點、營地（isSettle 把營地也算聚落，這裡要放行）、友好聚落（態度 ≥1）旁邊的「○○外圍營地」（搬過去時自動建立） */
 const moveDests=()=>{
   const ks=Object.keys(S.world), nest=NEST();
-  const base=ks.filter(k=>S.world[k].known&&k!==nest&&S.world[k].kind!=="廢棄的巢穴"&&(!isSettle(k)||S.world[k].kind==="營地"));
-  const out=ks.filter(k=>S.world[k].known&&k!==nest&&isSettle(k)&&S.world[k].kind!=="營地"&&S.world[k].kind!=="巢穴"&&(S.world[k].st||0)>=1&&!k.endsWith("外圍營地")).map(k=>k+"外圍營地").filter(n=>n!==nest&&!ks.includes(n));
-  return [...base,...out];
+  const base=ks.filter(k=>S.world[k].known&&k!==nest&&S.world[k].kind!=="廢棄的巢穴"&&S.world[k].kind!=="地區"&&(!isSettle(k)||S.world[k].kind==="營地"));
+  const out=ks.filter(k=>S.world[k].known&&k!==nest&&isSettle(k)&&S.world[k].kind!=="營地"&&S.world[k].kind!=="巢穴"&&(S.world[k].st||0)>=0&&!k.endsWith("外圍營地")).map(k=>k+"外圍營地").filter(n=>n!==nest&&!ks.includes(n));
+  const rg=ks.filter(k=>S.world[k].known&&S.world[k].kind==="地區"&&k!==nest).map(k=>k+"的新營地").filter(n=>n!==nest&&!ks.includes(n));
+  return [...base,...out,...rg];
 };
 function heatHTML(){
   const k=heatLv(), r=S.raid, left=r?Math.max(0,Math.ceil((r.due-nowH())/24)):0;

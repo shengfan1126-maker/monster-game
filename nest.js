@@ -186,17 +186,20 @@ function raidDay(notes){
 /* 搬家：整窩搬到一個已知的地點。討伐隊會撲空。 */
 function moveNest(dest,flee){
   if(busy||dest===NEST())return;
-  if(!S.world[dest]&&/外圍營地$/.test(dest)){               // 友好聚落旁邊的外圍營地：搬過去時才建立
+  if(!S.world[dest]&&/的新營地$/.test(dest)){                // 在某個地區裡自己找塊地方：搬過去時才建立
+    const r=dest.replace(/的新營地$/,""), rw=S.world[r];
+    if(rw&&rw.known&&rw.kind==="地區"){S.world[dest]={kind:"營地",region:r,note:`你們在${r}裡自己找的落腳處。`,links:{[r]:1},known:true,custom:true};rw.links=rw.links||{};rw.links[dest]=1}}
+  if(!S.world[dest]&&/外圍營地$/.test(dest)){               // 中立以上聚落旁邊的外圍營地：搬過去時才建立
     const b=dest.replace(/外圍營地$/,""), bw=S.world[b];
-    if(bw&&bw.known&&(bw.st||0)>=1){S.world[dest]={kind:"營地",region:bw.region,note:`${b}外圍的空地，聚落的人准你們在這裡落腳。`,links:{[b]:1},known:true,custom:true,st:bw.st};
+    if(bw&&bw.known&&(bw.st||0)>=0){S.world[dest]={kind:"營地",region:bw.region,note:`${b}外圍的空地，聚落的人准你們在這裡落腳。`,links:{[b]:1},known:true,custom:true,st:bw.st};
       bw.links=bw.links||{};bw.links[dest]=1}}
   if(!S.world[dest])return;
   const pre=snap(), old=NEST(), notes=[], n=S.nest, h=flee?0:(pathHours(S.at,old)||0)+(pathHours(old,dest)||2);
   S.log.push({who:"you",text:flee?`放棄${old}，帶著大家往${dest}逃`:`把巢穴從${old}搬到${dest}`,pre});
   if(h)advanceTime(h,notes);
   const ow=S.world[old], nw=S.world[dest];
-  ow.kind="廢棄的巢穴"; ow.note=`以前的巢穴，${flee?"被討伐隊踏平了":"已經搬空了"}。`;
-  nw.note=`你們的新巢穴。${nw.kind&&nw.kind!=="巢穴"?`（原本是${nw.kind}：${nw.note||""}）`:""}`.slice(0,60); nw.kind="巢穴"; nw.known=true;
+  ow.kind=(ow.region===old||ow.was==="地區")?"地區":"廢棄的巢穴"; ow.note=`以前的巢穴，${flee?"被討伐隊踏平了":"已經搬空了"}。`;
+  nw.note=`你們的新巢穴。${nw.kind&&nw.kind!=="巢穴"?`（原本是${nw.kind}：${nw.note||""}）`:""}`.slice(0,60); if(nw.kind==="地區")nw.was="地區"; nw.kind="巢穴"; nw.known=true;
   S.nestAt=dest; n.name=dest; S.at=dest; S.loc=dest;
   n.tags=n.tags.filter(t=>!/天然屏障|禍患|陷阱/.test(t.t));
   if(flee){n.food=0;n.pop=1;n.d=Math.max(1,n.d-2);
