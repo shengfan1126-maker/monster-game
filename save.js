@@ -253,4 +253,4 @@ newg.onclick=()=>{
 
 totop.onclick=()=>window.scrollTo({top:0,behavior:"smooth"});
 addEventListener("scroll",()=>{totop.hidden=scrollY<300},{passive:true});
-bootSave().then(()=>{S=load(); heal(); if(S)save(); render()});
+bootSave().then(()=>{S=load(); heal(); if(S)save(); render(); if(!ls.g("guide_seen"))openGuide()});
