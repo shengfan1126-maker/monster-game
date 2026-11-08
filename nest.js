@@ -302,7 +302,7 @@ const sameFoe=(a,b)=>{a=cleanName(a);b=cleanName(b);return !!a&&!!b&&(a===b||a.i
 function applyDefeat(d,notes,big,won){
   if(d.dead!==false){S.corpses.push({name:d.name,sp:speciesOf(d.name,d.kind),lv:d.lv,t:nowH(),big:!!big,cls:d.cls||classOf(d.name)||null});
     notes.push(`${d.name}倒下了，屍體還是熱的。`); gainExist(d.lv,notes,d.cls?1:0);
-    {const k=Math.min(3,won||0), sp=speciesOf(d.name,d.kind);for(let j=0;j<k;j++)S.corpses.push({name:sp,sp,lv:d.lv,t:nowH()});if(k)notes.push(`前面打倒的 ${k} 隻${sp}也在地上。`)}
+    {const k=Math.min(3,(won||0)+(big&&/群|隊|團|們/.test(d.name+(d.kind||""))?2:0)), sp=speciesOf(d.name,d.kind);for(let j=0;j<k;j++)S.corpses.push({name:sp,sp,lv:d.lv,t:nowH()});if(k)notes.push(`前面打倒的 ${k} 隻${sp}也在地上。`)}
     npcGone(d.name,"被你殺死",null); facHit(d,notes); if(CIVIL_RACE.test(d.name+(d.kind||"")))heatAdd(2,`殺了${cleanName(d.name)}`,notes)}
   else{notes.push(`你打敗了${d.name}。牠還活著。`); gainExist(d.lv,notes,d.cls?1:0); facHit(d,notes)}
   S.lastFoe=null;
@@ -430,6 +430,7 @@ const LOOT_GEAR=["長矛","短刀","戰斧","皮甲","小圓盾","骨飾","護�
 const LOOT_POOL=[{n:"蠻力",sys:"天生"},{n:"堅守",sys:"意圖"},{n:"劍術",sys:"武技"},{n:"耐痛",sys:"天生"},{n:"警戒",sys:"意圖"},{n:"撕裂",sys:"天生"}];
 function raidLoot(c,notes){
   if(!c||c.tier==="失敗"||!c.foeLv||!RAID_RE.test(c.what||"")||!RAID_FOE.test((c.foe||"")+(c.what||"")))return [];
+  facHit({name:c.foe||"",kind:c.what||""},notes); if(c.tier==="大成功")facHit({name:c.foe||"",kind:c.what||""},notes);
   S.lootDay=S.lootDay||{}; const key=cleanName(c.foe||"營地"), again=S.lootDay[key]===S.day; S.lootDay[key]=S.day;
   const n=again?(Math.random()<0.3?1:0):(c.tier==="大成功"?2:1), got=[];
   const sp=cleanName(c.foe||"戰團").replace(/戰團|部落|巡邏隊|營地|巢穴|戰士/g,"")||"戰團";

@@ -328,6 +328,7 @@ function applyAlt(e){
     a.askFoe=!a.defeated&&!a.capture&&c.tier!=="失敗"&&c.foe&&FIGHT.test(c.what)?{name:c.foe,lv:c.foeLv||"F",cls:c.boss||null}:null;   // 成功卻沒寫對手怎麼了：問玩家
     gains(a,c.tier==="大成功",notes,c.tier!=="失敗"?{paid:c.paid||[]}:null);
     raidLoot(c,notes);
+    if(c.tier!=="失敗"&&/狩獵|獵殺|捕獵|打獵/.test(c.what||"")&&(S.nest.pop||0)>=4){S.nest.food=(S.nest.food||0)+1;notes.push("多打到一份獵物，直接送進巢穴存糧（+1）。")}   // 營地人多了，狩獵多給一份
     if(a.tag){addTag(a.tag);notes.push(`【${a.tag}】`)}
   }
   if(e.kind==="raid"&&a.raidEnd&&S.raid){

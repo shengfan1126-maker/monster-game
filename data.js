@@ -200,21 +200,32 @@ const WORLD0={
  "獸人營地":{kind:"營地",region:"東側山谷",note:"獸人戰團的前哨營地，木柵欄上掛著頭骨。",links:{}}
 };
 const RACE_HOME=[[/蜥蜴人/,"蜥蜴人營地"],[/鳥人/,"鳥人聚落"],[/蛙人/,"蛙人村"],[/矮人/,"矮人聚落"],[/精靈/,"精靈村"],[/半身人/,"半身人田地"],[/人類|冒險者|衛兵|商人/,"人類城鎮"],[/大哥布林/,"大哥布林巢穴"],[/野豬人/,"野豬人營地"],[/狗頭人/,"狗頭人窩"],[/諾姆/,"諾姆據點"],[/獸人/,"獸人營地"]];
-const homeOf=x=>{const t=`${x.role||""}${x.kind||""}${x.n||""}`;const h=RACE_HOME.find(([re])=>re.test(t));return h?h[1]:""};
+const homeOf=x=>{const t=`${x.role||""}${x.kind||""}${x.n||""}`;const h=RACE_HOME.find(([re])=>re.test(t));if(!h)return "";
+  const w=(typeof S!=="undefined"&&S&&S.world)||{};const hit=Object.keys(w).find(n=>h[0].test(n)&&w[n].kind!=="地區"&&n!==(S&&S.nestAt));return hit||(w[h[1]]?h[1]:"")};
 /* v0.38 隱藏據點：開場把聚落／營地／巢穴隨機分到各地區，地圖上先寫成「？未探索」；在那個地區累積探索 need 次才會發現。
    附近三區 2～4 次，其他地區 3～6 次。黑顎知道位置但不知道裡面有什麼。 */
-const SITE_NAMES=["矮人聚落","精靈村","半身人田地","人類城鎮","大哥布林巢穴","野豬人營地","狗頭人窩","諾姆據點","獸人營地"];
-const SITE_NOTE={"矮人聚落":"依山壁而建的半地下矮人聚落，還在挖礦打鐵，看不起綠皮。","精靈村":"樹上的精靈村落，精靈射手守著林子，見到魔物就放箭。","半身人田地":"半身人的農莊，有糧倉和看門狗。","人類城鎮":"人類的小鎮，有冒險者公會和衛兵。","大哥布林巢穴":"大哥布林戰團的地盤，比灰岩洞大得多。","野豬人營地":"野豬人用泥和骨頭搭的營地。","狗頭人窩":"狗頭人的窩，到處是陷阱。","諾姆據點":"諾姆蓋的據點，會做機關。","獸人營地":"獸人戰團的營地，木柵欄上掛著頭骨。"};
-const SITE_ST={"矮人聚落":-1,"精靈村":-1,"半身人田地":0,"人類城鎮":0,"大哥布林巢穴":-2,"野豬人營地":-2,"狗頭人窩":-1,"諾姆據點":0,"獸人營地":-2,"蜥蜴人營地":-1,"食人魔洞穴":-2,"鳥人聚落":-1,"蛙人村":0};
-const EXTRA_SITES=[{n:"蜥蜴人營地",kind:"營地",note:"蜥蜴人在水邊搭的營地，不愛說話，很記仇。"},{n:"食人魔洞穴",kind:"巢穴",note:"食人魔的洞穴，洞口堆著骨頭。"},{n:"鳥人聚落",kind:"聚落",note:"懸崖上的鳥人聚落，不喜歡陌生人靠近。"},{n:"蛙人村",kind:"聚落",note:"沼澤邊的蛙人村，用魚和草藥換東西。"}];
+const SITE_FIXED=["大哥布林巢穴","野豬人營地","狗頭人窩","獸人營地"];   // 跟勢力、進化戰綁在一起的敵對據點，固定存在
+/* 亞人村落：不用設定種族，開場從種族池隨機抽 7 個（每個種族最多一個，名字＝種族＋型態）；語言、態度跟著種族走 */
+const DEMI=[{n:"矮人聚落",kind:"聚落",st:-1,note:"依山壁而建的半地下矮人聚落，還在挖礦打鐵，看不起綠皮。"},
+ {n:"精靈村",kind:"聚落",st:-1,note:"樹上的精靈村落，精靈射手守著林子，見到魔物就放箭。"},
+ {n:"半身人田地",kind:"聚落",st:0,note:"半身人的農莊，有糧倉和看門狗。"},
+ {n:"人類城鎮",kind:"城鎮",st:0,note:"人類的小鎮，有冒險者公會和衛兵。"},
+ {n:"諾姆據點",kind:"聚落",st:0,note:"諾姆蓋的據點，會做機關。"},
+ {n:"蜥蜴人營地",kind:"營地",st:-1,note:"蜥蜴人在水邊搭的營地，不愛說話，很記仇。"},
+ {n:"鳥人聚落",kind:"聚落",st:-1,note:"懸崖上的鳥人聚落，不喜歡陌生人靠近。"},
+ {n:"蛙人村",kind:"聚落",st:0,note:"沼澤邊的蛙人村，用魚和草藥換東西。"},
+ {n:"食人魔洞穴",kind:"巢穴",st:-2,note:"食人魔的洞穴，洞口堆著骨頭。"}];
+const SITE_NOTE={"大哥布林巢穴":"大哥布林戰團的地盤，比灰岩洞大得多。","野豬人營地":"野豬人用泥和骨頭搭的營地。","狗頭人窩":"狗頭人的窩，到處是陷阱。","獸人營地":"獸人戰團的營地，木柵欄上掛著頭骨。"};
+const SITE_ST={"大哥布林巢穴":-2,"野豬人營地":-2,"狗頭人窩":-1,"獸人營地":-2};
 const SITE_REGIONS=["碎石坡","黑松林","結冰的山澗","狼群的舊獵場","廢棄礦坑","地底暗河","黑水溝","雪線以上","東側山谷"], SITE_NEAR=["碎石坡","黑松林","結冰的山澗"];
 function siteInit(w){
-  const ex=[...EXTRA_SITES].sort(()=>Math.random()-0.5).slice(0,2);
-  ex.forEach(x=>{w[x.n]={kind:x.kind,region:"黑松林",note:x.note,links:{}}});
-  const names=[...SITE_NAMES,...ex.map(x=>x.n)];
-  Object.values(w).forEach(nd=>names.forEach(n=>{delete nd.links[n]}));
+  const demi=[...DEMI].sort(()=>Math.random()-0.5), pick=demi.slice(0,7);
+  demi.forEach(x=>{if(!pick.includes(x))delete w[x.n]});
+  pick.forEach(x=>{w[x.n]=w[x.n]||{kind:x.kind,links:{}};w[x.n].kind=x.kind;w[x.n].note=x.note;w[x.n].st=x.st});
+  const names=[...SITE_FIXED,...pick.map(x=>x.n)];
+  Object.values(w).forEach(nd=>[...SITE_FIXED,...DEMI.map(x=>x.n)].forEach(n=>{delete nd.links[n]}));
   return names.map(n=>{const region=SITE_REGIONS[rint(0,SITE_REGIONS.length-1)], need=SITE_NEAR.includes(region)?rint(2,4):rint(3,6);
-    const nd=w[n]; nd.region=region; nd.links={}; nd.known=false; nd.st=SITE_ST[n]; if(SITE_NOTE[n])nd.note=SITE_NOTE[n];
+    const nd=w[n]; nd.region=region; nd.links={}; nd.known=false; if(SITE_ST[n]!=null)nd.st=SITE_ST[n]; if(SITE_NOTE[n])nd.note=SITE_NOTE[n];
     return {n,region,need,found:false}});
 }
 function worldInit(){

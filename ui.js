@@ -181,7 +181,8 @@ function storyHTML(){
     bottom=`<div class="check war"><h3>${esc(f.name)}找上門了</h3><div class="note">${esc(f.kind)}・${f.lv}級。${esc(f.note)}<br>期限已過，躲不掉了。</div><button class="paybtn" data-war="${S.evo.forced}">迎戰</button></div>`}
   else if(!busy&&!S.err){
     const opts=S.opts.map((o,i)=>`<button class="opt" data-o="${i}">${esc(o)}</button>`).join("");
-    const menu=(S.stage==="幼體"?MENU_KID:MENU_ADULT).map(m=>`<button class="mb" data-mn="${m.k}">${m.k==="nest"&&!inNest()?`回巢穴・${pathHours(S.at,NEST())??"?"}h`:m.t}</button>`).join("");
+    const raidOk=S.stage!=="幼體"&&S.at!==NEST()&&S.world[S.at]&&/營地|巢穴/.test(S.world[S.at].kind||"")&&stOf(S.at)<=-1;
+    const menu=(S.stage==="幼體"?MENU_KID:raidOk?[...MENU_ADULT.slice(0,3),{k:"raid",t:"突襲・4h"},...MENU_ADULT.slice(3)]:MENU_ADULT).map(m=>`<button class="mb" data-mn="${m.k}">${m.k==="nest"&&!inNest()?`回巢穴・${pathHours(S.at,NEST())??"?"}h`:m.t}</button>`).join("");
     const left=S.evo?S.evo.due-nowH():0;
     const evoCard=S.evo?`<div class="check war evo"><h3>進化戰</h3><div class="note">存在值已滿，不會再增加。期限：${hStr(S.evo.due)}（還有 ${left} 小時）。逾期，其中一名會主動找上門。單挑，同伴不能插手；共 5 個階段。</div>
       ${S.evo.cands.map((f,i)=>`<div class="foe"><div><b>${esc(f.name)}</b><span>${esc(f.kind)}・${f.lv}級・${esc(f.where)}</span><div class="d">${esc(f.note)}${f.weak?`<br><b>弱點：</b>${esc(f.weak)}（多一層優勢）`:""}</div></div>${!f.weak&&S.party.some(allyElig)?`<button class="tl" data-wk="${i}"${allyUses()>=2?" disabled":""}>請同伴看弱點</button>`:""}<button class="tl" data-war="${i}">挑戰</button></div>`).join("")}</div>`:"";
@@ -356,7 +357,9 @@ function mapHTML(){
       <div class="exits" style="margin-top:8px"><div class="k">出口</div>${exitsOf(S.at).map(([n,x])=>`<div class="row"><span>${esc(n)}</span><span>${x} 小時</span></div>`).join("")}
       ${hiddenOf(S.at).length?`<div class="note">還有 ${hiddenOf(S.at).length} 個方向沒探索過，按「探索」去找。</div>`:`<div class="note">這附近的路都走過了；再探索會發現新的冒險地點或地形。</div>`}</div>
       <div class="note" style="margin-top:6px">聚落對你：敵對 → 警戒 → 中立 → 交易 → 友好 → 同盟。到「交易」才能以物易物；公道的生意做幾次會更好。當眾吃他們的族人會被記仇。</div></div>
-    <div class="card"><h3>已知的地點</h3>${known.filter(([n,x])=>x.kind!=="地區").map(row).join("")||`<div class="empty">還沒有。</div>`}</div>
+    <div class="card"><h3>已知的地點</h3>${(()=>{const ks=known.filter(([n,x])=>x.kind!=="地區");if(!ks.length)return `<div class="empty">還沒有。</div>`;
+      const g={};ks.forEach(e=>{const r=e[1].region||"其他";(g[r]=g[r]||[]).push(e)});
+      return Object.keys(g).map(r=>`<details${r===(h.region||"")||ks.length<=6?" open":""}><summary style="font-weight:800;margin:6px 0">${esc(r)}（${g[r].length}）</summary>${g[r].map(row).join("")}</details>`).join("")})()}</div>
     ${(S.sites||[]).some(x=>!x.found)?`<div class="card"><h3>？未探索的據點</h3><div class="note">黑顎模糊地提過這一帶有聚落、營地或巢穴，但他自己也沒去過，不知道裡面有什麼，可能友善，也可能敵對。在那個地區多探索幾次才找得到。</div>${SITE_REGIONS.filter(r=>S.sites.some(x=>!x.found&&x.region===r)).map(r=>`<div class="row"><span class="k">？ ${esc(r)}</span><span>${S.sites.filter(x=>!x.found&&x.region===r).length} 處・已探索 ${(S.expl||{})[r]||0} 次${S.world[r]&&S.world[r].known?"":"（地區還沒找到）"}</span></div>`).join("")}</div>`:""}
     ${S.npcs.some(x=>!x.where&&!S.party.some(p=>p.n===x.n))?`<div class="card"><h3>其他認識的人</h3>${S.npcs.filter(x=>!x.where&&!S.party.some(p=>p.n===x.n)).map(x=>`<div class="d">・${esc(x.n)}（${esc(x.role)}）住處不明</div>`).join("")}</div>`:""}
     <div class="card"><h3>已知的地區</h3>${known.filter(([n,x])=>x.kind==="地區").map(row).join("")}</div>
@@ -426,6 +429,7 @@ const GUIDE=[
  ["巢穴",`存糧要夠：每天吃「人口格數」份，吃光人口會掉。當上巢穴之主後巢穴有等級（E 起），把用不到的東西<b>捐給巢穴</b>換物資點數，點數夠了升級；每次升級都會引來一次討伐，並從 3 個隨機設施裡選 1 個（農田、獵場、鍛冶台、宿舍、陷阱、治療所）。<br>設施要有人手；對口的同伴留在巢穴就會自動去顧，但顧設施的同伴不能同行。`],
  ["注目度與討伐",`殺人類、當眾吃人、抓人、進化、巢穴變大，都會讓人類注意到你：風聲 → 偵察 → 討伐隊 → 討伐軍。派一個同伴<b>巡邏</b>，就會提早知道他們什麼時候來、來多少。<br>討伐戰在巢穴迎戰，守不住巢穴就完了（可以撤回）。搬家可以讓討伐撲空，但新巢穴從 F 級重來。`],
  ["據點在哪裡",`黑顎提過附近有一些聚落、營地、巢穴，但誰也沒去過。每次開新遊戲，它們會隨機藏在不同的地區（友善的、敵對的都有，可能是矮人、精靈、半身人、人類、獸人，還有別的類人）。地圖頁的「？未探索的據點」會列出每個地區還有幾處。<b>在那個地區多按幾次「探索」</b>（附近的地區 2～4 次、遠的 3～6 次）才會找到。找到之前，不知道裡面是什麼。`],
+ ["突襲與地圖",`找到敵對的營地或巢穴後，走到那裡，行動列會多一個<b>突襲</b>：成功會直接搶到魔法物品，也會讓那個勢力少一個人。地圖頁的已知地點現在按地區分組，可以收合。人多的巢穴狩獵成功會多一份獵物直接進存糧。亞人村落（矮人、精靈、半身人、人類、諾姆等）每局隨機抽，不一定每種都有。`],
  ["討伐戰的準備與俘虜",`討伐隊的組成會顯示在<b>巢穴頁</b>「外面的眼光」。你有對應職業的同伴（戰士壓斥候、斥候壓法師、法師壓戰士、祭司和工匠互剋）就多一層優勢。<br>回巢穴<b>備戰</b>（設陷阱、埋伏、備戰），每樣多一層優勢，三樣都做完這場只打一個階段。<br>第一次打贏如果贏得不漂亮，只是逼退，幾天後會帶更多人回來。漂亮贏了會抓到俘虜：可以<b>吃掉</b>（變成屍體）、<b>讓同伴單挑</b>練手、或<b>收為己用</b>。每 30 天（第 25 天起預告）還會有固定的大討伐。全滅時可以帶 1 個技能轉生。`],
  ["語言與同伴的新用法",`吃下新鮮的野豬人、狗頭人、諾姆、精靈、人類的屍體，就學會那一族的<b>語言</b>（哥布林語是母語）。不會的語言聽不懂，也沒辦法跟他們交易、招募。<br>判定卡上可以請同伴<b>代打</b>（一天共 2 次）：他的 HP 代價由他吃，等級夠高優勢更多。進化戰前可以請同伴<b>看對手弱點</b>，打那一隻多一層優勢。掠奪營地成功會直接搶到魔法物品。右下角有 ↑ 回頂部、↓ 跳到最新。`],
  ["遇到怪事",`AI 有時會寫錯或漏掉東西（地點、物品、同伴位置）。點頁面上的 <b>OOC</b> 跟「規則助手」說一聲，它會幫你更正。巢穴位置請用「搬家」，不要靠 OOC。<br>覺得這回合不滿意可以「重試」，做錯了可以「撤回」。換裝置前先到 ⚙ 匯出存檔。`]

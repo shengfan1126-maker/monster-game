@@ -30,9 +30,14 @@ function act(text,free,ch){
   doJob({kind:"turn",prompt},pre,S.log.length-1);
 }
 const MENU_KID=[{k:"scav",t:"搜刮洞裡・1h"},{k:"nest",t:"巢穴・1h"},{k:"rest",t:"休息"}];
+const MENU_HOURS_RAID=4;
 const MENU_ADULT=[{k:"hunt",t:"狩獵・3h"},{k:"explore",t:"探索・2~3h"},{k:"forage",t:"採集・2h"},{k:"go",t:"移動…"},{k:"nest",t:"巢穴・1h"},{k:"rest",t:"休息"}];
 function menuSeed(k,arg){
   const reg=regionOf();
+  if(k==="raid"){
+    const at=S.at, nd=S.world[at]||{};
+    return {label:`突襲${at}`,prompt:`【這段要發生的事（程序抽到的，照這個寫）】你決定突襲${at}（${nd.kind}）。${nd.note?`那裡的情況：${nd.note}`:""}這是一場主動進攻的關鍵戰：一定要出判定卡（check），what 寫「突襲${at}」，foe 填「${at}的守衛」，foeLv 照${S.lv}級到${GRADES[Math.min(6,gIdx(S.lv)+1)]}級之間，不要直接寫結果。`,hours:4};
+  }
   if(k==="hunt"){
     const {sp,grp,lv,cls}=pickPrey(reg), many=/群|兩|一隊|一群|幾/.test(grp||"");
     const spot=S.at&&S.world[S.at]&&S.world[S.at].kind!=="地區"?S.at:null, where=spot||reg.n;
