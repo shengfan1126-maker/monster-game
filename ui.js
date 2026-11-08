@@ -282,6 +282,7 @@ let ASD="";
 function partyHTML(){
   const rows=S.party.map((p,k)=>`<div class="npc"><div class="h"><b>${esc(p.n)}</b><span>${esc(p.kind)}・${p.lv} 級${p.knack?`・本事：${esc(p.knack)}`:""}</span></div>
       <div class="d">${p.named?`職業：${esc(p.dir)}${allyAbOf(p)?`（能力：${allyAbOf(p)}）`:""}`:"還沒進化，沒有職業"}・存在值 ${p.xp||0}／${EVO_PTS}${gIdx(p.lv)>=gIdx(allyLv())?(gIdx(p.lv)>=gIdx(allyLv())&&gIdx(S.lv)>0?"（等級已到上限，主角進化後才能再升）":""):""}${!allyElig(p)&&gIdx(p.lv)<gIdx(allyLv())?"・<span style=\"color:var(--bad,#c33)\">等級太低，上不了戰場</span>":""}${allyElig(p)?"・在場減傷 −1":""}</div>
+      ${allyAbOf(p)==="情報"&&allyElig(p)?`<div class="pbtn"><button class="tl" data-as2="${k}"${allyUses()>=2?" disabled":""}>請他偵查（找到附近 1 個新地點，不花時間）</button></div>`:""}
       ${allyAbOf(p)==="治療"&&allyElig(p)?`<div class="pbtn"><button class="tl" data-ah="${k}"${S.healDay===S.day||allyUses()>=2?" disabled":""}>請他治療你（HP +50%，一天一次）</button></div>`:""}
       ${!allyArmed(p)?`<div class="d" style="color:var(--bad,#c33)">空著手：${p.with?"跟著你戰鬥時，判定會多一項劣勢（容易被圍毆）":"他出門跟你戰鬥時，判定會多一項劣勢"}。把武器（背包裡的白字武器或魔法武器）交給牠。</div>`:""}
       <div class="d">${p.skills.length?p.skills.map((x,j)=>`${esc(x.n)}（${esc(x.g||p.lv)}級）<button class="tl" data-as="${k}|${j}">${ASD===k+":"+j?"確定忘掉？":"忘掉"}</button>`).join("　"):"還沒有技能"}${p.tags.length?`　【${p.tags.map(esc).join("】【")}】`:""}</div>
@@ -299,6 +300,7 @@ function partyHTML(){
 let PQ=-1;
 function bindNest(){
   {const b=$("nup");if(b)b.onclick=upgradeNest}
+  document.querySelectorAll("[data-as2]").forEach(b=>b.onclick=()=>allyScout(+b.dataset.as2));
   document.querySelectorAll("[data-ah]").forEach(b=>b.onclick=()=>allyHeal(+b.dataset.ah));
   document.querySelectorAll("[data-pf]").forEach(b=>b.onclick=()=>{const p=S.party[+b.dataset.pf];if(p){if(p.fac){p.fac=null;p.noFac=true}else p.noFac=false;save();render()}});
   document.querySelectorAll("[data-nd]").forEach(b=>b.onclick=()=>donateItem(+b.dataset.nd));

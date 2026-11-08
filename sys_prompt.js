@@ -44,6 +44,7 @@ const SYS=`你是文字冒險遊戲《權能進化・魔物篇》的敘事者。
 【狀態】主角狀態裡的東西（例如【巢穴騷亂】【流血】【被記恨（疤臉）】）在故事裡真的解決了——騷亂平息、傷口處理好、和對方和解——就在 untag 填那個狀態名，程序會拿掉。沒解決就不要填。
 
 【怎麼寫】
+0. 巢穴裡有哪些人，以狀態資料為準：只有名單上有名字的同伴、NPC、俘虜，再加上「無名族人」的數量。「沒有」就不要寫「族人們」「眾人歡呼」「圍著篝火的族人」；數量少就只寫一兩個背影，不要寫成一群。玩家用 OOC 更正過的「叙事注意」一定要照做。
 1. 第二人稱「你」。每回合 120–280 字，節奏俐落。
 2. 不替玩家行動、不替玩家說話、不替玩家做決定。
 3. 不改任何數值，不宣告學會技能、升級或得到稱號，這些由程序處理。吃東西、學技能也由程序處理，不要寫成學到了什麼。
@@ -107,7 +108,8 @@ function stateBrief(){
       身邊的屍體:S.corpses.map(c=>`${c.name}（${c.lv}級，${isFresh(c)?"新鮮":"不新鮮了"}）`),稱號:S.titles},
     時間:`${timeStr()}（${PERIOD(S.hour)}，${isDay(S.hour)?"白天":"夜裡"}）`,飽足:hasTag("飢餓")?"餓著":`還能撐 ${S.full} 小時`,地點:`${S.loc}（以這個為準）`,
     同伴:S.party.length?S.party.map(p=>({...(p.gear?{裝備:`${p.gear}（附帶技能 ${p.gearMat.skill.n}）`}:{}),拿著:(p.hold||[]).length?p.hold.join("、"):(p.gear?"只有裝備":"空手"),...(p.dir?{方向:p.dir}:{}),名字:p.n,...(p.alias&&p.alias.length?{以前叫:p.alias.join("、")}:{}),種族:p.kind,等級:p.lv,本事:p.knack,技能:p.skills.map(x=>`${x.n}（${x.g||p.lv}級・${x.sys}）`),狀態:p.tags,位置:p.with?"跟在主角身邊":`留在${NEST()}`,...(!p.with&&p.job?{派工:p.job}:{}),...(p.note?{說明:p.note}:{})})):"沒有",
-    巢穴:{名稱:n.name,存糧:`${PROS[n.p-1]}（${n.food||0} 份，每天吃 ${needOf()} 份，夠吃 ${daysOf()} 天）`,存糧狀況:daysOf()>=7?"很充足（敘述裡不要寫缺糧、空蕩、挨餓，貯藏區是滿的）":daysOf()>=3?"夠用":daysOf()>=1?"吃緊（可以寫族人擔心）":"快見底了",人口:POP[n.pop-1],戰力:DEF[n.d-1],標籤:n.tags.map(t=>t.t),...(n.lv?{等級:`${n.lv}級`,設施:(n.fac||[]).map(f=>`${f}${facOn(f)?"":"（缺人手）"}`)}:{}),說明:n.note},
+    巢穴:{名稱:n.name,存糧:`${PROS[n.p-1]}（${n.food||0} 份，每天吃 ${needOf()} 份，夠吃 ${daysOf()} 天）`,存糧狀況:daysOf()>=7?"很充足（敘述裡不要寫缺糧、空蕩、挨餓，貯藏區是滿的）":daysOf()>=3?"夠用":daysOf()>=1?"吃緊（可以寫族人擔心）":"快見底了",人口:`${POP[n.pop-1]}（人口格 ${n.pop}）`,無名族人:NAMELESS[n.pop-1]?`大約 ${NAMELESS[n.pop-1]} 隻，沒有名字、不用一個個寫`:"沒有（巢穴裡除了名單上有名字的同伴、NPC、俘虜，沒有別的族人，不要寫成一群族人）",戰力:DEF[n.d-1],標籤:n.tags.map(t=>t.t),...(n.lv?{等級:`${n.lv}級`,設施:(n.fac||[]).map(f=>`${f}${facOn(f)?"":"（缺人手）"}`)}:{}),說明:n.note},
+    ...(S.narr&&S.narr.length?{叙事注意:S.narr}:{}),
     位置:{現在在:S.at,種類:here().kind,情況:here().note||"",出口:exitsOf(S.at).map(([n,h])=>`${n}（${h} 小時）`),還沒探索的方向:hiddenOf(S.at).length?`還有 ${hiddenOf(S.at).length} 個`:"沒有了（再探索會發現新的冒險地點或地形）"},
     已知的地點:Object.entries(S.world).filter(([n,x])=>x.known&&x.kind!=="地區"&&n!==NEST()).map(([n,x])=>({名稱:n,種類:x.kind,情況:x.note,...(isSettle(n)?{對主角:SREL[stOf(n)+2]}:{}),...((x.deals||[]).length?{約定:x.deals}:{}),...(x.grudge?{記仇:`知道主角當眾吃過他們的族人（${x.grudge} 次）`}:{}),從這裡走:`${pathHours(S.at,n)??"?"} 小時`,認識的人:S.npcs.filter(y=>y.where===n).map(y=>`${y.n}（${y.role}，對主角：${REL[relOf(y)+2]}）`)})),
     ...(S.npcs.some(x=>!x.where&&!S.party.some(p=>p.n===x.n))?{其他認識的人:S.npcs.filter(x=>!x.where&&!S.party.some(p=>p.n===x.n)).map(x=>`${x.n}（${x.role}，住處不明，不住在${NEST()}）`)}:{}),

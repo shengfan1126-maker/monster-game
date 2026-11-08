@@ -235,12 +235,13 @@ function learnFor(j,k){
 const EVO_PTS=20;
 const allyElig=p=>!!p.with&&!p.tags.includes("重傷")&&gIdx(p.lv)>=gIdx(allyLv());
 const allyShield=()=>S&&S.party?Math.min(2,S.party.filter(allyElig).length):0;
-const ABIL={"戰士":"防禦","法師":"增傷","祭司":"治療"};
+const ABIL={"戰士":"防禦","法師":"增傷","祭司":"治療","斥候":"情報","工匠":"交易"};
+const CHECK_AB=["增傷","防禦"];
 const allyAbOf=p=>p.named&&p.dir&&ABIL[p.dir]||null;
 const allyUses=()=>S.allyUsed||0;
 function allyAbOn(ch){
   if(!ch||!ch.allyAb||allyUses()>=2)return null;
-  const p=S.party.find(x=>x.n===ch.allyAb); return p&&allyElig(p)&&allyAbOf(p)&&allyAbOf(p)!=="治療"?allyAbOf(p):null;
+  const p=S.party.find(x=>x.n===ch.allyAb); return p&&allyElig(p)&&CHECK_AB.includes(allyAbOf(p))?allyAbOf(p):null;
 }
 function allyXp(p,n,notes){
   if(gIdx(p.lv)>=gIdx(allyLv())&&!p.ready){p.xp=Math.min(EVO_PTS,(p.xp||0)+n);return}   // 已經到頂：點數先存著，主角進化後再用
@@ -249,6 +250,12 @@ function allyXp(p,n,notes){
     if(p.named){p.lv=GRADES[gIdx(p.lv)+1];p.xp=0;notes&&notes.push(`${p.n}進化了：${p.lv} 級，存在值歸零。`)}
     else if(!p.ready){p.ready=true;notes&&notes.push(`${p.n}的存在值湊滿了，可以進化。到主畫面取名、選職業。`)}
   }
+}
+function allyScout(k){
+  const p=S.party[k]; if(!p||busy||S.dead||!allyElig(p)||allyAbOf(p)!=="情報"||allyUses()>=2)return;
+  const hid=hiddenOf(S.at); if(!hid.length){S.log.push(sysEntry(`${p.n}在${S.at}附近轉了一圈，沒有新的地方可以找了。`));save();render();return}
+  const to=rnd(hid); S.world[to].known=true; S.allyUsed=allyUses()+1;
+  S.log.push(sysEntry(`${p.n}先去探了路：發現了「${to}」（${S.world[to].kind}）。今天同伴能力還剩 ${2-S.allyUsed} 次。`)); save();render();
 }
 function allyHeal(k){
   const p=S.party[k]; if(!p||busy||S.dead||!allyElig(p)||allyAbOf(p)!=="治療"||S.healDay===S.day||allyUses()>=2)return;

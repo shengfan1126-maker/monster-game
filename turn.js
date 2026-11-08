@@ -95,6 +95,7 @@ async function runJob(job,ctx){
     const o=res.val, fx=o.fix&&typeof o.fix==="object"?o.fix:{};
     const a={text:"〈OOC〉"+clean(String(o.answer).trim()),opts:S.opts.slice(),loc:null,by:res.used,fb:0,loose:false,time:0,check:null,ooc:true};
     getGains(fx,a);
+    if(typeof fx.narr==="string"&&fx.narr.trim())a.onarr=fx.narr.trim().slice(0,80);
     if(typeof fx.loc==="string"&&fx.loc.trim())a.oloc=fx.loc.trim().slice(0,30);
     {const d=fx.defeated;if(d&&typeof d==="object"&&d.name)a.odef={name:String(d.name).slice(0,16),kind:String(d.kind||d.name).slice(0,12),dead:d.dead!==false&&d.dead!=="false"}}
     return a;
@@ -194,11 +195,13 @@ function doTrade(){
   const pre=snap(), list=[...items.map(n=>`${n}（值 ${valItem(n)}）`),...corpses.map(c=>`${c.name}（值 ${valCorpse(c)}）`)];
   S.log.push({who:"you",text:`和${who}交易：用 ${[...items,...corpses.map(c=>c.name)].join("、")} 換 ${want}`,pre,time:1,
     trade:{place:who,items,corpses:corpses.map(c=>c.name),v}});
+  const sm=S.party.find(p=>allyElig(p)&&allyAbOf(p)==="交易"); let smN="";
+  if(sm&&allyUses()<2){S.allyUsed=allyUses()+1;smN=`\n工匠同伴${sm.n}在旁邊幫忙議價：成交的話，對方多拿出一件魔法物品當添頭（等級最多比主角高一級，附帶技能照 found 的魔法物品格式）。`}
   TRD={sel:{},want:""}; S.opts=[]; save();
   const st=findSettle(who), stt=st?SREL[stOf(st)+2]:"";
   doJob({kind:"turn",prompt:`【交易】主角在${who}${stt?`（對主角：${stt}）`:""}提出以物易物：拿出 ${list.join("、")}，總值 ${v}；想換：${want}。
 價值：F 級 1、E 級 2、D 級 5、C 級 15、B 級 50、A 級 200；普通的東西大約 1。
-對方照自己的需要和對主角的態度出價：換到的東西總值大約等於 ${v}（交情好可以多一點）。想要的太貴，就討價還價、改給別的，或拒絕。
+對方照自己的需要和對主角的態度出價：換到的東西總值大約等於 ${v}（交情好可以多一點）。想要的太貴，就討價還價、改給別的，或拒絕。${smN}
 成交：trade_ok 填 true，found 填換到的東西（魔法物品用 magic 格式）；lost 不用填，程序會拿走主角給的東西。沒成交：trade_ok 填 false，found 留空。
 長期的約定（例如定期交換、互不侵犯、幫忙打造）填 deal：[{"place":"${st||who}","what":"約定內容"}]。`},pre,S.log.length);
 }
@@ -338,6 +341,7 @@ function applyAlt(e){
     }
   }
   if(e.kind==="ooc"){gains(a,false,notes);
+    if(a.onarr){S.narr=[...(S.narr||[]).filter(x=>x!==a.onarr),a.onarr].slice(-6);notes.push(`記下叙事注意（之後每回合都會提醒模型）：${a.onarr}`)}
     if(a.oloc){const rg=regionByLoc(a.oloc), rn=rg?(rg.n==="灰岩洞周邊"?"灰岩洞":rg.n):null, nb=nodeByLoc(a.oloc)||(S.world[baseLoc(a.oloc)]?baseLoc(a.oloc):null)||(rn&&S.world[rn]?rn:null);
       if(nb){S.world[nb].known=true;S.at=nb;S.loc=a.oloc.includes(nb)?a.oloc:nb;notes.push(`位置更正為：${S.loc}`)}
       else notes.push(`找不到「${a.oloc}」這個地點，位置沒有改。可以先到「地點」頁加上它。`)}
@@ -451,6 +455,7 @@ const OOC_SYS=`你是文字遊戲《權能進化・魔物篇》的規則助手�
 - 讓角色成為同伴一定用 recruit：{"name":"名字","kind":"種族","knack":"本事"}，不要用 rel 代替。對手（狀態資料寫「是對手」的，例如黑顎、疤臉）不能加入。
 - 關係在故事裡一天最多好一級，程序會擋；用 OOC 更正的 rel、recruit 不受這個限制。
 - 位置錯了（例如被寫回巢穴）：在 fix 填 loc："地名"（已知的地點或地區），程序會把主角放回那裡。
+- 玩家抱怨「叙事老是寫錯某件事」（例如巢穴裡明明沒幾個人卻一直寫一群族人、寫了不存在的角色、時間地點老寫錯）：在 fix 填 narr："一句叙事注意"（例如「巢穴沒有族人，只有哥布戰和小眼」），程序會存起來，之後每回合都提醒故事模型；一句話寫完，不要超過 40 字。
 - 主角在故事裡已經當上巢穴之主（老首領退位、交出位子）而程序沒記到：在 fix 填 chief：true。
 - 同伴跟不跟在身邊，由「同伴・巢穴」頁的按鈕切換，OOC 改不了；遇到這種問題，請玩家去按按鈕，不要說已修正。
 - 巢穴的位置（程序記的 nestAt）OOC 改不了，fix 裡也沒有這個欄位：玩家說巢穴不在這裡、要把巢穴搬到別處，只能請他到「同伴・巢穴」頁最下面用「搬家」（可以選已知的營地，或友好聚落旁邊的「○○外圍營地」），不要說「已更正」「已在後台改好」。
@@ -458,5 +463,5 @@ const OOC_SYS=`你是文字遊戲《權能進化・魔物篇》的規則助手�
 - 同伴會變強：主角每次進化，可以替一名同伴命名進化（選方向、換種族名、多一個技能位）；吃東西學到的技能也能給同伴。光留在家裡不會變強。
 - 戰鬥判定成功了卻沒有屍體、存在值沒加：故事裡對手確實死了，就在 fix 填 defeated {"name":"名字","kind":"種族","lv":"E","dead":true}。存在值滿了本來就不會再加，要照實說。
 - 巢穴：存糧是份數，交給巢穴的屍體 F 1 份、E 3 份、D 6 份，肉類 1~2 份；每天吃掉人口格數份；吃光人口掉一格，連吃飽 3 天人口漲一格；存糧夠吃 3 天以上〔需求（食物）〕自動拿掉。人口、戰力、巢穴標籤照故事事件變動。
-只輸出 JSON：{"answer":"回答","fix":{"found":[],"lost":[],"untag":[],"recruit":null,"npc_new":null,"npc_gone":[],"to_nest":[],"nest":null,"faction":[],"rel":[],"place_new":null,"rename":[],"equip":[],"defeated":null,"loc":null,"chief":null}}`;
+只輸出 JSON：{"answer":"回答","fix":{"found":[],"lost":[],"untag":[],"recruit":null,"npc_new":null,"npc_gone":[],"to_nest":[],"nest":null,"faction":[],"rel":[],"place_new":null,"rename":[],"equip":[],"defeated":null,"loc":null,"chief":null,"narr":null}}`;
 
