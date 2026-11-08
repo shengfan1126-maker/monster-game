@@ -199,3 +199,5 @@ button.tag.ut{cursor:pointer;font:inherit}
 .bagnote{font-size:11.5px;color:var(--mute);margin:-2px 0 6px}
 .dead{background:var(--bad-bg);color:var(--bad);border-radius:6px;padding:14px;text-align:center;font-size:14px;line-height:1.7}
 footer{margin-top:26px;font-size:11px;color:var(--mute);text-align:center;line-height:1.7}
+
+.tobot{bottom:calc(70px + env(safe-area-inset-bottom))}

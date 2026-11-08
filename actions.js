@@ -195,6 +195,8 @@ async function devour(i,tier){
     }
     lines.push(cands.length?`〈系統〉《大賢者》：「告。可吸收：${cands.map(x=>x.n).join("、")}。請選擇一項。」`:"〈系統〉《大賢者》：「告。無可吸收。」");
   }
+  {const lg=langOf(`${c.sp||""}${c.name}`);S.langs=S.langs||["哥布林語"];
+   if(fresh&&tier!=="失敗"&&!c.harvested&&lg&&!S.langs.includes(lg)){S.langs.push(lg);lines.push(`〈系統〉《大賢者》：「告。習得語言：${lg}。現在聽得懂、也說得出${lg}了。」`)}}
   S.eaten.unshift({day:S.day,what:c.name,got:null});
   npcGone(cleanName(c.name),"被你吃掉",null);
   if(c.evo){S.evoReady={name:c.name,kind:c.kind||c.sp,lv:c.lv};lines.push("〈系統〉《大賢者》：「告。進化戰對手吞噬完成。進化開始。」")}
@@ -250,6 +252,21 @@ function allyXp(p,n,notes){
     if(p.named){p.lv=GRADES[gIdx(p.lv)+1];p.xp=0;notes&&notes.push(`${p.n}進化了：${p.lv} 級，存在值歸零。`)}
     else if(!p.ready){p.ready=true;notes&&notes.push(`${p.n}的存在值湊滿了，可以進化。到主畫面取名、選職業。`)}
   }
+}
+/* v0.38 同伴代打：狩獵、環境遭遇、討伐戰、小頭目戰（進化戰除外）判定卡上選一位同伴替你上場。
+   吃今天 2 次裡的 1 次；同伴等級≥對手＝2 層優勢，否則 1 層；HP 代價由同伴吃（他負傷），你的 MP 技能照常。 */
+function allyDoOn(ch){
+  if(!ch||!ch.allyDo||ch.war||allyUses()+(allyAbOn(ch)?1:0)>=2)return null;
+  const p=S.party.find(x=>x.n===ch.allyDo); return p&&allyElig(p)?p:null;
+}
+const allyDoBonus=ch=>{const p=allyDoOn(ch);return p?(gIdx(p.lv||"F")>=gIdx(ch.foeLv||"F")?2:1):0};
+/* 進化戰前，同伴指出候選對手的弱點：打那一隻時多一層優勢（吃 1 次） */
+const WEAK=[[/狼|犬|獅|虎|豹|貓/,"怕火光和被繞到背後"],[/熊/,"動作慢，怕被拖著打"],[/蛛|蟲/,"怕煙和火"],[/蛇|蜥|龍/,"腹部沒有鱗，怕寒冷"],[/鳥|鷹|鴉/,"落地後笨拙，怕被網住"],[/豬|牛|鹿|羊/,"衝起來停不下來，怕陷阱"],[/石|岩|像/,"關節和接縫很脆"],[/哥布林|食人魔|獸人|人類/,"脾氣急，容易被激怒露出破綻"]];
+function allyWeak(i){
+  const f=S.evo&&S.evo.cands[i]; if(!f||busy||S.dead||f.weak||allyUses()>=2)return;
+  const p=S.party.find(allyElig); if(!p)return;
+  f.weak=(WEAK.find(([re])=>re.test(`${f.kind}${f.name}`))||[0,"動作有固定的節奏，多看幾次就找得到空檔"])[1]; S.allyUsed=allyUses()+1;
+  S.log.push(sysEntry(`${p.n}盯著${f.name}看了很久：「${f.weak}。」打這一隻時多一層優勢。今天同伴能力還剩 ${2-S.allyUsed} 次。`)); save();render();
 }
 function allyScout(k){
   const p=S.party[k]; if(!p||busy||S.dead||!allyElig(p)||allyAbOf(p)!=="情報"||allyUses()>=2)return;
@@ -388,9 +405,11 @@ function pay(sel,sac){
     S.items=S.items.filter(x=>x!==wn);delete S.mat[wn];S.party.forEach(p=>{if(p.gear===wn){p.gear=null;p.gearMat=null}});
     notes.push(`✦${wn}（${wl}級）撐不住 ${ch.foeLv} 級的對手，碎掉了，沒辦法修復。`)}
   if(skMp&&S.mp>=skMp){S.mp-=skMp;notes.push(`用「${ch.useSk}」：MP -${skMp}`)}
+  const dp=allyDoOn(ch);
   const ab=allyAbOn(ch), abP=ab&&S.party.find(x=>x.n===ch.allyAb);
+  if(dp){S.allyUsed=allyUses()+1;notes.push(`${dp.n}替你上場（代打）：今天同伴能力還剩 ${Math.max(0,2-S.allyUsed)} 次。`)}
   if(abP){S.allyUsed=allyUses()+1;notes.push(`${abP.n}幫忙（${ab}）：今天同伴能力還剩 ${2-S.allyUsed} 次。`)}
-  chosen.forEach(c=>{if(ab==="防禦"&&c.hp&&abP){woundAlly(abP.n,notes);notes.push(`${abP.n}替你擋下這一下（HP 沒扣）。`);const c2={...c};delete c2.hp;applyCost(c2,notes)}else applyCost(c,notes)}); if(sac)sacDo(sac,notes);
+  chosen.forEach(c=>{if(dp&&!(ab==="防禦"&&abP)&&c.hp){woundAlly(dp.n,notes);notes.push(`${dp.n}替你吃下這一下（HP 沒扣）。`);const c3={...c};delete c3.hp;applyCost(c3,notes)}else if(ab==="防禦"&&c.hp&&abP){woundAlly(abP.n,notes);notes.push(`${abP.n}替你擋下這一下（HP 沒扣）。`);const c2={...c};delete c2.hp;applyCost(c2,notes)}else applyCost(c,notes)}); if(sac)sacDo(sac,notes);
   if(!ch.local&&!ch.war&&ch.foe)S.party.filter(allyElig).forEach(p=>allyXp(p,2,notes));
   const stall=!!ch.foe&&!ch.war&&!ch.raid&&chosen.some(c=>c.time);
   if(stall)S.fightDelay=ch.foe;

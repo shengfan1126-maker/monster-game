@@ -164,11 +164,11 @@ function raidSet(army){
   const early=patrol()?0:48;
   if(S.raid&&S.raid.army)return;
   if(S.raid&&army){S.raid.army=true;S.raid.lv=lv;S.raid.name="人類的討伐軍";S.raid.size="上百人";S.raid.due=Math.max(S.raid.due,nowH()+7*24-early);return}
-  S.raid={name:army?"人類的討伐軍":"冒險者討伐隊",army,lv,size:army?"上百人":"六、七個冒險者",due:nowH()+(army?7:5)*24-early,seen:patrol()};
+  S.raid={name:army?"人類的討伐軍":"冒險者討伐隊",army,lv,size:army?"上百人":"六、七個冒險者",due:nowH()+(army?7:5)*24-early,seen:patrol(),prep:[]}; raidComp(S.raid);
 }
 function restoreWith(r){const keep=r&&r.withBefore||[];S.party.forEach(p=>p.with=keep.includes(p.n));}
 function raidAdv(){
-  const a=[], n=S.nest;
+  const a=[...(S.raid&&S.raid.prep||[]).map(k=>RAID_PREP[k].adv),...raidCounters()], n=S.nest;
   if(n.d>=4)a.push(`巢穴戰力：${DEF[n.d-1]}`);
   if(n.lv&&facOn("陷阱"))a.push("〔陷阱〕設施");
   ["陷阱","天然屏障","工坊"].forEach(t=>{if(n.tags.some(x=>x.t===t))a.push(t==="工坊"?"〔工坊〕打的武器":`〔${t}〕`)});
@@ -180,6 +180,7 @@ function raidAdv(){
 function raidDay(notes){
   if(patrol()&&S.raid&&!S.raid.seen){S.raid.seen=true;S.raid.due+=24;notes.push(`巡邏的同伴發現了${S.raid.name}的行蹤：大約 ${Math.ceil((S.raid.due-nowH())/24)} 天後到。`)}
   const n=S.nest; if(n.pop>=4)heatAdd(n.pop>=5?2:1,null,notes);
+  if(n.lv&&S.day%30===25&&!S.raid){raidSet(true);S.raid.big=true;S.raid.name=`第 ${S.day+5} 天的大討伐軍`;S.raid.due=nowH()+5*24;S.raid.seen=true;notes.push(`〈系統〉《大賢者》：「警告。人類每隔一陣子就會清剿一次魔物的巢穴：${S.raid.name}約 5 天後到（第 ${S.day+5} 天）。」`)}
   if(!S.raid&&heatLv()<3&&S.day-(S.heatDay||0)>=2&&S.heat>0){S.heat=Math.max(0,S.heat-2);S.heatDay=S.day-1}
 }
 /* 搬家：整窩搬到一個已知的地點。討伐隊會撲空。 */
@@ -217,13 +218,13 @@ function startRaid(){
   if(busy||!S.raid)return; const pre=snap(), r=S.raid;
   S.log.push({who:"you",text:`迎戰${r.name}`,pre});
   const notes=[]; if(!inNest()){notes.push(`你聽到消息，拚命趕回${NEST()}。`);S.at=NEST();S.loc=NEST()}
-  r.on=true; r.stage=1; r.of=r.army?5:3; r.wins=0; r.fails=0; r.mom=0;
+  r.on=true; r.stage=1; r.of=Math.max(1,(r.army?5:3)-((r.prep||[]).length>=3?2:0)); r.wins=0; r.fails=0; r.mom=0;
   r.withBefore=S.party.filter(p=>p.with).map(p=>p.n);
   S.party.forEach(p=>{if(!p.tags.includes("重傷"))p.with=true});
   if(notes.length)S.log.push(sysEntry(notes.join("\n")));
   S.opts=[]; save(); doJob({kind:"raid",ctx:{stage:1}},snap(),S.log.length);
 }
-const RAID_STEPS={3:["前哨和陷阱","洞口攻防","對上帶頭的強者"],5:["遠處的火把和偵察","陷阱與伏擊","洞口攻防","洞裡的混戰","對上統帥"]};
+const RAID_STEPS={1:["埋伏好的一擊"],3:["前哨和陷阱","洞口攻防","對上帶頭的強者"],5:["遠處的火把和偵察","陷阱與伏擊","洞口攻防","洞裡的混戰","對上統帥"]};
 /* 派工：留在巢穴的同伴每天做一件事 */
 const JOBS={"":"（沒事）","狩獵":"每天帶回存糧","採集":"有時帶回草藥、燧石之類","看守":"俘虜不會逃走","照顧":"俘虜兩天好一級（最多到服從）","巡邏":"討伐的動向會先知道"};
 const GATHER=["草藥","燧石","乾柴","野果","樹脂","獸骨"];
@@ -419,4 +420,105 @@ function nestLvHTML(){
     ${fac||`<div class="note">還沒有設施（最多 5 個，每升一級多一個）。</div>`}
     <div class="note" style="margin-top:6px">捐物品換點數（物品會消失）：普通 1、魔法物品 2、C～B 級 5、A 級以上 10。${dn.length?"":"（沒有可以捐的）"}</div>
     ${dn.map(x=>`<div class="crow">${esc(x.n)}（+${x.v}）<button class="tl" data-nd="${x.i}">捐給巢穴</button></div>`).join("")}</div>`;
+}
+
+/* v0.38 掠奪戰利品：突襲營地／據點成功時，魔法物品由程序抽（不再靠模型自己填）。
+   成功 1 件、大成功 2 件；同一天打同一個對手第二次只有 30% 機率；另外 40% 多一瓶藥水。 */
+const RAID_RE=/突襲|襲擊|掠奪|掠夺|洗劫|劫掠|搶|抢|劫營|劫营|奪取|夺取|端掉/;
+const RAID_FOE=/哥布林|獸人|野豬人|狗頭人|諾姆|地精|食人魔|人類|冒險者|士兵|商隊|盜|戰團|部落|營地|巢穴|據點/;
+const LOOT_GEAR=["長矛","短刀","戰斧","皮甲","小圓盾","骨飾","護腕","彎刀","頭盔"];
+const LOOT_POOL=[{n:"蠻力",sys:"天生"},{n:"堅守",sys:"意圖"},{n:"劍術",sys:"武技"},{n:"耐痛",sys:"天生"},{n:"警戒",sys:"意圖"},{n:"撕裂",sys:"天生"}];
+function raidLoot(c,notes){
+  if(!c||c.tier==="失敗"||!c.foeLv||!RAID_RE.test(c.what||"")||!RAID_FOE.test((c.foe||"")+(c.what||"")))return [];
+  S.lootDay=S.lootDay||{}; const key=cleanName(c.foe||"營地"), again=S.lootDay[key]===S.day; S.lootDay[key]=S.day;
+  const n=again?(Math.random()<0.3?1:0):(c.tier==="大成功"?2:1), got=[];
+  const sp=cleanName(c.foe||"戰團").replace(/戰團|部落|巡邏隊|營地|巢穴|戰士/g,"")||"戰團";
+  for(let i=0;i<n;i++){
+    const lv=capItemLv(c.foeLv), gear=LOOT_GEAR[rint(0,LOOT_GEAR.length-1)];
+    const pool=(poolKey(sp)&&POOLS[poolKey(sp)])||LOOT_POOL, sk=pool[rint(0,pool.length-1)];
+    let nm=`${sp}的${gear}`; while(S.items.includes(nm))nm+="・改";
+    S.items.push(nm); S.mat[nm]={lv,sp,skill:{n:sk.n,sys:sk.sys}}; got.push(nm);
+    notes.push(`戰利品：✦${nm}（魔法物品，附帶「${sk.n}」・${lv}級）`)}
+  if(!again&&Math.random()<0.4){const p=["紅色藥水","藍色藥水"][rint(0,1)];S.items.push(p);got.push(p);notes.push(`戰利品：${p}`)}
+  if(!got.length)notes.push("這次沒搶到值錢的東西（同一個對手今天已經被你搜刮過了）。");
+  return got}
+
+/* ═════════ v0.38 討伐戰補完 ═════════
+   組成與兵種相剋、戰前備戰、第一次只逼退、整批俘虜、處置俘虜、固定日子大討伐、全滅轉生 */
+const RAID_CLS=["戰士","斥候","法師","祭司","工匠"];
+const COUNTER={戰士:"斥候",斥候:"法師",法師:"戰士",祭司:"工匠",工匠:"祭司"};   // 戰士壓制斥候、斥候繞後打法師、法師火力壓戰士、祭司和工匠互相剋
+const raidComp=r=>{if(!r.comp)r.comp=[...RAID_CLS].sort(()=>Math.random()-0.5).slice(0,r.army?4:3);return r.comp};
+const RAID_PREP={陷阱:{h:4,adv:"事先在洞口設好的陷阱",txt:"花 4 小時"},埋伏:{h:2,adv:"埋伏在洞口兩側",txt:"花 2 小時"},備戰:{food:3,adv:"族人削尖木矛、備好石塊",txt:"用 3 份存糧"}};
+function raidCounters(){
+  const r=S.raid; if(!r)return [];
+  const comp=raidComp(r), out=[];
+  S.party.filter(p=>p.named&&COUNTER[p.dir]&&!p.tags.includes("重傷")&&comp.includes(COUNTER[p.dir])).forEach(p=>{if(out.length<2)out.push(`${p.dir}的專長克制對方的${COUNTER[p.dir]}`)});
+  return out;
+}
+function raidPrep(k){
+  const r=S.raid, P=RAID_PREP[k]; if(busy||S.dead||!r||r.on||!P||(r.prep||[]).includes(k))return;
+  if(!inNest()){S.log.push(sysEntry("要先回到巢穴才能備戰。"));save();render();return}
+  if(P.food&&(S.nest.food||0)<P.food){S.log.push(sysEntry(`存糧不夠（要 ${P.food} 份）。`));save();render();return}
+  const pre=snap(), notes=[]; S.log.push({who:"you",text:`備戰：${k}`,pre});
+  if(P.food)S.nest.food-=P.food; if(P.h)advanceTime(P.h,notes);
+  if(!S.raid){S.log.push(sysEntry(notes.join("\n")));save();render();return}
+  (S.raid.prep=S.raid.prep||[]).push(k);
+  notes.push(`${k}做好了：討伐戰多一層優勢（${P.adv}）。${S.raid.prep.length>=3?"三樣都備齊了：這場只要打一個階段。":""}`);
+  S.log.push(sysEntry(notes.join("\n"))); save(); render();
+}
+/* 打贏討伐：第一次（或準備不足、贏得不漂亮）只是逼退，過幾天帶更多人再來；漂亮贏了才有俘虜和稱號 */
+function raidWin(r,notes){
+  const decisive=!!S.pushed||(r.wins-r.fails>=2)||(r.prep||[]).length>=2||r.big;
+  S.pushed=true;
+  const cs=`${r.army?"討伐軍":"討伐隊"}的冒險者`;
+  if(!decisive){
+    notes.push(`${r.name}撤退了。但這只是撤退，不是打垮：他們會帶更多人回來。`); gainExist(r.lv,notes,1,"逼退");
+    toCorpses(cs,"人類",r.lv).forEach(c=>{c.small=false;S.corpses.push(c)});
+    S.raid=null; restoreWith(r); S.heat=Math.max(S.heat||0,HEAT[2].at);
+    raidSet(true); S.raid.due=nowH()+6*24; S.raid.name="捲土重來的討伐軍"; S.raid.seen=true;
+    notes.push(`〈系統〉《大賢者》：「警告。大約 6 天後，更大的討伐軍會到。這幾天可以備戰（巢穴頁）。」`);
+    return false;
+  }
+  notes.push(`${r.name}被擊退了。`); gainExist(r.lv,notes,r.army?3:2,"守住巢穴");
+  toCorpses(cs,"人類",r.lv).concat(toCorpses(cs,"人類",r.lv)).forEach(c=>{c.small=false;S.corpses.push(c)});
+  const ti=r.army?"擊退討伐軍":"擊退討伐隊"; if(!S.titles.includes(ti)){S.titles.push(ti);notes.push(`〈系統〉《世界之聲》：「獲得稱號『${ti}』。」`)}
+  Object.keys(S.world).filter(k=>isSettle(k)&&/人類|城鎮/.test(k+S.world[k].kind)).forEach(k=>stChange(k,-1,"打退了他們派來的人",notes));
+  const comp=raidComp(r), k=r.army?5:3;
+  for(let i=0;i<k;i++){const c=comp[i%comp.length];capture({name:`討伐隊的${c}${S.day}-${i+1}`,kind:"人類",lv:r.lv,cls:c},[])}
+  notes.push(`${k} 個討伐隊員被活捉，關在${NEST()}（俘虜，每天吃 1 份存糧）。吃掉、讓同伴單挑練手、或收為己用，到巢穴頁決定。`);
+  S.raid=null; S.heat=HEAT[1].at; S.raidCool=S.day+10; restoreWith(r);
+  notes.push("注目度降到「風聲」。他們吃了大虧，十天內不會再派人來討伐。");
+  return true;
+}
+/* 處置俘虜 */
+function eatCaptive(n){
+  const x=S.npcs.find(y=>y.n===n&&y.captive); if(!x||busy||S.dead)return;
+  const pre=snap(); S.log.push({who:"you",text:`處置俘虜：把${n}交給大家吃掉`,pre});
+  S.corpses.push({name:n,sp:"人類",lv:x.lv||"F",t:nowH(),cls:x.cls||null});
+  npcGone(n,"被你吃掉",null);
+  S.log.push(sysEntry(`${n}成了屍體，放在身邊（要吃的話，到屍體清單去吃，才學得到技能）。`)); save(); render();
+}
+function duelCaptive(n){
+  const x=S.npcs.find(y=>y.n===n&&y.captive); if(!x||busy||S.dead)return;
+  const p=S.party.filter(q=>!q.tags.includes("重傷")).sort((a,b)=>gIdx(b.lv||"F")-gIdx(a.lv||"F"))[0];
+  if(!p){S.log.push(sysEntry("沒有能打的同伴。"));save();render();return}
+  const pre=snap(); S.log.push({who:"you",text:`處置俘虜：讓${p.n}和${n}單挑`,pre});
+  const diff=gIdx(p.lv||"F")-gIdx(x.lv||"F"), win=Math.random()<Math.min(0.95,Math.max(0.1,0.5+0.25*diff)), notes=[];
+  if(win){allyXp(p,3,notes);S.corpses.push({name:n,sp:"人類",lv:x.lv||"F",t:nowH(),cls:x.cls||null});npcGone(n,"死於單挑",null);
+    notes.push(`${p.n}贏了。${n}倒下了，屍體還是熱的。`)}
+  else{woundAlly(p.n,notes);notes.push(`${p.n}輸了這一場，${n}還活著。`)}
+  S.log.push(sysEntry(notes.join("　"))); save(); render();
+}
+function useContract(n){
+  const x=S.npcs.find(y=>y.n===n&&y.captive); if(!x||busy||S.dead)return;
+  const pre=snap(), notes=[]; S.log.push({who:"you",text:`處置俘虜：讓${n}留下來幫忙`,pre});
+  if(relOf(x)<1){notes.push(`${n}還不肯：關係至少要到「友善」（照顧幾天、給藥水或食物）。`)}else contract(x,notes);
+  S.log.push(sysEntry(notes.join("\n"))); save(); render();
+}
+/* 全滅轉生：帶 1 個技能（維持等級）從頭開始 */
+function reborn(sn){
+  const old=S, sk=old.skills.find(s=>s.n===sn&&s.sys!=="Unique"); const ng=newGame(old.name);
+  if(sk)ng.skills.push({n:sk.n,sys:sk.sys,g:sk.g||"F",box:"act"});
+  ng.rebirths=(old.rebirths||0)+1; ng.langs=["哥布林語"];
+  S=ng; heal(); S.log.push({who:"gm",kind:"sys",alts:[{text:`${OPENING}${sk?`\n\n〈系統〉《大賢者》：「告。前世的記憶殘留了一項本領：${sk.n}（${sk.g||"F"}級）。」`:""}`,opts:OPEN_OPTS.slice()}],i:0}); S.opts=OPEN_OPTS.slice(); TAB="story"; save(); render();
 }

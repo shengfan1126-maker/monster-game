@@ -32,6 +32,8 @@ function migrate(o){
 function skillsFix(o){
   if(!o||!Array.isArray(o.skills))return;
   nestFix(o);
+  if(!o.langs){o.langs=["哥布林語"];const add=t=>{const l=langOf(t);if(l&&!o.langs.includes(l))o.langs.push(l)};
+    (o.eaten||[]).forEach(e=>add(e.what));(o.party||[]).forEach(p=>add(p.kind))}
   (o.party||[]).forEach(p=>{if(p.xp==null)p.xp=0; if(o.nameEvo&&!p.named)p.ready=true}); if(o.nameEvo)o.nameEvo=false;
   if(o.skills.some(s=>s.sys!=="Unique"&&!s.g))skillsV026(o);
   (o.party||[]).forEach(p=>(p.skills||[]).forEach(s=>{if(!s.g){s.g=p.lv||"F"}delete s.lv}));   // v0.31：同伴技能也改等級字母
@@ -253,5 +255,8 @@ newg.onclick=()=>{
 };
 
 totop.onclick=()=>window.scrollTo({top:0,behavior:"smooth"});
-addEventListener("scroll",()=>{totop.hidden=scrollY<300},{passive:true});
+const tobot=document.getElementById("tobot");
+tobot.onclick=()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:"smooth"});
+const arrows=()=>{totop.hidden=scrollY<300;tobot.hidden=scrollY+innerHeight>document.documentElement.scrollHeight-300};
+addEventListener("scroll",arrows,{passive:true}); addEventListener("resize",arrows); setInterval(arrows,1500);
 bootSave().then(()=>{S=load(); heal(); if(S)save(); render(); if(!ls.g("guide_seen"))openGuide()});

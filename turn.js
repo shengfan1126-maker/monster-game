@@ -96,6 +96,7 @@ async function runJob(job,ctx){
     const a={text:"〈OOC〉"+clean(String(o.answer).trim()),opts:S.opts.slice(),loc:null,by:res.used,fb:0,loose:false,time:0,check:null,ooc:true};
     getGains(fx,a);
     if(typeof fx.narr==="string"&&fx.narr.trim())a.onarr=fx.narr.trim().slice(0,80);
+    if(typeof fx.lang==="string"&&/語$/.test(fx.lang.trim()))a.olang=fx.lang.trim().slice(0,8);
     if(typeof fx.loc==="string"&&fx.loc.trim())a.oloc=fx.loc.trim().slice(0,30);
     {const d=fx.defeated;if(d&&typeof d==="object"&&d.name)a.odef={name:String(d.name).slice(0,16),kind:String(d.kind||d.name).slice(0,12),dead:d.dead!==false&&d.dead!=="false"}}
     return a;
@@ -122,7 +123,7 @@ async function runJob(job,ctx){
   }
   if(job.kind==="raid"){
     const r=S.raid, c=job.ctx, steps=RAID_STEPS[r.of];
-    const t=[`【討伐戰】（現在 ${timeStr()}，${PERIOD(S.hour)}，地點：${NEST()}）`,`來的是${r.name}（${r.size}，${r.lv}級）。他們是來把整窩哥布林清掉的。主角和同伴、族人一起守巢穴。`];
+    const t=[`【討伐戰】（現在 ${timeStr()}，${PERIOD(S.hour)}，地點：${NEST()}）`,`來的是${r.name}（${r.size}，${r.lv}級；組成：${raidComp(r).join("、")}）。他們是來把整窩哥布林清掉的。主角和同伴、族人一起守巢穴。`];
     if(c.prev)t.push(`上一階段（第 ${c.stage-1}/${r.of} 階段・${steps[c.stage-2]}）的結果：${c.prev.tier}。${c.prev.skill?`主角用了技能「${c.prev.skill}」。`:""}玩家付出：${c.prev.paid.length?c.prev.paid.join("；"):"沒有付"}。${c.prev.tier==="失敗"?`這一段守不住，主角挨了一下（HP -${c.prev.dmg}），巢穴也有損失。`:c.prev.tier==="大成功"?"打得漂亮，敵人退了一大截。":"守住了。"}先照這個結果寫上一階段怎麼收場，除了玩家付的代價不要讓主角多失去東西。`);
     if(c.end==="win")t.push(`這是結局：${r.name}撤退了（或被打垮了）。寫出敵人退走、巢穴裡的大家鬆了一口氣的樣子。found 可以給一兩件敵人丟下的裝備。check 給 null，options 給 3 個。`);
     else if(c.end==="lose")t.push(`這是結局：巢穴守不住了。用安靜、不血腥的方式寫出灰飛煙滅的結局：火光、倒下的同伴、主角最後看見的東西。check 給 null，options 給空陣列。`);
@@ -133,7 +134,7 @@ async function runJob(job,ctx){
     if(c.end){a.raidEnd=c.end; if(c.end==="win"&&!a.opts.length)a.opts=["清點損失","照顧受傷的同伴","把敵人丟下的東西撿回來"]; if(c.end==="lose")a.opts=[]}
     else{
       const ch=normCheck(o.check)||{what:steps[c.stage-1],adv:[],dis:[],costs:[{t:"硬擋下來，傷口裂開",hp:-dmgOf(r.lv)}]};
-      ch.foe=r.name; ch.foeLv=r.lv; ch.raid={stage:c.stage,of:r.of}; ch.adv=raidAdv().slice(0,3); ch.dis=[];
+      ch.foe=r.name; ch.foeLv=r.lv; ch.raid={stage:c.stage,of:r.of}; ch.adv=raidAdv().slice(0,4); ch.dis=[];
       ch.dis.push(r.army?"對方人多勢眾":"對方人多，配合得好"); if(r.mom>0)ch.adv.push("上一階段打得漂亮"); if(r.mom<0)ch.dis.push("上一階段沒守住");
       a.check=ch; a.opts=[];
     }
@@ -181,8 +182,8 @@ function setMulti(ch){
 }
 /* 交易：能在「交易」以上的聚落、或願意做生意的商人面前提出 */
 function tradeTarget(){
-  if(isSettle(S.at)&&stOf(S.at)>=1)return S.at;
-  const m=S.npcs.find(x=>x.where===S.at&&!x.foe&&!x.captive&&relOf(x)>=0&&/商|鐵匠|商隊|傭兵/.test(`${x.role}${x.n}`));
+  if(isSettle(S.at)&&stOf(S.at)>=1)return hasLang(S.at)?S.at:null;
+  const m=S.npcs.find(x=>x.where===S.at&&!x.foe&&!x.captive&&relOf(x)>=0&&hasLang(`${x.role}${x.n}`)&&/商|鐵匠|商隊|傭兵/.test(`${x.role}${x.n}`));
   return m?m.n:null;
 }
 let TRD={sel:{},want:""};
@@ -261,6 +262,7 @@ function gains(a,big,notes,guard){
   if(a.recruit&&!S.party.some(p=>p.n===a.recruit.name||(p.alias||[]).includes(a.recruit.name))){
     const x=S.npcs.find(y=>y.n===a.recruit.name||(y.alias||[]).includes(a.recruit.name));
     if(x&&x.foe)notes.push(`${x.n}是你的對手，不會成為同伴。`);
+    else if(x&&!hasLang(`${x.role}${x.n}`)&&!a.ooc)notes.push(`你聽不懂${langOf(`${x.role}${x.n}`)}，沒辦法跟${x.n}談跟你走的事（吃下那一族的肉、或用 OOC 說你學會了，才聽得懂）。`);
     else if(x&&relOf(x)<2&&!a.ooc)notes.push(`${x.n}對你還只是「${REL[relOf(x)+2]}」，要到「信賴」才會答應跟你走。`);
     else{if(x){x.r=Math.max(relOf(x),3);x.rel="追隨";x.captive=false}recruit({...a.recruit,name:x?x.n:a.recruit.name,kind:x?(raceOf(x.role)||a.recruit.kind):a.recruit.kind},notes)}}
   (a.untag||[]).forEach(x=>{const t=S.tags.find(y=>y===x||y.includes(x)||x.includes(y));if(t&&!/幼體|飢餓|瀕死|殘缺/.test(t)){delTag(t);notes.push(`【${t}】解除`)}});
@@ -309,13 +311,15 @@ function applyAlt(e){
     }
     if(a.lost&&a.lost.length&&you&&!you.give){
       const said=String(you.text||""), crafted=(a.found&&a.found.length)||(a.mats&&Object.keys(a.mats).length);
-      const verb=/[丟扔給交換送賣用吃分讓拿出]/.test(said), share2=n=>{n=cleanName(n).replace(/的?屍體/,"");for(let i=0;i<n.length-1;i++)if(said.includes(n.slice(i,i+2)))return true;return n.length===1&&said.includes(n)};
+      const verb=/[丟扔給交換送賣用吃分讓拿出開开拆拆解]/.test(said), share2=n=>{n=cleanName(n).replace(/的?屍體/,"");for(let i=0;i<n.length-1;i++)if(said.includes(n.slice(i,i+2)))return true;return n.length===1&&said.includes(n)};
       a.lost=a.lost.filter(x=>crafted||said.includes(x)||said.includes(cleanName(x))||verb&&(share2(x)||S.corpses.some(c=>(x.includes(cleanName(c.name))||cleanName(c.name).includes(x.replace(/的?屍體/,"")))&&/[給交分送讓]/.test(said))));
     }
     const lf=S.lastFoe, td=!a.check&&a.tdef&&lf&&sameFoe(a.tdef.name,lf.name)?a.tdef:null;   // 一般回合收拾掉上一張判定卡的對手
     a.defeated=td;
     gains(a,false,notes);
     if(td)applyDefeat({...td,lv:lf.lv,cls:lf.cls},notes);
+    else if(!a.check&&a.tdef&&a.tdef.dead!==false){const cx=S.npcs.find(x=>x.captive&&sameFoe(a.tdef.name,x.n));   // 殺掉被俘虜的對手：也要有屍體
+      if(cx){a.defeated={...a.tdef,lv:cx.lv||a.tdef.lv,cls:cx.cls};applyDefeat(a.defeated,notes)}}
     if(you&&!a.check)invite(you.text,notes);
   }
   if(e.kind==="resolve"){
@@ -323,24 +327,21 @@ function applyAlt(e){
     if(a.defeated)applyDefeat(a.defeated,notes,c.tier==="大成功",c.won);
     a.askFoe=!a.defeated&&!a.capture&&c.tier!=="失敗"&&c.foe&&FIGHT.test(c.what)?{name:c.foe,lv:c.foeLv||"F",cls:c.boss||null}:null;   // 成功卻沒寫對手怎麼了：問玩家
     gains(a,c.tier==="大成功",notes,c.tier!=="失敗"?{paid:c.paid||[]}:null);
+    raidLoot(c,notes);
     if(a.tag){addTag(a.tag);notes.push(`【${a.tag}】`)}
   }
   if(e.kind==="raid"&&a.raidEnd&&S.raid){
     const r=S.raid;
     if(a.raidEnd==="win"){
       gains(a,true,notes);
-      notes.push(`${r.name}被擊退了。`); gainExist(r.lv,notes,r.army?3:2,"守住巢穴");
-      toCorpses(`${r.army?"討伐軍":"討伐隊"}的冒險者`,"人類",r.lv).concat(toCorpses(`${r.army?"討伐軍":"討伐隊"}的冒險者`,"人類",r.lv)).forEach(c=>{c.small=false;S.corpses.push(c)});
-      const ti=r.army?"擊退討伐軍":"擊退討伐隊"; if(!S.titles.includes(ti)){S.titles.push(ti);notes.push(`〈系統〉《世界之聲》：「獲得稱號『${ti}』。」`)}
-      Object.keys(S.world).filter(k=>isSettle(k)&&/人類|城鎮/.test(k+S.world[k].kind)).forEach(k=>stChange(k,-1,"打退了他們派來的人",notes));
-      S.raid=null; S.heat=HEAT[1].at; S.raidCool=S.day+10; restoreWith(r);
-      notes.push("注目度降到「風聲」。他們吃了虧，十天內不會再派人來討伐。");
+      raidWin(r,notes);
     }else{
       S.dead=true; S.raid=null; S.deathWhy=`${NEST()}被${r.name}踏平了`;
       notes.push(`${NEST()}被${r.name}踏平了。全滅。`,"（可以按「撤回」回到之前，換個打法或先搬家。）");
     }
   }
   if(e.kind==="ooc"){gains(a,false,notes);
+    if(a.olang){S.langs=S.langs||["哥布林語"];if(!S.langs.includes(a.olang)){S.langs.push(a.olang);notes.push(`習得語言：${a.olang}`)}}
     if(a.onarr){S.narr=[...(S.narr||[]).filter(x=>x!==a.onarr),a.onarr].slice(-6);notes.push(`記下叙事注意（之後每回合都會提醒模型）：${a.onarr}`)}
     if(a.oloc){const rg=regionByLoc(a.oloc), rn=rg?(rg.n==="灰岩洞周邊"?"灰岩洞":rg.n):null, nb=nodeByLoc(a.oloc)||(S.world[baseLoc(a.oloc)]?baseLoc(a.oloc):null)||(rn&&S.world[rn]?rn:null);
       if(nb){S.world[nb].known=true;S.at=nb;S.loc=a.oloc.includes(nb)?a.oloc:nb;notes.push(`位置更正為：${S.loc}`)}
@@ -456,6 +457,7 @@ const OOC_SYS=`你是文字遊戲《權能進化・魔物篇》的規則助手�
 - 關係在故事裡一天最多好一級，程序會擋；用 OOC 更正的 rel、recruit 不受這個限制。
 - 位置錯了（例如被寫回巢穴）：在 fix 填 loc："地名"（已知的地點或地區），程序會把主角放回那裡。
 - 玩家抱怨「叙事老是寫錯某件事」（例如巢穴裡明明沒幾個人卻一直寫一群族人、寫了不存在的角色、時間地點老寫錯）：在 fix 填 narr："一句叙事注意"（例如「巢穴沒有族人，只有哥布戰和小眼」），程序會存起來，之後每回合都提醒故事模型；一句話寫完，不要超過 40 字。
+- 玩家說主角學會了某族的語言（例如吃了那一族、或住進那個聚落多日學會）而程序沒記到：在 fix 填 lang："野豬人語"（只能填「某某語」）。學舌只能學同等級的動物叫聲，不用記。
 - 主角在故事裡已經當上巢穴之主（老首領退位、交出位子）而程序沒記到：在 fix 填 chief：true。
 - 同伴跟不跟在身邊，由「同伴・巢穴」頁的按鈕切換，OOC 改不了；遇到這種問題，請玩家去按按鈕，不要說已修正。
 - 巢穴的位置（程序記的 nestAt）OOC 改不了，fix 裡也沒有這個欄位：玩家說巢穴不在這裡、要把巢穴搬到別處，只能請他到「同伴・巢穴」頁最下面用「搬家」（可以選已知的營地，或友好聚落旁邊的「○○外圍營地」），不要說「已更正」「已在後台改好」。
@@ -463,5 +465,5 @@ const OOC_SYS=`你是文字遊戲《權能進化・魔物篇》的規則助手�
 - 同伴會變強：主角每次進化，可以替一名同伴命名進化（選方向、換種族名、多一個技能位）；吃東西學到的技能也能給同伴。光留在家裡不會變強。
 - 戰鬥判定成功了卻沒有屍體、存在值沒加：故事裡對手確實死了，就在 fix 填 defeated {"name":"名字","kind":"種族","lv":"E","dead":true}。存在值滿了本來就不會再加，要照實說。
 - 巢穴：存糧是份數，交給巢穴的屍體 F 1 份、E 3 份、D 6 份，肉類 1~2 份；每天吃掉人口格數份；吃光人口掉一格，連吃飽 3 天人口漲一格；存糧夠吃 3 天以上〔需求（食物）〕自動拿掉。人口、戰力、巢穴標籤照故事事件變動。
-只輸出 JSON：{"answer":"回答","fix":{"found":[],"lost":[],"untag":[],"recruit":null,"npc_new":null,"npc_gone":[],"to_nest":[],"nest":null,"faction":[],"rel":[],"place_new":null,"rename":[],"equip":[],"defeated":null,"loc":null,"chief":null,"narr":null}}`;
+只輸出 JSON：{"answer":"回答","fix":{"found":[],"lost":[],"untag":[],"recruit":null,"npc_new":null,"npc_gone":[],"to_nest":[],"nest":null,"faction":[],"rel":[],"place_new":null,"rename":[],"equip":[],"defeated":null,"loc":null,"chief":null,"narr":null,"lang":null}}`;
 

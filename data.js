@@ -334,9 +334,13 @@ const POTION=n=>{const m=/(紅|藍|紫)(色)?(藥水|藥劑|藥)/.exec(n||"");re
 const oneShots=()=>S.items.filter(n=>!matOf(n)&&GEAR_RE.test(n)&&!POTION(n));
 const capItemLv=l=>GRADES[Math.min(gIdx(l),gIdx(S.lv)+1,5)];
 const cleanItemName=n=>String(n||"").replace(/\s*[（(][^）)]*級[）)]\s*$/,"").trim();
+/* v0.38 語言：吃哪一族學哪一族的語言（人類也一樣）。哥布林語＝母語；野獸沒有語言（學舌的動物叫聲靠 OOC） */
+const LANG_OF=[[/野豬人/,"野豬人語"],[/狗頭人/,"狗頭人語"],[/諾姆|地精|侏儒/,"諾姆語"],[/精靈/,"精靈語"],[/矮人/,"矮人語"],[/獸人/,"獸人語"],[/食人魔/,"食人魔語"],[/人類|冒險者|商人|士兵|騎士|衛兵|傭兵|鐵匠|牧師|商隊|流民/,"人類語"],[/哥布林/,"哥布林語"]];
+const langOf=t=>{const m=LANG_OF.find(([re])=>re.test(t||""));return m?m[1]:null};
+const hasLang=t=>{const l=langOf(t);return !l||l==="哥布林語"||(S.langs||[]).includes(l)};
 function newGame(name){
   return {
-    v:2, v025:1, v026:1, v0261:1, usedSk:[], name, day:1, hour:5, lv:"F", stage:"幼體", growth:0, starve:0,
+    v:2, v025:1, v026:1, v0261:1, usedSk:[], langs:["哥布林語"], name, day:1, hour:5, lv:"F", stage:"幼體", growth:0, starve:0,
     hp:8, hpMax:10, mp:10, mpMax:10, exist:0, full:0,
     loc:"灰岩洞・幼崽窩",
     skills:[{n:"吞噬",sys:"Unique",lv:null,note:"前世繼承。吃下新鮮的肉或死去一天內的屍體，可以從中學到技能。"}],
