@@ -504,7 +504,7 @@ function drinkPotion(i){
    魔法武器＋更高級的魔法原料 → 升到原料的等級（附帶技能不變）。
    有工匠（同伴或族人的本事／名字帶「匠、鍛、鐵、鑄」）時比較快：魔化 2 小時（自己 6）、升級 4 小時（自己 12）。 */
 let FGW=-1, FGM=-1;
-const hasSmith=()=>S.party.some(p=>/匠|鍛|鐵|鑄/.test(`${p.n||""}${p.knack||""}${p.role||""}${p.kind||""}`))||(S.npcs||[]).some(x=>x.where==="巢穴"&&/匠|鍛|鐵|鑄/.test(`${x.n||""}${x.role||""}${x.knack||""}`));
+const hasSmith=()=>(S.nest&&S.nest.lv&&facOn("鍛冶台"))||S.party.some(p=>/匠|鍛|鐵|鑄/.test(`${p.n||""}${p.knack||""}${p.role||""}${p.kind||""}`))||(S.npcs||[]).some(x=>x.where==="巢穴"&&/匠|鍛|鐵|鑄/.test(`${x.n||""}${x.role||""}${x.knack||""}`));
 const forgeWeapons=()=>S.items.map((n,i)=>({n,i,m:matOf(n)})).filter(x=>(!x.m&&GEAR_RE.test(x.n)&&!POTION(x.n))||(x.m&&x.m.skill));
 const forgeMats=()=>S.items.map((n,i)=>({n,i,m:matOf(n)})).filter(x=>x.m&&!x.m.skill);
 function forgePlan(wi,mi){

@@ -285,6 +285,7 @@ function becomeChief(notes){
   if(x){x.role="退位的老首領";x.foe=false;x.want="每天還有一口肉吃";x.cap=Math.max(x.cap||0,1)}
   if(!S.nest.tags.some(t=>/新首領/.test(t.t)))S.nest.tags.push({t:"新首領",c:"good"});
   notes&&notes.push(`〈系統〉《世界之聲》：「個體『${S.name}』成為${NEST()}之主。」`);
+  nestFix(S); if(S.nest.pick&&notes)notes.push(`${NEST()}是 E 級巢穴了。到「巢穴」頁選第一個設施。`);
 }
 /* 巢穴事件：只抽現在還在的人；提到不在的人的事件不抽 */
 function nestEvent(){

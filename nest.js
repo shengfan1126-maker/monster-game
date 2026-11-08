@@ -14,7 +14,7 @@ function nestSync(){
 function dayChange(notes){
   notes.push(`—— 第 ${S.day} 天 ——`);
   if((S.usedSk||[]).length){S.usedSk=[];notes.push("技能和魔法物品的力量都恢復了。")}
-  const n=S.nest; dayJobs(notes); raidDay(notes); const need=needOf(), hungry=(n.food||0)<need;
+  const n=S.nest; dayJobs(notes); facDay(notes); nestHeatDay(notes); raidDay(notes); const need=needOf(), hungry=(n.food||0)<need;
   dayCaptives(notes,hungry);
   if(!hungry){n.food-=need;n.fed=(n.fed||0)+1;
     if(n.fed>=3&&n.pop<POP.length){n.pop++;n.fed=0;notes.push(`${NEST()}連著三天都吃飽了，聚過來的同類變多了。人口：${POP[n.pop-1]}。`)}}
@@ -169,6 +169,7 @@ function restoreWith(r){const keep=r&&r.withBefore||[];S.party.forEach(p=>p.with
 function raidAdv(){
   const a=[], n=S.nest;
   if(n.d>=4)a.push(`巢穴戰力：${DEF[n.d-1]}`);
+  if(n.lv&&facOn("陷阱"))a.push("〔陷阱〕設施");
   ["陷阱","天然屏障","工坊"].forEach(t=>{if(n.tags.some(x=>x.t===t))a.push(t==="工坊"?"〔工坊〕打的武器":`〔${t}〕`)});
   Object.keys(S.world).filter(k=>isSettle(k)&&stOf(k)>=3).forEach(k=>a.push(`${k}的盟友來幫忙`));
   if(S.party.filter(p=>!p.tags.includes("重傷")).length>=2)a.push("同伴們一起守");
@@ -202,6 +203,7 @@ function moveNest(dest,flee){
   else{const lost=Math.floor((n.food||0)/2);n.food-=lost;if(n.pop>2){n.pop--;notes.push("有幾隻不肯走，留在了老地方。")}
     notes.push(`搬家花了 ${h} 小時。路上帶不動的存糧丟了 ${lost} 份。`)}
   S.npcs.forEach(x=>{if(x.where===old)x.where=dest});
+  if(n.lv){n.lv="F";n.pts=0;n.fac=[];n.facT={};n.pick=null;S.party.forEach(p=>{p.fac=null});notes.push("新巢穴從 F 級重新開始：物資點數和設施都要重來。")}
   nestSync();
   if(S.raid){notes.push(`${S.raid.name}撲了個空。他們暫時找不到你們了。`);S.raid=null;S.heat=Math.min(S.heat||0,HEAT[1].at);}
   if((S.chap||1)<4){S.chap=4;notes.push(`〈系統〉《世界之聲》：「第4章・${chapOf().name}」`)}
@@ -321,4 +323,99 @@ function newEvo(){
 function evoAnnounce(notes){
   notes.push("〈系統〉《大賢者》：「告。存在值已滿。需進行進化戰。」");
   notes.push(`〈系統〉《大賢者》：「附近的候選對手：${S.evo.cands.map(f=>`${f.name}（${f.kind}・${f.lv}級・${f.where}）`).join("、")}。期限：${hStr(S.evo.due)}。逾期，其中一名會主動找上門。」`);
+}
+
+/* ═════════ 巢穴等級與設施（v0.33）═════════
+   當上巢穴之主＝E 級；搬家＝F 級重來。物資點數：捐物品（會消失）；升級花點數（E 20、D 30、C 60、B 120、A 240），
+   升級必引來一次討伐；每升到 E/D/C/B/A 從沒出現過的設施裡隨機抽 3 個選 1（最多 5 個）。設施效果跟巢穴等級走，
+   要有人手（對口同伴 1＋族人最多 2）才運作，被排進設施的命名同伴不能同行。 */
+const NEST_UP={E:20,D:30,C:60,B:120,A:240};
+const nLv=()=>S.nest&&S.nest.lv||null;
+const nStr=()=>Math.max(0,gIdx(nLv()||"F"));            // F0 E1 D2 C3 B4 A5
+const FAC={
+  "農田":{cls:null,txt:"每天自己長出存糧"},
+  "獵場":{cls:"斥候",txt:"每天帶回獵物（有斥候同伴看著更多）"},
+  "鍛冶台":{cls:"工匠",txt:"每隔幾天打出一件白字武器防具；有人看著，鍛造也比較快"},
+  "宿舍":{cls:null,txt:"每隔幾天有同類聚過來（人口 +1，要有存糧）"},
+  "陷阱":{cls:"斥候",txt:"討伐戰多一層優勢"},
+  "治療所":{cls:"祭司",txt:"同伴每天好一級傷"}};
+const FOOD_B=[0,3,4,6,8,10], WPN=["骨矛","粗石斧","木盾","皮甲","鐵匕首","粗鐵短刀"];
+function rollFac(n){const left=Object.keys(FAC).filter(f=>!(n.fac||[]).includes(f)); if((n.fac||[]).length>=5||!left.length)return null;
+  return left.sort(()=>Math.random()-0.5).slice(0,3)}
+function nestFix(o){
+  if(!o||!o.nest||!o.chief)return;
+  const n=o.nest; if(n.lv)return;
+  n.lv="E"; n.pts=0; n.fac=[]; n.facT={}; n.pick=rollFac(n);
+}
+const facWorkers=f=>{
+  const n=S.nest, c=FAC[f].cls, pop=Math.max(0,n.pop-1);
+  const ally=c?S.party.find(p=>p.fac===f):null;
+  return c?(ally?1:0)+Math.min(2,pop):Math.min(3,n.pop);
+};
+function facAssign(){
+  const n=S.nest, fs=n.fac||[];
+  S.party.forEach(p=>{if(p.fac&&(!fs.includes(p.fac)||p.with||p.tags.includes("重傷")))p.fac=null});
+  fs.forEach(f=>{const c=FAC[f].cls; if(!c||S.party.some(p=>p.fac===f))return;
+    const a=S.party.find(p=>!p.with&&!p.fac&&p.dir===c&&!p.noFac&&!p.tags.includes("重傷")); if(a)a.fac=f});
+}
+const facOn=f=>(S.nest.fac||[]).includes(f)&&facWorkers(f)>0;
+function facDay(notes){
+  const n=S.nest; if(!n.lv||!(n.fac||[]).length)return;
+  n.facT=n.facT||{}; facAssign(); const out=[], s=nStr();
+  (n.fac||[]).forEach(f=>{
+    const w=facWorkers(f); if(w<=0)return; const m=w/3;
+    if(f==="農田"){const g=Math.max(1,Math.round(FOOD_B[s]*m));n.food=(n.food||0)+g;out.push(`〔農田〕+${g} 份存糧`)}
+    if(f==="獵場"){const g=Math.max(1,Math.round((FOOD_B[s]-1)*m));n.food=(n.food||0)+g;out.push(`〔獵場〕帶回 ${g} 份獵物`)}
+    if(f==="鍛冶台"){n.facT[f]=(n.facT[f]||0)+1;if(n.facT[f]>=7-w){n.facT[f]=0;const it=rnd(WPN);receive(it,null);out.push(`〔鍛冶台〕打出了「${it}」（白字）`)}}
+    if(f==="宿舍"){n.facT[f]=(n.facT[f]||0)+1;if(n.facT[f]>=6-w&&(n.food||0)>=needOf()){n.facT[f]=0;if(n.pop<POP.length){n.pop++;out.push(`〔宿舍〕又有同類聚過來。人口：${POP[n.pop-1]}`)}}}
+    if(f==="治療所")S.party.forEach(p=>{if(p.tags.includes("負傷")){p.tags=p.tags.filter(t=>t!=="負傷");out.push(`${p.n}的傷在〔治療所〕好了`)}
+      else if(p.tags.includes("重傷")){p.tags=p.tags.filter(t=>t!=="重傷");p.tags.push("負傷")}});
+  });
+  if(out.length)notes.push("設施："+out.join("；"));
+}
+/* 注目度的被動累積：從 D 級起很慢，而且只到「風聲／偵察」為止，光靠巢穴大不會直接引來討伐 */
+function nestHeatDay(notes){
+  const iv={D:4,C:3,B:2,A:2}[nLv()]; if(!iv||S.raid)return;
+  const cap={D:HEAT[1].at-1,C:HEAT[2].at-1,B:HEAT[2].at-1,A:HEAT[2].at-1}[nLv()];
+  if(S.day%iv===0&&(S.heat||0)<cap)heatAdd(1,"巢穴越來越大",notes);
+}
+const ptsOfItem=n=>{const m=matOf(n);if(!m)return 1;const i=gIdx(m.lv);return i>=5?10:i>=3?5:2};
+const donatable=()=>S.items.map((n,i)=>({n,i,v:ptsOfItem(n)})).filter(x=>!shareOfItem(x.n));
+function donateItem(i){
+  const n=S.nest, it=S.items[i]; if(busy||S.dead||it==null||!n.lv)return;
+  const v=ptsOfItem(it), pre=snap();
+  S.log.push({who:"you",text:`把${it}捐給巢穴`,pre});
+  delete S.mat[it]; S.items.splice(i,1); n.pts=(n.pts||0)+v;
+  S.log.push(sysEntry(`捐給巢穴：${it}，物資點數 +${v}（現在 ${n.pts} 點）`)); save(); render();
+}
+const nextNLv=()=>GRADES[gIdx(nLv())+1];
+function upgradeNest(){
+  const n=S.nest, to=nextNLv(), cost=NEST_UP[to];
+  if(busy||S.dead||!n.lv||!to||!cost||n.pick||S.raid||(n.pts||0)<cost||to==="S")return;
+  const pre=snap(); S.log.push({who:"you",text:`把巢穴升到 ${to} 級`,pre});
+  n.pts-=cost; n.lv=to; n.pick=rollFac(n);
+  const notes=[`〈系統〉《世界之聲》：「${NEST()}升到 ${to} 級。」`];
+  if(n.pick)notes.push("巢穴多一個設施的位置，從三個裡選一個。");
+  raidSet(false); S.raid.up=true; S.raid.name="聞風而來的冒險者討伐隊";
+  notes.push(`〈系統〉《大賢者》：「警告。巢穴變大的消息傳出去了，討伐隊大約 ${Math.ceil((S.raid.due-nowH())/24)} 天後到。」`);
+  S.log.push(sysEntry(notes.join("\n"))); save(); render();
+}
+function pickFac(j){
+  const n=S.nest; if(busy||!n.pick||!n.pick[j])return; const f=n.pick[j], pre=snap();
+  S.log.push({who:"you",text:`選了設施：${f}`,pre});
+  n.fac.push(f); n.pick=null; facAssign();
+  S.log.push(sysEntry(`〈系統〉《世界之聲》：「〔${f}〕蓋好了。${FAC[f].txt}。」${FAC[f].cls?`\n（排一個${FAC[f].cls}同伴留在巢穴，他會自動去顧；被排進去的同伴不能同行。）`:""}`)); save(); render();
+}
+function nestLvHTML(){
+  const n=S.nest; if(!n.lv)return `<div class="note" style="margin-top:8px">成為巢穴之主後，巢穴才有等級。</div>`;
+  const to=nextNLv(), cost=to&&NEST_UP[to], can=cost&&!n.pick&&!S.raid&&(n.pts||0)>=cost&&to!=="S";
+  const fac=(n.fac||[]).map(f=>{const w=facWorkers(f), a=S.party.find(p=>p.fac===f);
+    return `<div class="row"><span class="k">〔${esc(f)}〕</span><span>人手 ${w}／3${FAC[f].cls?`・${a?esc(a.n)+"在顧":"缺"+FAC[f].cls}`:""}<br><span class="note">${esc(FAC[f].txt)}</span></span></div>`}).join("");
+  const dn=donatable();
+  return `<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px"><div class="row"><span class="k">巢穴等級</span><span><b>${n.lv}</b> 級・物資點數 <b>${n.pts||0}</b>${to&&cost&&to!=="S"?`（升 ${to} 要 ${cost}）`:""}</span></div>
+    ${to&&cost&&to!=="S"?`<button class="paybtn" id="nup" style="margin:6px 0"${can?"":" disabled"}>升到 ${to} 級${can?"（會引來一次討伐）":n.pick?"（先選設施）":S.raid?"（先處理討伐）":"（點數不夠）"}</button>`:`<div class="note">已經是一般升級的最高級。</div>`}
+    ${n.pick?`<div class="note" style="margin:6px 0"><b>選一個設施：</b></div><div class="tags">${n.pick.map((f,j)=>`<button class="tag ut" data-nf="${j}">${esc(f)}：${esc(FAC[f].txt)}</button>`).join("")}</div>`:""}
+    ${fac||`<div class="note">還沒有設施（最多 5 個，每升一級多一個）。</div>`}
+    <div class="note" style="margin-top:6px">捐物品換點數（物品會消失）：普通 1、魔法物品 2、C～B 級 5、A 級以上 10。${dn.length?"":"（沒有可以捐的）"}</div>
+    ${dn.map(x=>`<div class="crow">${esc(x.n)}（+${x.v}）<button class="tl" data-nd="${x.i}">捐給巢穴</button></div>`).join("")}</div>`;
 }

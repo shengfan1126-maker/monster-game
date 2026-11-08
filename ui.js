@@ -280,7 +280,7 @@ function partyHTML(){
   const rows=S.party.map((p,k)=>`<div class="npc"><div class="h"><b>${esc(p.n)}</b><span>${esc(p.kind)}・${p.lv} 級${p.knack?`・本事：${esc(p.knack)}`:""}</span></div>
       <div class="d">${p.skills.length?p.skills.map((x,j)=>`${esc(x.n)}（${esc(x.g||p.lv)}級）<button class="tl" data-as="${k}|${j}">${ASD===k+":"+j?"確定忘掉？":"忘掉"}</button>`).join("　"):"還沒有技能"}${p.tags.length?`　【${p.tags.map(esc).join("】【")}】`:""}</div>
       ${p.note?`<div class="d" style="color:var(--mute)">${esc(p.note)}</div>`:""}
-      <div class="pbtn"><button class="tl" data-pw="${k}">${p.with?"同行中 → 留在巢穴":"留在巢穴 → 帶在身邊"}</button><button class="tl" data-pq="${k}">${PQ===k?"確定讓牠離開？":"離隊"}</button><button class="tl" data-rn="${k}">改名</button></div>
+      <div class="pbtn"><button class="tl" data-pw="${k}">${p.with?"同行中 → 留在巢穴":p.fac?`在〔${esc(p.fac)}〕工作`:"留在巢穴 → 帶在身邊"}</button>${p.fac?`<button class="tl" data-pf="${k}">離開設施</button>`:p.noFac&&!p.with?`<button class="tl" data-pf="${k}">回去顧設施</button>`:""}<button class="tl" data-pq="${k}">${PQ===k?"確定讓牠離開？":"離隊"}</button><button class="tl" data-rn="${k}">改名</button></div>
       ${RN===k?`<div class="padd" style="margin-top:6px"><input id="rnv" maxlength="10" placeholder="新名字"><button class="tl" id="rnok">確定</button></div>`:""}
       <div class="d">拿著：${(p.hold||[]).length?(p.hold||[]).map((h,j)=>`${esc(h)} <button class="tl" data-hb="${k}|${j}">收回</button>`).join("　"):"空手"}${(p.hold||[]).length<3&&S.items.some(n=>!(matOf(n)&&matOf(n).skill))?` <select data-hg="${k}"><option value="">交給牠…</option>${S.items.filter(n=>!(matOf(n)&&matOf(n).skill)).map(n=>`<option>${esc(n)}</option>`).join("")}</select>`:""}</div>
       ${!p.with?`<div class="d">派工：<select data-job="${k}">${Object.entries(JOBS).map(([j,t])=>`<option value="${j}"${(p.job||"")===j?" selected":""}>${j||"不派工"}${j?`（${t}）`:""}</option>`).join("")}</select></div>`:""}
@@ -292,10 +292,15 @@ function partyHTML(){
 }
 let PQ=-1;
 function bindNest(){
+  {const b=$("nup");if(b)b.onclick=upgradeNest}
+  document.querySelectorAll("[data-pf]").forEach(b=>b.onclick=()=>{const p=S.party[+b.dataset.pf];if(p){if(p.fac){p.fac=null;p.noFac=true}else p.noFac=false;save();render()}});
+  document.querySelectorAll("[data-nd]").forEach(b=>b.onclick=()=>donateItem(+b.dataset.nd));
+  document.querySelectorAll("[data-nf]").forEach(b=>b.onclick=()=>pickFac(+b.dataset.nf));
   {const b=$("mvok");if(b)b.onclick=()=>{const v=$("mvto").value;if(MV!==v){MV=v;render();return}moveNest(v,false)}}
   document.querySelectorAll("[data-pw]").forEach(b=>b.onclick=()=>{const p=S.party[+b.dataset.pw];
     if(!p.with&&S.party.filter(x=>x.with).length>=2){alertNote("同行最多兩名。");return}
     if(!p.with&&p.tags.includes("重傷")){alertNote(`${p.n}還在養傷。`);return}
+    if(!p.with&&p.fac){alertNote(`${p.n}在〔${p.fac}〕工作，不能同行。要帶他出門，先按「離開設施」。`);return}
     p.with=!p.with; if(p.with)p.job=""; save();render()});
   document.querySelectorAll("[data-hg]").forEach(sel=>sel.onchange=()=>{if(!sel.value)return;const n=[];equipAlly(S.party[+sel.dataset.hg].n,sel.value,false,n);S.log.push(sysEntry(n.join("\n")));save();render()});
   document.querySelectorAll("[data-hb]").forEach(b=>b.onclick=()=>{const [k,j]=b.dataset.hb.split("|").map(Number);const p=S.party[k];const it=p.hold[j];if(it==null)return;p.hold.splice(j,1);S.items.push(it);if(p.holdMat&&p.holdMat[it]){S.mat[it]=p.holdMat[it];delete p.holdMat[it]}save();render()});
@@ -371,6 +376,7 @@ function nestHTML(){
       <div class="row" style="margin-top:8px"><span class="k">存糧</span><span><b>${n.food||0}</b> 份・每天吃 ${needOf()} 份・夠吃 ${daysOf()} 天${n.fed?`・已經連續吃飽 ${n.fed} 天`:""}</span></div>
       <div class="note" style="margin-top:6px">交給巢穴的屍體：F 級 1 份、E 級 3 份、D 級 6 份；肉 1~2 份。每天吃掉「人口格數」份，俘虜和約定留下的人每人再 1 份。存糧吃光，人口掉一格；連續吃飽 3 天，人口漲一格。夠吃 3 天以上，〔需求（食物）〕自動拿掉。人口、戰力和其他標籤照故事裡發生的事變動。</div>
       ${nestGiveHTML()}
+      ${nestLvHTML()}
     </div>
     <div class="card"><h3>周圍的勢力</h3>${Object.entries(S.factions).map(([k,f])=>`<div class="row"><span class="k">${esc(k)}</span><span>${f.n>0?`約 ${f.n} / ${f.max}`:"已經被打散"}</span></div>`).join("")}
       <div class="note" style="margin-top:6px">打倒一隻少一隻。打散了就不會再遇到，相關的巢穴禍患也會拿掉。</div></div>

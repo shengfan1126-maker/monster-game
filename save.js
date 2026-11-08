@@ -31,6 +31,7 @@ function migrate(o){
    可用超過上限的放回倉庫；v0.26.1 一次性修復：低於主角等級的技能（被舊快照弄出來的 E 級）補成主角等級 */
 function skillsFix(o){
   if(!o||!Array.isArray(o.skills))return;
+  nestFix(o);
   if(o.skills.some(s=>s.sys!=="Unique"&&!s.g))skillsV026(o);
   (o.party||[]).forEach(p=>(p.skills||[]).forEach(s=>{if(!s.g){s.g=p.lv||"F"}delete s.lv}));   // v0.31：同伴技能也改等級字母
   const keep=[], by={};
