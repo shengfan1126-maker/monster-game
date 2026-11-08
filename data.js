@@ -199,8 +199,24 @@ const WORLD0={
  "諾姆據點":{kind:"聚落",region:"廢棄礦坑",note:"諾姆在舊礦道裡蓋的據點，會做機關。",links:{}},
  "獸人營地":{kind:"營地",region:"東側山谷",note:"獸人戰團的前哨營地，木柵欄上掛著頭骨。",links:{}}
 };
-const RACE_HOME=[[/矮人/,"矮人聚落"],[/精靈/,"精靈村"],[/半身人/,"半身人田地"],[/人類|冒險者|衛兵|商人/,"人類城鎮"],[/大哥布林/,"大哥布林巢穴"],[/野豬人/,"野豬人營地"],[/狗頭人/,"狗頭人窩"],[/諾姆/,"諾姆據點"],[/獸人/,"獸人營地"]];
+const RACE_HOME=[[/蜥蜴人/,"蜥蜴人營地"],[/鳥人/,"鳥人聚落"],[/蛙人/,"蛙人村"],[/矮人/,"矮人聚落"],[/精靈/,"精靈村"],[/半身人/,"半身人田地"],[/人類|冒險者|衛兵|商人/,"人類城鎮"],[/大哥布林/,"大哥布林巢穴"],[/野豬人/,"野豬人營地"],[/狗頭人/,"狗頭人窩"],[/諾姆/,"諾姆據點"],[/獸人/,"獸人營地"]];
 const homeOf=x=>{const t=`${x.role||""}${x.kind||""}${x.n||""}`;const h=RACE_HOME.find(([re])=>re.test(t));return h?h[1]:""};
+/* v0.38 隱藏據點：開場把聚落／營地／巢穴隨機分到各地區，地圖上先寫成「？未探索」；在那個地區累積探索 need 次才會發現。
+   附近三區 2～4 次，其他地區 3～6 次。黑顎知道位置但不知道裡面有什麼。 */
+const SITE_NAMES=["矮人聚落","精靈村","半身人田地","人類城鎮","大哥布林巢穴","野豬人營地","狗頭人窩","諾姆據點","獸人營地"];
+const SITE_NOTE={"矮人聚落":"依山壁而建的半地下矮人聚落，還在挖礦打鐵，看不起綠皮。","精靈村":"樹上的精靈村落，精靈射手守著林子，見到魔物就放箭。","半身人田地":"半身人的農莊，有糧倉和看門狗。","人類城鎮":"人類的小鎮，有冒險者公會和衛兵。","大哥布林巢穴":"大哥布林戰團的地盤，比灰岩洞大得多。","野豬人營地":"野豬人用泥和骨頭搭的營地。","狗頭人窩":"狗頭人的窩，到處是陷阱。","諾姆據點":"諾姆蓋的據點，會做機關。","獸人營地":"獸人戰團的營地，木柵欄上掛著頭骨。"};
+const SITE_ST={"矮人聚落":-1,"精靈村":-1,"半身人田地":0,"人類城鎮":0,"大哥布林巢穴":-2,"野豬人營地":-2,"狗頭人窩":-1,"諾姆據點":0,"獸人營地":-2,"蜥蜴人營地":-1,"食人魔洞穴":-2,"鳥人聚落":-1,"蛙人村":0};
+const EXTRA_SITES=[{n:"蜥蜴人營地",kind:"營地",note:"蜥蜴人在水邊搭的營地，不愛說話，很記仇。"},{n:"食人魔洞穴",kind:"巢穴",note:"食人魔的洞穴，洞口堆著骨頭。"},{n:"鳥人聚落",kind:"聚落",note:"懸崖上的鳥人聚落，不喜歡陌生人靠近。"},{n:"蛙人村",kind:"聚落",note:"沼澤邊的蛙人村，用魚和草藥換東西。"}];
+const SITE_REGIONS=["碎石坡","黑松林","結冰的山澗","狼群的舊獵場","廢棄礦坑","地底暗河","黑水溝","雪線以上","東側山谷"], SITE_NEAR=["碎石坡","黑松林","結冰的山澗"];
+function siteInit(w){
+  const ex=[...EXTRA_SITES].sort(()=>Math.random()-0.5).slice(0,2);
+  ex.forEach(x=>{w[x.n]={kind:x.kind,region:"黑松林",note:x.note,links:{}}});
+  const names=[...SITE_NAMES,...ex.map(x=>x.n)];
+  Object.values(w).forEach(nd=>names.forEach(n=>{delete nd.links[n]}));
+  return names.map(n=>{const region=SITE_REGIONS[rint(0,SITE_REGIONS.length-1)], need=SITE_NEAR.includes(region)?rint(2,4):rint(3,6);
+    const nd=w[n]; nd.region=region; nd.links={}; nd.known=false; nd.st=SITE_ST[n]; if(SITE_NOTE[n])nd.note=SITE_NOTE[n];
+    return {n,region,need,found:false}});
+}
 function worldInit(){
   const w=JSON.parse(JSON.stringify(WORLD0));
   for(const [a,nd] of Object.entries(w))for(const [b,h] of Object.entries(nd.links))if(w[b])w[b].links[a]=h;
@@ -335,10 +351,11 @@ const oneShots=()=>S.items.filter(n=>!matOf(n)&&GEAR_RE.test(n)&&!POTION(n));
 const capItemLv=l=>GRADES[Math.min(gIdx(l),gIdx(S.lv)+1,5)];
 const cleanItemName=n=>String(n||"").replace(/\s*[（(][^）)]*級[）)]\s*$/,"").trim();
 /* v0.38 語言：吃哪一族學哪一族的語言（人類也一樣）。哥布林語＝母語；野獸沒有語言（學舌的動物叫聲靠 OOC） */
-const LANG_OF=[[/野豬人/,"野豬人語"],[/狗頭人/,"狗頭人語"],[/諾姆|地精|侏儒/,"諾姆語"],[/精靈/,"精靈語"],[/矮人/,"矮人語"],[/獸人/,"獸人語"],[/食人魔/,"食人魔語"],[/人類|冒險者|商人|士兵|騎士|衛兵|傭兵|鐵匠|牧師|商隊|流民/,"人類語"],[/哥布林/,"哥布林語"]];
+const LANG_OF=[[/野豬人/,"野豬人語"],[/狗頭人/,"狗頭人語"],[/諾姆|地精|侏儒/,"諾姆語"],[/精靈/,"精靈語"],[/矮人/,"矮人語"],[/獸人/,"獸人語"],[/食人魔/,"食人魔語"],[/蜥蜴人/,"蜥蜴人語"],[/鳥人/,"鳥人語"],[/蛙人/,"蛙人語"],[/人類|冒險者|商人|士兵|騎士|衛兵|傭兵|鐵匠|牧師|商隊|流民/,"人類語"],[/哥布林/,"哥布林語"]];
 const langOf=t=>{const m=LANG_OF.find(([re])=>re.test(t||""));return m?m[1]:null};
 const hasLang=t=>{const l=langOf(t);return !l||l==="哥布林語"||(S.langs||[]).includes(l)};
 function newGame(name){
+  const w=worldInit(), sites=siteInit(w);
   return {
     v:2, v025:1, v026:1, v0261:1, usedSk:[], langs:["哥布林語"], name, day:1, hour:5, lv:"F", stage:"幼體", growth:0, starve:0,
     hp:8, hpMax:10, mp:10, mpMax:10, exist:0, full:0,
@@ -355,7 +372,7 @@ function newGame(name){
       {n:"石牙",role:"力氣最大的那隻",lv:"F",want:"安定下來",knack:"耐力",face:"老實、話少",secret:"",inst:"群聚",rel:"無視",r:0,cap:3,where:"灰岩洞"},
       {n:"小眼",role:"最瘦小的母哥布林",lv:"F",want:"逃出去",knack:"注意細節的眼睛",face:"機靈、膽小",secret:"",inst:"恐懼",rel:"警戒",r:-1,cap:3,where:"灰岩洞"}
     ],
-    chap:1, world:worldInit(), at:"灰岩洞", party:[], evo:null, war:null, sub:null, evoReady:null, beaten:[], gone:[], mat:{}, region:"灰岩洞周邊", factions:fixFac({factions:JSON.parse(JSON.stringify(FACTIONS0))}).factions,
+    chap:1, world:w, sites, expl:{}, at:"灰岩洞", party:[], evo:null, war:null, sub:null, evoReady:null, beaten:[], gone:[], mat:{}, region:"灰岩洞周邊", factions:fixFac({factions:JSON.parse(JSON.stringify(FACTIONS0))}).factions,
     log:[], opts:[], err:null
   };
 }

@@ -40,6 +40,11 @@ function menuSeed(k,arg){
   }
   if(k==="explore"){
     const hid=hiddenOf(S.at), from=S.at;
+    const rg0=(S.world[from]||{}).region; S.expl=S.expl||{};
+    if(rg0&&S.sites){S.expl[rg0]=(S.expl[rg0]||0)+1;
+      const sd=S.sites.find(x=>!x.found&&x.region===rg0&&S.expl[rg0]>=x.need);
+      if(sd){sd.found=true;const nd=S.world[sd.n],h=rint(1,3);nd.links[from]=h;S.world[from].links[sd.n]=h;
+        return {label:`探索：${from}附近`,prompt:`【這段要發生的事（程序抽到的，照這個寫）】你在${rg0}一帶探索了很久，終於找到了黑顎提過、但誰也沒去過的地方：${sd.n}（${nd.kind}）。${nd.note?`那裡的情況：${nd.note}`:""}寫出第一次遠遠看到它的樣子（不要寫進去，也不要寫戰鬥；裡面的人怎麼看你，等玩家靠近再說）。loc 填「${sd.n}」。`,hours:Math.max(2,h),node:sd.n,from,reveal:true}}}
     if(hid.length&&Math.random()<0.65){
       const to=rnd(hid), nd=S.world[to], h=nd.links[from]||2, rg=REGIONS.find(r=>r.n===nd.region)||reg;
       const good=Math.random()<0.6, what=good?rnd(rg.find):rnd(rg.danger);
