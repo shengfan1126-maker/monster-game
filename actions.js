@@ -36,7 +36,7 @@ function menuSeed(k,arg){
   const reg=regionOf();
   if(k==="raid"){
     const at=S.at, nd=S.world[at]||{};
-    return {label:`突襲${at}`,prompt:`【這段要發生的事（程序抽到的，照這個寫）】你決定突襲${at}（${nd.kind}）。${nd.note?`那裡的情況：${nd.note}`:""}這是一場主動進攻的關鍵戰：一定要出判定卡（check），what 寫「突襲${at}」，foe 填「${at}的守衛」，foeLv 照${S.lv}級到${GRADES[Math.min(6,gIdx(S.lv)+1)]}級之間，不要直接寫結果。`,hours:4};
+    return {label:`突襲${at}`,prompt:`【這段要發生的事（程序抽到的，照這個寫）】你決定突襲${at}（${nd.kind}）。${nd.note?`那裡的情況：${nd.note}`:""}這是一場主動進攻的關鍵戰：一定要出判定卡（check），what 寫「突襲${at}」，foe 填「${at}的守衛」，foeLv 填${GRADES[Math.min(6,gIdx(S.lv)+(/大哥布林|獸人|食人魔|人類|矮人|精靈/.test(at)?2:1))]}級（比你高）；守衛是一整群，對你劣勢 1 層（dis 要寫）；這是關鍵戰，至少要付 2 項代價；不要直接寫結果，也不要讓一次判定就打垮整個營地。`,hours:4};
   }
   if(k==="hunt"){
     const {sp,grp,lv,cls}=pickPrey(reg), many=/群|兩|一隊|一群|幾/.test(grp||"");
@@ -573,23 +573,26 @@ function drinkPotion(i){
 let FGW=-1, FGM=-1;
 const hasSmith=()=>(S.nest&&S.nest.lv&&facOn("鍛冶台"))||S.party.some(p=>/匠|鍛|鐵|鑄/.test(`${p.n||""}${p.knack||""}${p.role||""}${p.kind||""}`))||(S.npcs||[]).some(x=>x.where==="巢穴"&&/匠|鍛|鐵|鑄/.test(`${x.n||""}${x.role||""}${x.knack||""}`));
 const forgeWeapons=()=>S.items.map((n,i)=>({n,i,m:matOf(n)})).filter(x=>(!x.m&&GEAR_RE.test(x.n)&&!POTION(x.n))||(x.m&&x.m.skill));
-const forgeMats=()=>S.items.map((n,i)=>({n,i,m:matOf(n)})).filter(x=>x.m&&!x.m.skill);
+const forgeMats=()=>S.items.map((n,i)=>({n,i,m:matOf(n)})).filter(x=>x.m);   // 魔法原料或魔法物品都可以當原料（魔法物品會被消耗）
 function forgePlan(wi,mi){
   const wn=S.items[wi], mn=S.items[mi];
-  if(wn==null||mn==null)return {ok:false,text:"選一件武器和一份魔法原料。"};
+  if(wn==null||mn==null)return {ok:false,text:"先選好裝備和原料，結果會顯示在這裡。"};
+  if(wi===mi)return {ok:false,text:"裝備和原料不能是同一件。"};
   const wm=matOf(wn), mm=matOf(mn), tg=capItemLv(mm.lv), sm=hasSmith();
   if(!wm)return {ok:true,hours:sm?2:6,tg,text:`「${wn}」＋「${mn}」→ 魔法武器 ${tg} 級，附帶技能從${cleanName(mm.sp)}的技能池抽一個。${sm?"有工匠幫忙，2 小時。":"沒有工匠，自己來要 6 小時。"}`};
   if(gIdx(tg)<=gIdx(wm.lv))return {ok:false,text:`原料（${mm.lv} 級${gIdx(tg)<gIdx(mm.lv)?`，受等級上限只能算 ${tg} 級`:""}）沒有比「${wn}」（${wm.lv} 級）高，升不了級。`};
   return {ok:true,hours:sm?4:12,tg,text:`「${wn}」${wm.lv} 級＋「${mn}」→ ${tg} 級，附帶「${wm.skill.n}」不變。${sm?"有工匠幫忙，4 小時。":"沒有工匠，自己來要 12 小時。"}`};
 }
 const forgeHTML=()=>{
-  const ws=forgeWeapons(), ms=forgeMats(); if(!ws.length||!ms.length)return "";
+  const ws=forgeWeapons(), ms=forgeMats();
   if(!ws.some(x=>x.i===FGW))FGW=-1; if(!ms.some(x=>x.i===FGM))FGM=-1;
-  const plan=forgePlan(FGW,FGM);
-  return `<div class="sacbox" style="margin:8px 0"><label>鍛造：把魔法原料做進武器</label>
-    <select id="fgw"><option value="">選武器…</option>${ws.map(x=>`<option value="${x.i}"${x.i===FGW?" selected":""}>${esc(x.n)}${x.m?`（✦${x.m.lv}級・${esc(x.m.skill.n)}）`:"（普通）"}</option>`).join("")}</select>
-    <select id="fgm"><option value="">選原料…</option>${ms.map(x=>`<option value="${x.i}"${x.i===FGM?" selected":""}>${esc(x.n)}（${x.m.lv}級）</option>`).join("")}</select>
-    <div class="note">${esc(plan.text)}</div>${plan.ok?`<button class="paybtn" id="fgdo">鍛造（${plan.hours} 小時）</button>`:""}</div>`;
+  const plan=forgePlan(FGW,FGM), ready=plan.ok&&FGW>=0&&FGM>=0;
+  return `<div class="sacbox" style="margin:8px 0"><label>鍛造：三步——選裝備、選原料、確認組合</label>
+    <div style="display:grid;grid-template-columns:1fr;gap:6px">
+    <div><div class="k" style="font-size:12px">① 裝備（白字武器防具，或要升級的魔法武器）</div><select id="fgw"><option value="">${ws.length?"選裝備…":"（沒有可用的裝備）"}</option>${ws.map(x=>`<option value="${x.i}"${x.i===FGW?" selected":""}>${esc(x.n)}${x.m?`（✦${x.m.lv}級${x.m.skill?"・"+esc(x.m.skill.n):""}）`:"（普通）"}</option>`).join("")}</select></div>
+    <div><div class="k" style="font-size:12px">② 原料（魔法原料，或拿一件魔法物品來拆）</div><select id="fgm"><option value="">${ms.length?"選原料…":"（沒有魔法原料或魔法物品）"}</option>${ms.map(x=>`<option value="${x.i}"${x.i===FGM?" selected":""}>${esc(x.n)}（${x.m.lv}級${x.m.skill?"・"+esc(x.m.skill.n):""}）</option>`).join("")}</select></div>
+    <div><div class="k" style="font-size:12px">③ 結果</div><div class="note" style="margin:0">${esc(plan.text)}</div></div></div>
+    <button class="paybtn" id="fgdo"${ready?"":" disabled"}>${ready?`確認組合・開始鍛造（${plan.hours} 小時）`:"確認組合（先選好裝備和原料）"}</button></div>`;
 };
 async function forge(){
   if(busy||S.dead||skBusy())return;

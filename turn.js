@@ -266,7 +266,7 @@ function gains(a,big,notes,guard){
     else if(x&&relOf(x)<2&&!a.ooc)notes.push(`${x.n}對你還只是「${REL[relOf(x)+2]}」，要到「信賴」才會答應跟你走。`);
     else{if(x){x.r=Math.max(relOf(x),3);x.rel="追隨";x.captive=false}recruit({...a.recruit,name:x?x.n:a.recruit.name,kind:x?(raceOf(x.role)||a.recruit.kind):a.recruit.kind},notes)}}
   (a.untag||[]).forEach(x=>{const t=S.tags.find(y=>y===x||y.includes(x)||x.includes(y));if(t&&!/幼體|飢餓|瀕死|殘缺/.test(t)){delTag(t);notes.push(`【${t}】解除`)}});
-  const eatenNames=S.eaten.slice(0,12).map(x=>x.what);
+  const eatenNames=S.eaten.slice(0,12).map(x=>x.what); let plainN=0; const plainMax=RAIDNOW?1:3;   // 一次最多帶走幾件普通物品（掠奪的魔法物品由程式另外給）
   (a.found||[]).filter(x=>!S.items.includes(x)&&!eatenNames.includes(x)&&!S.corpses.some(c=>c.name===x)).forEach(x=>{
     let m=a.mats&&a.mats[x], fromCorpse=false;
     if(m&&!m.skill){const c=S.corpses.find(c=>!c.evo&&(x.includes(cleanName(c.name))||String(m.sp).includes(cleanName(c.name))));
@@ -277,7 +277,7 @@ function gains(a,big,notes,guard){
     if(m&&MUNDANE.test(x))m=null;
     if(m&&!fromCorpse&&gIdx(m.lv)>gIdx(capItemLv(m.lv))){notes.push(`（${x}的等級被壓到 ${capItemLv(m.lv)} 級：魔法物品最多比你高一級）`);m.lv=capItemLv(m.lv)}                           // 金幣袋、文件、食物之類，就算模型填了技能也只是普通物品
     if(m){S.items.push(x);S.mat[x]=m;notes.push(`得到 ✦${x}（${m.skill?`魔法物品，附帶「${m.skill.n}」`:"魔法原料"}・${m.lv}級）`)}
-    else receive(x,notes)});
+    else{if(plainN>=plainMax){notes.push(`（${x}帶不走，留在原地）`);return}plainN++;receive(x,notes)}});
   (a.equip||[]).forEach(q=>equipAlly(q.who,q.item,q.off,notes));
   if(a.chief&&S.stage==="成體")becomeChief(notes);
 }
@@ -326,7 +326,9 @@ function applyAlt(e){
     const c=e.job.ctx;
     if(a.defeated)applyDefeat(a.defeated,notes,c.tier==="大成功",c.won);
     a.askFoe=!a.defeated&&!a.capture&&c.tier!=="失敗"&&c.foe&&FIGHT.test(c.what)?{name:c.foe,lv:c.foeLv||"F",cls:c.boss||null}:null;   // 成功卻沒寫對手怎麼了：問玩家
+    RAIDNOW=RAID_RE.test(c.what||"");
     gains(a,c.tier==="大成功",notes,c.tier!=="失敗"?{paid:c.paid||[]}:null);
+    RAIDNOW=false;
     raidLoot(c,notes);
     if(c.tier!=="失敗"&&/狩獵|獵殺|捕獵|打獵/.test(c.what||"")&&(S.nest.pop||0)>=4){S.nest.food=(S.nest.food||0)+1;notes.push("多打到一份獵物，直接送進巢穴存糧（+1）。")}   // 營地人多了，狩獵多給一份
     if(a.tag){addTag(a.tag);notes.push(`【${a.tag}】`)}
