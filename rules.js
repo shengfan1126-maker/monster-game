@@ -88,10 +88,20 @@ const skillMp=ch=>ch&&ch.useSk&&!/（.+）$/.test(ch.useSk)?1:0;
 /* 同伴幫忙算的優勢最多 1 條（同伴再多也一樣），其他優勢照算 */
 const isAllyAdv=x=>S.party.some(p=>p.n&&String(x).includes(p.n))||/同伴|夥伴|隊友|幫手|協助|聯手/.test(String(x));
 const advList=ch=>{let seen=0;return (ch.adv||[]).filter(x=>!isAllyAdv(x)||++seen===1)};
+/* 程序加的劣勢（v0.34）：幼體空手一打一；同行的同伴空手（逼玩家替同伴裝備）。只在有對手的判定算 */
+const allyArmed=p=>!!p.gear||(p.hold||[]).some(h=>GEAR_RE.test(h));
+const meArmed=()=>S.items.some(n=>GEAR_RE.test(n)&&!POTION(n));
+function autoDis(ch){
+  if(!ch||!ch.foe)return [];
+  const out=[], withs=S.party.filter(p=>p.with);
+  if(S.stage==="幼體"&&!meArmed()&&!withs.length)out.push("你還是幼體、手上沒有武器，一打一連同級的也打不過");
+  withs.forEach(p=>{if(!allyArmed(p))out.push(`${p.n}空著手：容易被圍毆、陷入困境（給牠一把武器）`)});
+  return out;
+}
 function checkInfo(ch){
   const lvDiff=ch.foeLv?Math.max(0,gIdx(ch.foeLv)-gIdx(S.lv)):0;
   const crit=!!(ch.war||ch.raid);                          // 關鍵戰（進化戰、討伐戰）：至少要付 1 項代價、傷害 ×1.5
-  const net0=advList(ch).length+(ch.useSk&&!skUsed(ch.useSk)&&!weakSk(ch)&&S.mp>=skillMp(ch)?1:0)+(ch.useItem&&S.items.includes(ch.useItem)?1:0)-ch.dis.length-lvDiff, net=crit?Math.min(net0,0):net0;
+  const net0=advList(ch).length+(ch.useSk&&!skUsed(ch.useSk)&&!weakSk(ch)&&S.mp>=skillMp(ch)?1:0)+(ch.useItem&&S.items.includes(ch.useItem)?1:0)-ch.dis.length-autoDis(ch).length-lvDiff, net=crit?Math.min(net0,0):net0;
   const need=Math.max(0,1-net), big=need+1;
   const d=Math.ceil(dmgOf(ch.foeLv)*(crit?1.5:1)), fight=!!ch.foe, stalled=fight&&S.fightDelay&&S.fightDelay===ch.foe;
   const half=Math.ceil(S.mpMax/2), skMp=skillMp(ch);

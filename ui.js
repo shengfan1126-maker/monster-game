@@ -87,7 +87,7 @@ function foeFate(k){
 function pendingCands(){const e=S.log[S.log.length-1];return e&&e.kind==="devour"&&e.alts[0].cands&&e.alts[0].cands.length?e.alts[0].cands:null}
 function checkHTML(ch){
   const ci=checkInfo(ch);
-  const lay=[...(ch.useSk?[weakSk(ch)?`<span class="dis">－ 「${esc(ch.useSk)}」等級低於對手，視同白字，沒有效果（硬用會壞）</span>`:`<span class="adv">＋ 用「${esc(ch.useSk)}」</span>`]:[]),...advList(ch).map(x=>`<span class="adv">＋ ${esc(x)}</span>`),...ch.dis.map(x=>`<span class="dis">－ ${esc(x)}</span>`),
+  const lay=[...(ch.useSk?[weakSk(ch)?`<span class="dis">－ 「${esc(ch.useSk)}」等級低於對手，視同白字，沒有效果（硬用會壞）</span>`:`<span class="adv">＋ 用「${esc(ch.useSk)}」</span>`]:[]),...advList(ch).map(x=>`<span class="adv">＋ ${esc(x)}</span>`),...ch.dis.map(x=>`<span class="dis">－ ${esc(x)}</span>`),...autoDis(ch).map(x=>`<span class="dis">－ ${esc(x)}</span>`),
     ...(ci.lvDiff?[`<span class="dis">－ 對方高你 ${ci.lvDiff} 級</span>`]:[])].join("");
   const war=ch.war&&S.war, raid=ch.raid&&S.raid;
   const sacs=war||raid?[["","不舍身"],["hp","HP 上限 -5"],["maim","留下【殘缺】"],...S.skills.filter(x=>x.sys!=="Unique").map(x=>[`sk:${x.n}`,`失去技能「${x.n}」`])]:[];
@@ -183,6 +183,7 @@ function storyHTML(){
     const evoCard=S.evo?`<div class="check war evo"><h3>進化戰</h3><div class="note">存在值已滿，不會再增加。期限：${hStr(S.evo.due)}（還有 ${left} 小時）。逾期，其中一名會主動找上門。單挑，同伴不能插手；共 5 個階段。</div>
       ${S.evo.cands.map((f,i)=>`<div class="foe"><div><b>${esc(f.name)}</b><span>${esc(f.kind)}・${f.lv}級・${esc(f.where)}</span><div class="d">${esc(f.note)}</div></div><button class="tl" data-war="${i}">挑戰</button></div>`).join("")}</div>`:"";
     bottom=`${evoCard}${opts}
+      ${S.stage==="幼體"?`<div class="note" style="margin:6px 0">你還是幼體：身體太弱，只能待在洞裡找吃的。現在出巢穴，會被疤臉或別的什麼打死。長成成體（連著吃到新鮮的肉、過幾天）才能出去。幼體沒有武器的時候，一打一連同級的對手也吃虧，要靠同伴或武器。</div>`:""}
       <div class="menu">${menu}</div>
       ${TRAVEL?`<div class="exits"><div class="k">從${esc(S.at)}可以去：</div>${exitsOf(S.at).map(([n,h])=>`<button class="tl" data-go="${esc(n)}">${S.world[n].kind==="地區"?"":"📍"}${esc(n)}・${h}h</button>`).join("")}${hiddenOf(S.at).length?`<div class="note">這裡還有 ${hiddenOf(S.at).length} 個方向沒探索過。</div>`:""}</div>`:""}
       <div class="free">
@@ -278,6 +279,7 @@ function track(k,label,list,v){
 let ASD="";
 function partyHTML(){
   const rows=S.party.map((p,k)=>`<div class="npc"><div class="h"><b>${esc(p.n)}</b><span>${esc(p.kind)}・${p.lv} 級${p.knack?`・本事：${esc(p.knack)}`:""}</span></div>
+      ${!allyArmed(p)?`<div class="d" style="color:var(--bad,#c33)">空著手：${p.with?"跟著你戰鬥時，判定會多一項劣勢（容易被圍毆）":"他出門跟你戰鬥時，判定會多一項劣勢"}。把武器（背包裡的白字武器或魔法武器）交給牠。</div>`:""}
       <div class="d">${p.skills.length?p.skills.map((x,j)=>`${esc(x.n)}（${esc(x.g||p.lv)}級）<button class="tl" data-as="${k}|${j}">${ASD===k+":"+j?"確定忘掉？":"忘掉"}</button>`).join("　"):"還沒有技能"}${p.tags.length?`　【${p.tags.map(esc).join("】【")}】`:""}</div>
       ${p.note?`<div class="d" style="color:var(--mute)">${esc(p.note)}</div>`:""}
       <div class="pbtn"><button class="tl" data-pw="${k}">${p.with?"同行中 → 留在巢穴":p.fac?`在〔${esc(p.fac)}〕工作`:"留在巢穴 → 帶在身邊"}</button>${p.fac?`<button class="tl" data-pf="${k}">離開設施</button>`:p.noFac&&!p.with?`<button class="tl" data-pf="${k}">回去顧設施</button>`:""}<button class="tl" data-pq="${k}">${PQ===k?"確定讓牠離開？":"離隊"}</button><button class="tl" data-rn="${k}">改名</button></div>
