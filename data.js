@@ -50,7 +50,7 @@ const clsOf=s=>FN_CLS[fnOf(s)]||"生存";
 const realSk=()=>S.skills.filter(s=>!isUq(s));
 const boxList=b=>realSk().filter(s=>(s.box||"act")===b);
 const DMG=[3,5,8,12,17,23,30];
-const dmgOf=lv=>DMG[gIdx(lv||"F")];                 // 對手打你一下：F 3、E 5、D 8、C 12…
+const dmgOf=lv=>Math.max(1,DMG[gIdx(lv||"F")]-(typeof allyShield==="function"&&S?allyShield():0));                 // 對手打你一下：F 3、E 5、D 8、C 12…
 const existGain=lv=>Math.max(0,1+gIdx(lv||"F")-gIdx((S&&S.lv)||"F"));
 const existMax=lv=>10*2**gIdx(lv||"F");   // 存在值上限：F 10、E 20、D 40、C 80、B 160、A 320、S 640
 const rnd=a=>a[Math.floor(Math.random()*a.length)];

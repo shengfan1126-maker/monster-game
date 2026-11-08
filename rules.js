@@ -87,7 +87,7 @@ const weakSk=ch=>{const n=ch&&itemOfSk(ch.useSk),m=n&&matOf(n);return !!(m&&ch.f
 const skillMp=ch=>ch&&ch.useSk&&!/（.+）$/.test(ch.useSk)?1:0;
 /* 同伴幫忙算的優勢最多 1 條（同伴再多也一樣），其他優勢照算 */
 const isAllyAdv=x=>S.party.some(p=>p.n&&String(x).includes(p.n))||/同伴|夥伴|隊友|幫手|協助|聯手/.test(String(x));
-const advList=ch=>{let seen=0;return (ch.adv||[]).filter(x=>!isAllyAdv(x)||++seen===1)};
+const advList=ch=>(ch.adv||[]).filter(x=>!isAllyAdv(x));   // v0.36：同伴的幫忙不再算優勢，改成在場減傷＋能力（見 actions.js「同伴成長」）
 /* 程序加的劣勢（v0.34）：幼體空手一打一；同行的同伴空手（逼玩家替同伴裝備）。只在有對手的判定算 */
 const allyArmed=p=>!!p.gear||(p.hold||[]).some(h=>GEAR_RE.test(h));
 const meArmed=()=>S.items.some(n=>GEAR_RE.test(n)&&!POTION(n));
@@ -101,7 +101,7 @@ function autoDis(ch){
 function checkInfo(ch){
   const lvDiff=ch.foeLv?Math.max(0,gIdx(ch.foeLv)-gIdx(S.lv)):0;
   const crit=!!(ch.war||ch.raid);                          // 關鍵戰（進化戰、討伐戰）：至少要付 1 項代價、傷害 ×1.5
-  const net0=advList(ch).length+(ch.useSk&&!skUsed(ch.useSk)&&!weakSk(ch)&&S.mp>=skillMp(ch)?1:0)+(ch.useItem&&S.items.includes(ch.useItem)?1:0)-ch.dis.length-autoDis(ch).length-lvDiff, net=crit?Math.min(net0,0):net0;
+  const net0=advList(ch).length+(ch.useSk&&!skUsed(ch.useSk)&&!weakSk(ch)&&S.mp>=skillMp(ch)?1:0)+(ch.useItem&&S.items.includes(ch.useItem)?1:0)+(allyAbOn(ch)==="增傷"?1:0)-ch.dis.length-autoDis(ch).length-lvDiff, net=crit?Math.min(net0,0):net0;
   const need=Math.max(0,1-net), big=need+1;
   const d=Math.ceil(dmgOf(ch.foeLv)*(crit?1.5:1)), fight=!!ch.foe, stalled=fight&&S.fightDelay&&S.fightDelay===ch.foe;
   const half=Math.ceil(S.mpMax/2), skMp=skillMp(ch);
@@ -187,8 +187,7 @@ function pickSub(j){
   S.log.push({who:"you",text:`進化方向：${sb.name}`,pre});
   const hn=[]; heatAdd(2,"巢穴之主又變強了",hn);
   S.lv=nextLv(); S.hpMax+=10; S.mpMax+=5; S.hp=S.hpMax; S.mp=S.mpMax; S.exist=0; S.sub=sb; S.evoReady=null; S.evo=null; S.war=null;
-  if(S.party.some(p=>!p.named))S.nameEvo=true;
-  S.tags=S.tags.filter(t=>!TEMP(t)); S.party.forEach(p=>p.lv=allyLv());
+  S.tags=S.tags.filter(t=>!TEMP(t)); 
   const an=[]; fillAct(an);   // 可用位置變多：倉庫的技能自動補上來
   S.log.push(sysEntry([`〈系統〉《世界之聲》：「個體『${S.name}』進化完成：${old}→${S.lv}。種族：${sb.name}。」`,
     `身體在一陣劇痛裡重新長了一遍。${sb.look}`,`HP 上限 ${oh}→${S.hpMax}、MP 上限 ${om}→${S.mpMax}，全部回滿。可用技能 ${boxCap(S.lv)[0]} 個、倉庫 ${boxCap(S.lv)[1]} 個。存在值歸零，下一次進化需要 ${existMax(S.lv)}。`,...an,

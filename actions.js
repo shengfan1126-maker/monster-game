@@ -228,6 +228,33 @@ function learnFor(j,k){
   S.log.push(sysEntry(`你把湧上來的力量分了出去。\n${line}`)); save(); render();
   if(S.evoReady)evolve();
 }
+/* ═════════ 同伴成長（v0.36）═════════
+   存在值：留在巢穴打獵每天 +1，跟著你協助一次 +2，滿 20 進化（第一次進化取名選職業；等級 +1，存在值歸零）。
+   同伴最高等級＝主角等級 −1（最低 F）；低於這個等級就上不了戰場。上得了戰場的同伴在場就永久減傷 −1（兩個 −2）。
+   同伴的能力一天全隊合計 2 次：戰士＝防禦（替你吃這次的 HP 代價，自己【負傷】）、法師＝增傷（多一層優勢）、祭司＝治療（回 50% HP，一天一次）。 */
+const EVO_PTS=20;
+const allyElig=p=>!!p.with&&!p.tags.includes("重傷")&&gIdx(p.lv)>=gIdx(allyLv());
+const allyShield=()=>S&&S.party?Math.min(2,S.party.filter(allyElig).length):0;
+const ABIL={"戰士":"防禦","法師":"增傷","祭司":"治療"};
+const allyAbOf=p=>p.named&&p.dir&&ABIL[p.dir]||null;
+const allyUses=()=>S.allyUsed||0;
+function allyAbOn(ch){
+  if(!ch||!ch.allyAb||allyUses()>=2)return null;
+  const p=S.party.find(x=>x.n===ch.allyAb); return p&&allyElig(p)&&allyAbOf(p)&&allyAbOf(p)!=="治療"?allyAbOf(p):null;
+}
+function allyXp(p,n,notes){
+  if(gIdx(p.lv)>=gIdx(allyLv())&&!p.ready){p.xp=Math.min(EVO_PTS,(p.xp||0)+n);return}   // 已經到頂：點數先存著，主角進化後再用
+  p.xp=Math.min(EVO_PTS,(p.xp||0)+n);
+  if(p.xp>=EVO_PTS&&gIdx(p.lv)<gIdx(allyLv())){
+    if(p.named){p.lv=GRADES[gIdx(p.lv)+1];p.xp=0;notes&&notes.push(`${p.n}進化了：${p.lv} 級，存在值歸零。`)}
+    else if(!p.ready){p.ready=true;notes&&notes.push(`${p.n}的存在值湊滿了，可以進化。到主畫面取名、選職業。`)}
+  }
+}
+function allyHeal(k){
+  const p=S.party[k]; if(!p||busy||S.dead||!allyElig(p)||allyAbOf(p)!=="治療"||S.healDay===S.day||allyUses()>=2)return;
+  const g=Math.min(S.hpMax-S.hp,Math.ceil(S.hpMax/2)); S.healDay=S.day; S.allyUsed=allyUses()+1; S.hp+=g;
+  S.log.push(sysEntry(`${p.n}替你治療：HP +${g}（今天同伴能力還剩 ${2-S.allyUsed} 次）。`)); save();render();
+}
 const maxSk=a=>5;   // v0.32：同伴技能最多 5 個，滿了由主角放棄再學
 const allyCan=(a,p)=>{const s=a.skills.find(x=>x.n===p.n);return s?gIdx(s.g)<gIdx(a.lv):a.skills.length<maxSk(a)};
 const DIRS={"戰士":{sys:/武技|天生/,skill:{n:"劍術",sys:"武技"}},"斥候":{sys:/暗|風|意圖/,skill:{n:"追蹤",sys:"意圖"}},"法師":{sys:/火|水|風|土|光|暗/,skill:{n:"火花",sys:"火"}},"工匠":{sys:/意圖|土/,skill:{n:"手巧",sys:"意圖"}},"祭司":{sys:/光|水/,skill:{n:"治癒",sys:"光"}}};
@@ -253,7 +280,8 @@ function nameEvolve(k,name,dir){
   p.kind0=p.kind0||p.kind; p.kind=`${p.kind0}${dir}`; p.dir=dir; p.named=true;
   const sk=DIRS[dir].skill; if(!p.skills.some(x=>x.n===sk.n))p.skills.push({...sk,g:p.lv});
   notes.push(`〈系統〉《世界之聲》：「${p.n} 進化為 ${p.kind}。」`,`${p.n}習得 ${sk.n}（${p.lv}級・${sk.sys}）。之後給牠「${dir}」對路的技能會長得比較快。`);
-  S.nameEvo=false; S.log.push(sysEntry(notes.join("\n"))); save(); render();
+  p.lv=GRADES[gIdx(p.lv)+1]||p.lv; p.xp=0; p.ready=false; notes.push(`${p.n}升到 ${p.lv} 級，存在值歸零。`);
+  S.log.push(sysEntry(notes.join("\n"))); save(); render();
 }
 function learn(j){
   const L=S.log, e=L[L.length-1]; if(busy||!e||e.kind!=="devour")return;
@@ -353,7 +381,10 @@ function pay(sel,sac){
     S.items=S.items.filter(x=>x!==wn);delete S.mat[wn];S.party.forEach(p=>{if(p.gear===wn){p.gear=null;p.gearMat=null}});
     notes.push(`✦${wn}（${wl}級）撐不住 ${ch.foeLv} 級的對手，碎掉了，沒辦法修復。`)}
   if(skMp&&S.mp>=skMp){S.mp-=skMp;notes.push(`用「${ch.useSk}」：MP -${skMp}`)}
-  chosen.forEach(c=>applyCost(c,notes)); if(sac)sacDo(sac,notes);
+  const ab=allyAbOn(ch), abP=ab&&S.party.find(x=>x.n===ch.allyAb);
+  if(abP){S.allyUsed=allyUses()+1;notes.push(`${abP.n}幫忙（${ab}）：今天同伴能力還剩 ${2-S.allyUsed} 次。`)}
+  chosen.forEach(c=>{if(ab==="防禦"&&c.hp&&abP){woundAlly(abP.n,notes);notes.push(`${abP.n}替你擋下這一下（HP 沒扣）。`);const c2={...c};delete c2.hp;applyCost(c2,notes)}else applyCost(c,notes)}); if(sac)sacDo(sac,notes);
+  if(!ch.local&&!ch.war&&ch.foe)S.party.filter(allyElig).forEach(p=>allyXp(p,2,notes));
   const stall=!!ch.foe&&!ch.war&&!ch.raid&&chosen.some(c=>c.time);
   if(stall)S.fightDelay=ch.foe;
   if(notes.length)S.log.push(sysEntry(notes.join("　")));

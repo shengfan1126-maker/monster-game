@@ -101,6 +101,7 @@ function checkHTML(ch){
   const sks=boxList("act").map(x=>({v:x.n,t:`${x.n}（${x.sys}・${x.g}）MP -1${skUsed(x.n)?"・今天已用":""}`,off:S.mp<1||skUsed(x.n)}));
   S.items.forEach(n=>{const m=matOf(n);if(m&&m.skill){const k=`${m.skill.n}（${n}）`, weak=ch.foeLv&&gIdx(m.lv)<gIdx(ch.foeLv);sks.push({v:k,t:`${m.skill.n}（✦${n}・${m.lv}級）${skUsed(k)?"・今天已用":weak?`・等級低於對手(${ch.foeLv})，沒效果，硬用會壞`:""}`,off:skUsed(k)})}});
   const ones=oneShots(), itBox=ones.length?`<div class="sacbox"><label>用掉一件普通武器防具（多一層優勢，用完就沒了）</label><select id="itemsel"><option value="">不用</option>${ones.map(n=>`<option value="${esc(n)}"${ch.useItem===n?" selected":""}>${esc(n)}</option>`).join("")}</select></div>`:"";
+  const abs=S.party.filter(p=>allyElig(p)&&allyAbOf(p)&&allyAbOf(p)!=="治療"), abBox=abs.length?`<div class="sacbox"><label>同伴幫忙（今天全隊還能用 ${Math.max(0,2-allyUses())} 次）</label><select id="allysel"><option value="">不用</option>${abs.map(p=>`<option value="${esc(p.n)}"${ch.allyAb===p.n?" selected":""}${allyUses()>=2?" disabled":""}>${esc(p.n)}：${allyAbOf(p)}${allyAbOf(p)==="增傷"?"（多一層優勢）":"（替你吃 HP 代價，自己負傷）"}</option>`).join("")}</select></div>`:"";
   const skBox=sks.length?`<div class="sacbox"><label>用哪個技能（多一層優勢，一次一個；自己的技能 MP -1，魔法物品的不用）</label><select id="skillsel"><option value="">不用技能</option>${sks.map(x=>`<option value="${esc(x.v)}"${ch.useSk===x.v?" selected":""}${x.off?" disabled":""}>${esc(x.t)}</option>`).join("")}</select></div>`:"";
   return `<div class="check${war||raid?" war":""}">
     <h3>${raid?`討伐戰 ${ch.raid.stage}/${ch.raid.of}・${esc(S.raid.name)}：`:war?`進化戰 ${ch.war.stage}/5・${esc(S.war.foe.name)}：`:ch.multi?`連戰 ${ch.multi.n}/${ch.multi.of}・${ch.multi.cls?"小頭目 ":""}${esc(ch.foe)}：`:"判定："}${esc(ch.what)}</h3>
@@ -108,7 +109,7 @@ function checkHTML(ch){
     ${lay?`<div class="lay">${lay}</div>`:""}
     <div class="need">付 <b>${ci.need}</b> 項成功・付 <b>${ci.big}</b> 項大成功${ci.need===0?"（不付也會成功）":""}<br><small>虛線框的通用代價一次只能選一項${ci.stalled?"；這場已經拖過一次，不能再拖":""}</small></div>
     <div class="costs">${ci.costs.map((c,i)=>`<label class="cost${c.g?" gen":""}"><input type="checkbox" data-c="${i}"><span>${esc(c.t)}${c.g?"":effOf(c)}</span></label>`).join("")}</div>
-    ${skBox}${itBox}${warBox}
+    ${skBox}${itBox}${abBox}${warBox}
     <button class="paybtn" id="paybtn">付出 0 項：${tierOf(0,ci)}</button>
   </div>`;
 }
@@ -162,8 +163,8 @@ function storyHTML(){
   else if(pf) bottom=`<div class="check"><h3>${esc(pf.name)}怎麼了？</h3><div class="note" style="margin-bottom:8px">判定成功了，但故事沒寫清楚${esc(pf.name)}的下場。照你讀到的選一個，程序才知道要不要留屍體、給存在值。</div>
       <div class="cands"><button class="opt" data-fate="dead">牠死了（留下屍體）</button><button class="opt" data-fate="fled">牠逃了或投降了（還活著）</button>${HUMANOID.test(pf.name)?`<button class="opt" data-fate="cap">打昏了，帶回巢穴當俘虜</button>`:""}<button class="opt" data-fate="up">牠還站著</button></div></div>`;
   else if(!busy&&!S.err&&pendingSubs()) bottom=`<div class="check"><h3>選擇進化方向</h3><div class="cands">${pendingSubs().map((x,j)=>`<button class="opt" data-sub="${j}"><b>${esc(x.name)}</b><span class="cs">${esc(x.essence)}</span><span class="cs">${esc(x.look)}</span></button>`).join("")}</div></div>`;
-  else if(!busy&&!S.err&&S.nameEvo&&S.party.some(p=>!p.named)){const can=S.party.map((p,k)=>[p,k]).filter(([p])=>!p.named);if(!can.some(([p,k])=>k===NE.k))NE.k=can[0][1];
-    bottom=`<div class="check"><h3>命名進化</h3><div class="note">你進化了。可以替一名同伴取名，讓牠一起進化、選一個方向。</div>
+  else if(!busy&&!S.err&&S.party.some(p=>!p.named&&p.ready)){const can=S.party.map((p,k)=>[p,k]).filter(([p])=>!p.named&&p.ready);if(!can.some(([p,k])=>k===NE.k))NE.k=can[0][1];
+    bottom=`<div class="check"><h3>命名進化</h3><div class="note">同伴的存在值湊滿了，可以進化：取個名字、選一個職業方向。進化後存在值歸零。</div>
       <div class="sacbox"><label>誰</label><select id="nek">${can.map(([p,k])=>`<option value="${k}"${k===NE.k?" selected":""}>${esc(p.n)}（${esc(p.kind)}）</option>`).join("")}</select>
       <label>新名字（不改就留空）</label><input id="nen" maxlength="10" value="${esc(NE.name)}" placeholder="${esc(S.party[NE.k].n)}" style="font:inherit;padding:7px;border:1px solid var(--line);border-radius:5px;background:var(--card);color:var(--ink)">
       <label>方向</label><select id="ned">${Object.keys(DIRS).map(d=>`<option${d===NE.dir?" selected":""}>${d}</option>`).join("")}</select></div>
@@ -222,7 +223,7 @@ function bindStory(){
   on("raidflee",()=>moveNest($("fleeto").value,true));
   on("raidcont",()=>{const r=S.raid;if(!r||busy)return;const half=Math.floor(r.of/2)+1;doJob({kind:"raid",ctx:{stage:r.stage,end:r.fails>=half?"lose":(r.wins>=half||r.stage>r.of)?(r.wins>r.fails?"win":"lose"):null}},snap(),S.log.length)});
   {const k=$("nek");if(k){k.onchange=()=>{NE.k=+k.value;render()};$("nen").oninput=e=>NE.name=e.target.value;$("ned").onchange=e=>NE.dir=e.target.value;
-    $("neok").onclick=()=>{nameEvolve(NE.k,$("nen").value.trim(),$("ned").value);NE={k:0,dir:"戰士",name:""}};$("neno").onclick=()=>{S.nameEvo=false;save();render()}}}
+    $("neok").onclick=()=>{nameEvolve(NE.k,$("nen").value.trim(),$("ned").value);NE={k:0,dir:"戰士",name:""}};$("neno").onclick=()=>{S.party.forEach(p=>{if(!p.named)p.ready=false});save();render()}}}
   on("skip",skipLearn);
   document.querySelectorAll("[data-fate]").forEach(b=>b.onclick=()=>foeFate(b.dataset.fate));
   const ta=$("freein");
@@ -234,6 +235,7 @@ function bindStory(){
     const sel=()=>[...document.querySelectorAll("[data-c]")].filter(x=>x.checked).map(x=>+x.dataset.c);
     const ss=$("sacsel"), sac=()=>ss&&ss.value?ss.value:null;
     const sk=$("skillsel"); if(sk)sk.onchange=()=>{ch.useSk=sk.value||null;save();render()};
+    const asel=$("allysel"); if(asel)asel.onchange=()=>{ch.allyAb=asel.value||null;save();render()};
     const isel=$("itemsel"); if(isel)isel.onchange=()=>{ch.useItem=isel.value||null;save();render()};
     const upd=()=>{const n=sel().length+(sac()?2:0);pb.textContent=`付出 ${n} 項：${tierOf(n,ci)}`;pb.dataset.t=tierOf(n,ci)};
     document.querySelectorAll("[data-c]").forEach(x=>x.onchange=()=>{
@@ -279,6 +281,8 @@ function track(k,label,list,v){
 let ASD="";
 function partyHTML(){
   const rows=S.party.map((p,k)=>`<div class="npc"><div class="h"><b>${esc(p.n)}</b><span>${esc(p.kind)}・${p.lv} 級${p.knack?`・本事：${esc(p.knack)}`:""}</span></div>
+      <div class="d">${p.named?`職業：${esc(p.dir)}${allyAbOf(p)?`（能力：${allyAbOf(p)}）`:""}`:"還沒進化，沒有職業"}・存在值 ${p.xp||0}／${EVO_PTS}${gIdx(p.lv)>=gIdx(allyLv())?(gIdx(p.lv)>=gIdx(allyLv())&&gIdx(S.lv)>0?"（等級已到上限，主角進化後才能再升）":""):""}${!allyElig(p)&&gIdx(p.lv)<gIdx(allyLv())?"・<span style=\"color:var(--bad,#c33)\">等級太低，上不了戰場</span>":""}${allyElig(p)?"・在場減傷 −1":""}</div>
+      ${allyAbOf(p)==="治療"&&allyElig(p)?`<div class="pbtn"><button class="tl" data-ah="${k}"${S.healDay===S.day||allyUses()>=2?" disabled":""}>請他治療你（HP +50%，一天一次）</button></div>`:""}
       ${!allyArmed(p)?`<div class="d" style="color:var(--bad,#c33)">空著手：${p.with?"跟著你戰鬥時，判定會多一項劣勢（容易被圍毆）":"他出門跟你戰鬥時，判定會多一項劣勢"}。把武器（背包裡的白字武器或魔法武器）交給牠。</div>`:""}
       <div class="d">${p.skills.length?p.skills.map((x,j)=>`${esc(x.n)}（${esc(x.g||p.lv)}級）<button class="tl" data-as="${k}|${j}">${ASD===k+":"+j?"確定忘掉？":"忘掉"}</button>`).join("　"):"還沒有技能"}${p.tags.length?`　【${p.tags.map(esc).join("】【")}】`:""}</div>
       ${p.note?`<div class="d" style="color:var(--mute)">${esc(p.note)}</div>`:""}
@@ -295,6 +299,7 @@ function partyHTML(){
 let PQ=-1;
 function bindNest(){
   {const b=$("nup");if(b)b.onclick=upgradeNest}
+  document.querySelectorAll("[data-ah]").forEach(b=>b.onclick=()=>allyHeal(+b.dataset.ah));
   document.querySelectorAll("[data-pf]").forEach(b=>b.onclick=()=>{const p=S.party[+b.dataset.pf];if(p){if(p.fac){p.fac=null;p.noFac=true}else p.noFac=false;save();render()}});
   document.querySelectorAll("[data-nd]").forEach(b=>b.onclick=()=>donateItem(+b.dataset.nd));
   document.querySelectorAll("[data-nf]").forEach(b=>b.onclick=()=>pickFac(+b.dataset.nf));
@@ -402,7 +407,7 @@ const GUIDE=[
  ["每回合怎麼玩",`點選項、或在下面打字說你要做什麼。遇到危險會出<b>判定卡</b>：<br>・優勢（用技能、魔法武器、有同伴幫忙、對方弱點）越多，越不用付代價；劣勢（對方更強、空手、受傷）越多，要付越多。<br>・代價是自己選的：HP、MP、時間、物品…付夠了就成功，多付一項就是大成功。<br>・同伴的優勢最多算 1 條。技能和魔法物品附帶技能<b>一天各用一次</b>，午夜恢復。`],
  ["吃、技能、整合",`吃下新鮮屍體會列出幾個可能學到的技能，自己挑一個（也可以給同伴）。<br>技能只有等級字母（F～S），分<b>可用</b>和<b>倉庫</b>（F 級可用 6、倉庫 15）。<br>倉庫快滿時：5 個<b>同大類同等級</b>（戰鬥／機動／生存）的技能可以<b>整合</b>成 1 個高一級的，花 4 小時；也可以放棄。<br>技能不會自己跟著升級，只有整合能越級。`],
  ["物品、武器、藥水",`魔獸（E 級以上）的屍體可以拆出魔法原料；白字武器＋魔法原料可以在背包<b>鍛造</b>成魔法武器（有工匠比較快）。<br>魔法武器等級低於對手就等於白字，硬用會壞。白字武器防具也能「用掉一件」換一層優勢。<br>紅藥水回 HP、藍藥水回 MP、紫藥水兩者；也能餵給受傷的同伴，或給 NPC／想收服的魔物增加好感。`],
- ["同伴",`對你有「追隨」的角色會成為同伴，最多兩名同行。<b>同伴空手會讓判定多一項劣勢</b>，把武器交給他（隊伍頁）。留在巢穴的同伴可以派工。<br>同伴也有技能（F～A 字母，最多 5 個）；在隊伍頁可以讓他忘掉一個。`],
+ ["同伴",`對你有「追隨」的角色會成為同伴，最多兩名同行。<b>同伴不再算優勢，改成在場減傷。同伴空手會讓判定多一項劣勢</b>，把武器交給他（隊伍頁）。留在巢穴的同伴可以派工。<br>同伴也有技能（F～A 字母，最多 5 個）；在隊伍頁可以讓他忘掉一個。<br><b>同伴成長</b>：留在巢穴打獵每天 +1、跟你出門協助一次 +2，存在值滿 20 就能進化（取名、選職業：戰士、斥候、法師、祭司、工匠），進化後歸零。同伴最高等級是你的等級 −1；等級夠的同伴在場，你受到的傷害永久 −1（兩個 −2）；太弱的上不了戰場。職業能力一天全隊 2 次：戰士替你擋代價、法師增傷、祭司治療。`],
  ["巢穴",`存糧要夠：每天吃「人口格數」份，吃光人口會掉。當上巢穴之主後巢穴有等級（E 起），把用不到的東西<b>捐給巢穴</b>換物資點數，點數夠了升級；每次升級都會引來一次討伐，並從 3 個隨機設施裡選 1 個（農田、獵場、鍛冶台、宿舍、陷阱、治療所）。<br>設施要有人手；對口的同伴留在巢穴就會自動去顧，但顧設施的同伴不能同行。`],
  ["注目度與討伐",`殺人類、當眾吃人、抓人、進化、巢穴變大，都會讓人類注意到你：風聲 → 偵察 → 討伐隊 → 討伐軍。派一個同伴<b>巡邏</b>，就會提早知道他們什麼時候來、來多少。<br>討伐戰在巢穴迎戰，守不住巢穴就完了（可以撤回）。搬家可以讓討伐撲空，但新巢穴從 F 級重來。`],
  ["遇到怪事",`AI 有時會寫錯或漏掉東西（地點、物品、同伴位置）。點頁面上的 <b>OOC</b> 跟「規則助手」說一聲，它會幫你更正。巢穴位置請用「搬家」，不要靠 OOC。<br>覺得這回合不滿意可以「重試」，做錯了可以「撤回」。換裝置前先到 ⚙ 匯出存檔。`]

@@ -14,6 +14,7 @@ function nestSync(){
 function dayChange(notes){
   notes.push(`—— 第 ${S.day} 天 ——`);
   if((S.usedSk||[]).length){S.usedSk=[];notes.push("技能和魔法物品的力量都恢復了。")}
+  S.allyUsed=0; S.healDay=null;
   const n=S.nest; dayJobs(notes); facDay(notes); nestHeatDay(notes); raidDay(notes); const need=needOf(), hungry=(n.food||0)<need;
   dayCaptives(notes,hungry);
   if(!hungry){n.food-=need;n.fed=(n.fed||0)+1;
@@ -229,7 +230,7 @@ const GATHER=["草藥","燧石","乾柴","野果","樹脂","獸骨"];
 function dayJobs(notes){
   const out=[], n=S.nest, home=S.party.filter(p=>!p.with);
   home.forEach(p=>{if(p.with||!p.job)return; const hurt=p.tags.includes("重傷");
-    if(p.job==="狩獵"){if(hurt)return;const g=1+gIdx(p.lv)+(p.tags.includes("負傷")?-1:0);if(g>0){n.food=(n.food||0)+g;out.push(`${p.n}打獵帶回 ${g} 份`)}}
+    if(p.job==="狩獵"){if(hurt)return;const g=1+gIdx(p.lv)+(p.tags.includes("負傷")?-1:0);if(g>0){n.food=(n.food||0)+g;out.push(`${p.n}打獵帶回 ${g} 份`)} allyXp(p,1,out)}
     if(p.job==="採集"&&!hurt&&Math.random()<0.5){const it=rnd(GATHER);receive(it,null);out.push(`${p.n}採回了${it}`)}
   });
   const hunters=kept().filter(x=>x.contract&&TECH[x.cls||""]&&TECH[x.cls||""].tag==="獵手").length;
@@ -274,7 +275,7 @@ function relChange(list,notes,force){               // force：OOC 更正，不�
 function recruit(r,notes){
   if(!r||!r.name||r.name===S.name||S.party.some(p=>p.n===r.name))return;
   const npc=S.npcs.find(x=>x.n===r.name);
-  const p={n:r.name,kind:r.kind||"哥布林",lv:allyLv(),knack:r.knack||(npc&&npc.knack)||"",note:r.note||(npc&&npc.face)||"",skills:[],tags:[],with:S.party.filter(x=>x.with).length<2};
+  const p={n:r.name,kind:r.kind||"哥布林",lv:(npc&&gIdx(npc.lv||"F")<gIdx(allyLv())?npc.lv:allyLv()),xp:0,knack:r.knack||(npc&&npc.knack)||"",note:r.note||(npc&&npc.face)||"",skills:[],tags:[],with:S.party.filter(x=>x.with).length<2};
   S.party.push(p); if(npc)npc.rel="追隨";
   notes&&notes.push(`〈系統〉《世界之聲》：「${p.n} 成為你的同伴。」${p.with?"":`（同行已滿兩名，牠先留在${NEST()}）`}`);
 }

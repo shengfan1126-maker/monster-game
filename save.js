@@ -32,6 +32,7 @@ function migrate(o){
 function skillsFix(o){
   if(!o||!Array.isArray(o.skills))return;
   nestFix(o);
+  (o.party||[]).forEach(p=>{if(p.xp==null)p.xp=0; if(o.nameEvo&&!p.named)p.ready=true}); if(o.nameEvo)o.nameEvo=false;
   if(o.skills.some(s=>s.sys!=="Unique"&&!s.g))skillsV026(o);
   (o.party||[]).forEach(p=>(p.skills||[]).forEach(s=>{if(!s.g){s.g=p.lv||"F"}delete s.lv}));   // v0.31：同伴技能也改等級字母
   const keep=[], by={};
