@@ -253,7 +253,7 @@ function bindStory(){
   }
   {const rb=$("rbgo"); if(rb)rb.onclick=()=>rebornWith(RBP.slice(),{name:($("dvn")||{}).value||"",desc:($("dvd")||{}).value||"",abs:DVP.slice()})}
   document.querySelectorAll("[data-rbd]").forEach(b=>b.onclick=()=>{const n=b.dataset.rbd;DVN=($("dvn")||{}).value||DVN;DVD=($("dvd")||{}).value||DVD;DVP=DVP.includes(n)?DVP.filter(x=>x!==n):DVP.length<3?[...DVP,n]:DVP;render()});
-  on("offok",()=>offerAccept()); on("offno",()=>offerReject());
+  on("offok",()=>offerAccept()); on("offno",()=>offerReject()); on("endexp",()=>exp.onclick());
   document.querySelectorAll("[data-cg]").forEach(b=>b.onclick=()=>contractGive(+b.dataset.cg));
   document.querySelectorAll("[data-rb]").forEach(b=>b.onclick=()=>{const n=b.dataset.rb;RBP=RBP.includes(n)?RBP.filter(x=>x!==n):RBP.length<3?[...RBP,n]:RBP;render()});
   on("retry",()=>retry()); on("regen",regen); on("undo",undo);

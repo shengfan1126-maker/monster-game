@@ -569,7 +569,9 @@ const ENDINGS=[
 function endCheck(notes){
   if(!S||S.dead||!S.world)return; if(!S.ends)S.ends={}; const M=metaGet(); let ch=false;
   ENDINGS.forEach(e=>{if(e.soon||!e.chk||S.ends[e.k])return; let ok=false; try{ok=e.chk()}catch(x){console.warn(x)} if(!ok)return;
+    const first=!Object.keys(M.ends).length;
     S.ends[e.k]=S.day; if(!M.ends[e.k])M.ends[e.k]={day:S.day,run:(S.rebirths||0)+1}; ch=true;
+    if(first)notes&&notes.push("〈系統〉第一次解鎖結局：記得到 ⚙ 按「匯出存檔」備份。遊戲沒有網路存檔，換手機、清瀏覽器資料就沒了。");
     notes&&notes.push(`〈系統〉結局解鎖：${e.n}。${e.retire?"（隨時可以到「履歷」頁選擇在這裡退休，也可以繼續玩）":""}`)});
   if(ch)metaSave();
 }
@@ -597,6 +599,7 @@ function endHTML(){
   const ended=S.ended&&ENDINGS.find(e=>e.k===S.ended.k), col=!ended&&(S.sacN||0)>=3;
   const sk=S.skills.filter(s=>!isUq(s)&&s.g).sort((a,b)=>gIdx(b.g)-gIdx(a.g));
   return `<div class="dead"><b>${ended?`結局：${esc(ended.n)}`:"你死了。"}</b><br>${ended?"":`你見到了管理員。${col?`<br>你身上有 ${S.sacN} 處捨身的傷。結局：收藏品。`:""}<br>`}按上面的「撤回」回到上一步，或在齒輪裡重新開始。
+    <div class="note" style="margin-top:8px;padding:8px;border:1px solid currentColor;border-radius:6px"><b>先備份存檔！</b>遊戲沒有網路存檔，換手機、清瀏覽器資料就沒了。按下面的按鈕把存檔下載下來（結局簿也在裡面），之後可以在 ⚙「匯入存檔」讀回來。<br><button class="tl" id="endexp" style="margin-top:6px">匯出存檔（下載）</button></div>
     <div class="note" style="margin-top:8px">轉生（二周目）：從成體開始、所有地區一開始就知道。最多選 3 個技能帶過去（標成〔前世〕，不能整合、不會消失）；等級不帶。</div>
     <div class="tags">${sk.map(s=>`<button class="tag ut" data-rb="${esc(s.n)}" style="${RBP.includes(s.n)?"outline:2px solid currentColor":""}">${esc(s.n)}（${s.g}）</button>`).join("")}</div>
     <div class="note">已選 ${RBP.length}／3</div>
