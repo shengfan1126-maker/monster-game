@@ -94,26 +94,27 @@ function checkHTML(ch){
     ...(ci.lvDiff?[`<span class="dis">－ 對方高你 ${ci.lvDiff} 級</span>`]:[])].join("");
   const war=ch.war&&S.war, raid=ch.raid&&S.raid;
   const sacs=war||raid?[["","不舍身"],["hp","HP 上限 -5"],["maim","留下【殘缺】"],...S.skills.filter(x=>x.sys!=="Unique"&&!x.past).map(x=>[`sk:${x.n}`,`失去技能「${x.n}」`])]:[];
-  const warBox=raid?`<div class="sacbox"><label>舍身（算兩項，傷殘是永久的）</label><select id="sacsel">${sacs.map(([v,t])=>`<option value="${esc(v)}">${esc(t)}</option>`).join("")}</select></div>
+  const warBox=raid?`${ch.noSac?`<div class="note">亞當關掉了捨身：這一戰不能捨身。</div>`:`<div class="sacbox"><label>舍身（算兩項，傷殘是永久的）</label><select id="sacsel">${sacs.map(([v,t])=>`<option value="${esc(v)}">${esc(t)}</option>`).join("")}</select></div>`}
     <div class="note" style="margin-top:6px">已經守住 ${S.raid.wins}・失守 ${S.raid.fails}。失守 ${Math.floor(S.raid.of/2)+1} 次巢穴就完了；守住 ${Math.floor(S.raid.of/2)+1} 次${S.raid.of>=5?"（大成功算兩次）":""}就贏。</div>`:war?`<div class="sacbox"><label>舍身（算兩項，傷殘是永久的）</label><select id="sacsel">${sacs.map(([v,t])=>`<option value="${esc(v)}">${esc(t)}</option>`).join("")}</select></div>
     <div class="rtrow"><button class="tl" id="rtopen">${RETREAT?"不撤退了":"撤退…"}</button></div>
     ${RETREAT?`<div class="rtbox"><div class="note">撤退要犧牲回不來的東西：</div>
       ${S.party.map((p,k)=>`<button class="tl" data-rt="ally|${k}">讓 ${esc(p.n)} 斷後（牠會死）</button>`).join("")}
       <button class="tl" data-rt="hp">HP 上限 -5</button><button class="tl" data-rt="maim">留下【殘缺】</button>
       ${S.items.map((it,i)=>`<button class="tl" data-rt="item|${i}">丟下 ${esc(it)}</button>`).join("")}</div>`:""}`:"";
-  const sks=boxList("act").map(x=>({v:x.n,t:`${x.n}（${x.sys}・${x.g}）MP -1${skUsed(x.n)?"・今天已用":""}`,off:S.mp<1||skUsed(x.n)}));
+  const sks=ch.noSk?[]:boxList("act").map(x=>({v:x.n,t:`${x.n}（${x.sys}・${x.g}）MP -1${skUsed(x.n)?"・今天已用":""}`,off:S.mp<1||skUsed(x.n)}));   // v0.54：第 1 戰技能被關
   if(S.divine)S.divine.abs.forEach(a=>{const k=divKey(a.n);sks.push({v:k,t:`${a.n}（神兵「${S.divine.name}」・今天還能用 ${divLeft(a.n)} 次）`,off:divLeft(a.n)<=0})});
   S.items.forEach(n=>{const m=matOf(n);if(m&&m.skill){const k=`${m.skill.n}（${n}）`, weak=ch.foeLv&&gIdx(m.lv)<gIdx(ch.foeLv);sks.push({v:k,t:`${m.skill.n}（✦${n}・${m.lv}級）${skUsed(k)?"・今天已用":weak?`・等級低於對手(${ch.foeLv})，沒效果，硬用會壞`:""}`,off:skUsed(k)})}});
   const ones=oneShots(), itBox=ones.length?`<div class="sacbox"><label>用掉一件普通武器防具（多一層優勢，用完就沒了）</label><select id="itemsel"><option value="">不用</option>${ones.map(n=>`<option value="${esc(n)}"${ch.useItem===n?" selected":""}>${esc(n)}</option>`).join("")}</select></div>`:"";
   const abs=S.party.filter(p=>allyElig(p)&&allyAbOf(p)&&allyAbOf(p)!=="治療"), abBox=abs.length?`<div class="sacbox"><label>同伴幫忙（今天全隊還能用 ${Math.max(0,2-allyUses())} 次）</label><select id="allysel"><option value="">不用</option>${abs.map(p=>`<option value="${esc(p.n)}"${ch.allyAb===p.n?" selected":""}${allyUses()>=2?" disabled":""}>${esc(p.n)}：${allyAbOf(p)}${allyAbOf(p)==="增傷"?"（多一層優勢）":"（替你吃 HP 代價，自己負傷）"}</option>`).join("")}</select></div>`:"";
   const dos=(ch.war||ch.local)?[]:S.party.filter(allyElig), doBox=dos.length?`<div class="sacbox"><label>請同伴代打（吃今天 2 次裡的 1 次；他等級≥對手＝2 層優勢，否則 1 層；HP 代價由他吃）</label><select id="allydo"><option value="">不用</option>${dos.map(p=>`<option value="${esc(p.n)}"${ch.allyDo===p.n?" selected":""}${allyUses()>=2?" disabled":""}>${esc(p.n)}（${p.lv||"F"}級）</option>`).join("")}</select></div>`:"";
-  const skBox=sks.length?`<div class="sacbox"><label>用哪個技能（多一層優勢，一次一個；自己的技能 MP -1，魔法物品的不用）</label><select id="skillsel"><option value="">不用技能</option>${sks.map(x=>`<option value="${esc(x.v)}"${ch.useSk===x.v?" selected":""}${x.off?" disabled":""}>${esc(x.t)}</option>`).join("")}</select></div>`:"";
+  const skBox=sks.length?`<div class="sacbox"><label>用哪個技能（多一層優勢，一次一個；自己的技能 MP -1，魔法物品的不用）</label><select id="skillsel"><option value="">不用技能</option>${sks.map(x=>`<option value="${esc(x.v)}"${ch.useSk===x.v?" selected":""}${x.off?" disabled":""}>${esc(ch.blind?"？？？":x.t)}</option>`).join("")}</select></div>`:"";
   return `<div class="check${war||raid?" war":""}">
-    <h3>${raid?`${S.raid.king?(S.raid.kind==="scout"?"斥候五連戰":"八王戰"):"討伐戰"} ${ch.raid.stage}/${ch.raid.of}・${esc(S.raid.name)}：`:war?`進化戰 ${ch.war.stage}/5・${esc(S.war.foe.name)}：`:ch.multi?`連戰 ${ch.multi.n}/${ch.multi.of}・${ch.multi.cls?"小頭目 ":""}${esc(ch.foe)}：`:"判定："}${esc(ch.what)}</h3>
+    <h3>${raid?`${S.raid.admin?"殺死管理員":S.raid.king?(S.raid.kind==="scout"?"斥候五連戰":"八王戰"):"討伐戰"} ${ch.raid.stage}/${ch.raid.of}・${esc(S.raid.name)}：`:war?`進化戰 ${ch.war.stage}/5・${esc(S.war.foe.name)}：`:ch.multi?`連戰 ${ch.multi.n}/${ch.multi.of}・${ch.multi.cls?"小頭目 ":""}${esc(ch.foe)}：`:"判定："}${esc(ch.what)}</h3>
     ${ch.multi?`<div class="note" style="margin-bottom:6px">${ch.multi.group?`對方有 ${ch.multi.group} 個，每贏一階段打倒或打跑一個。`:`帶職業的小頭目，打兩個階段。`}大成功＝直接打倒${ch.multi.group?"帶頭的，其餘潰散":"牠"}。失敗會挨一下，但還能繼續打。</div>`:""}
     ${lay?`<div class="lay">${lay}</div>`:""}
     <div class="need">付 <b>${ci.need}</b> 項成功・付 <b>${ci.big}</b> 項大成功${ci.need===0?"（不付也會成功）":""}<br><small>虛線框的通用代價一次只能選一項${ci.stalled?"；這場已經拖過一次，不能再拖":""}</small></div>
-    <div class="costs">${ci.costs.map((c,i)=>`<label class="cost${c.g?" gen":""}"><input type="checkbox" data-c="${i}"><span>${esc(c.t)}${c.g?"":effOf(c)}</span></label>`).join("")}</div>
+    <div class="costs">${ci.costs.map((c,i)=>`<label class="cost${c.g?" gen":""}"><input type="checkbox" data-c="${i}"><span>${ch.blind?"？？？":`${esc(c.t)}${c.g?"":effOf(c)}`}</span></label>`).join("")}</div>
+    ${ch.noSk?`<div class="note">亞當關掉了你的技能：這一戰只能用物品和神兵。</div>`:""}${ch.blind?`<div class="note">亞當遮住了一切：代價和技能都看不見，付了什麼下一戰才知道。</div>`:""}${ch.lvF?`<div class="note">亞當把你的等級改回了 F。</div>`:""}
     ${skBox}${comboBox(ch)}${itBox}${abBox}${doBox}${warBox}${S.bless&&S.bless.worm?`<div class="sacbox"><label><input type="checkbox" id="wormb"> 紫蟲王的加護：你勾的第一項代價由他替你付（算數，但你不用付；只有一次）</label></div>`:""}
     <button class="paybtn" id="paybtn">付出 0 項：${tierOf(0,ci)}</button>
   </div>`;
@@ -255,6 +256,7 @@ function bindStory(){
   {const rb=$("rbgo"); if(rb)rb.onclick=()=>rebornWith(RBP.slice(),{name:($("dvn")||{}).value||"",desc:($("dvd")||{}).value||"",abs:DVP.slice()})}
   document.querySelectorAll("[data-rbd]").forEach(b=>b.onclick=()=>{const n=b.dataset.rbd;DVN=($("dvn")||{}).value||DVN;DVD=($("dvd")||{}).value||DVD;DVP=DVP.includes(n)?DVP.filter(x=>x!==n):DVP.length<3?[...DVP,n]:DVP;render()});
   on("offok",()=>offerAccept()); on("offno",()=>offerReject()); on("endexp",()=>exp.onclick());
+  [["admkill","確定動手？",adminKill],["admrule","確定？（這一局結束）",()=>adminFinal("rule")],["admnone","確定？（這一局結束）",()=>adminFinal("none")]].forEach(([id,t,f])=>{const b=$(id);if(b)b.onclick=()=>{if(b.dataset.ok!=="1"){b.dataset.ok="1";b.textContent=t;return}f()}});   // v0.54
   on("admgo",()=>adminMeet()); on("admyes",()=>adminMeet("yes")); on("admno",()=>adminMeet("no")); on("admsv",()=>adminMeet("sv"));
   document.querySelectorAll("[data-cg]").forEach(b=>b.onclick=()=>contractGive(+b.dataset.cg));
   document.querySelectorAll("[data-rb]").forEach(b=>b.onclick=()=>{const n=b.dataset.rb;RBP=RBP.includes(n)?RBP.filter(x=>x!==n):RBP.length<3?[...RBP,n]:RBP;render()});

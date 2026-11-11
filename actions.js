@@ -408,13 +408,14 @@ function eatItem(i,label){
 function pay(sel,sac,wb){
   const L=S.log, e=L[L.length-1]; if(busy||!e)return;
   const ch=e.alts[e.i].check; if(!ch)return;
-  if(!ch.war&&!ch.raid)sac=null;
+  if(!ch.war&&!ch.raid||ch.noSac)sac=null;
   const ci=checkInfo(ch); let gUsed=false;
   const chosen=sel.map(i=>ci.costs[i]).filter(c=>c&&(!c.g||!gUsed&&(gUsed=true))), tier=tierOf(chosen.length+(sac?2:0),ci);
   const pre=snap(), notes=[];
   const paidT=[...chosen.map(c=>c.t),...(sac?[`舍身：${sacLabel(sac)}`]:[])];
   if(ch.foe&&!ch.war&&!ch.raid&&!ch.local)S.lastFoe={name:ch.foe,lv:ch.foeLv||"F",cls:ch.multi&&ch.multi.cls||null};
-  S.log.push({who:"you",text:`${comboOn(ch)?`和${ch.combo}用合體技，`:""}${ch.useSk?`用「${ch.useSk}」，`:""}${paidT.length?`付出：${paidT.join("、")}（${tier}）`:`不付代價，硬上（${tier}）`}`,pre});
+  const blind=!!(ch.blind&&ch.raid&&S.raid);              // v0.54：殺死管理員第 4 戰
+  S.log.push({who:"you",text:`${comboOn(ch)?`和${ch.combo}用合體技，`:""}${ch.useSk?`用「${blind?"？？？":ch.useSk}」，`:""}${paidT.length?`付出：${blind?`？？？（${paidT.length} 項）`:paidT.join("、")}（${tier}）`:`不付代價，硬上（${tier}）`}`,pre});
   const skMp=skillMp(ch);
   if(ch.useSk&&!skUsed(ch.useSk)&&(!skMp||S.mp>=skMp)){S.usedSk=S.usedSk||[];S.usedSk.push(ch.useSk)}
   if(ch.useItem&&S.items.includes(ch.useItem)){S.items=S.items.filter(x=>x!==ch.useItem);notes.push(`用掉了 ${ch.useItem}（普通武器防具，一次性）：多一層優勢。`)}
@@ -433,7 +434,8 @@ function pay(sel,sac,wb){
   if(!ch.local&&!ch.war&&ch.foe)S.party.filter(allyElig).forEach(p=>allyXp(p,2,notes));
   const stall=!!ch.foe&&!ch.war&&!ch.raid&&chosen.some(c=>c.time);
   if(stall)S.fightDelay=ch.foe;
-  if(notes.length)S.log.push(sysEntry(notes.join("　")));
+  if(blind){S.raid.hidden=[...paidT,...notes].join("　")||"沒有付";S.log.push(sysEntry("你付了什麼，現在還看不見。"))}
+  else if(notes.length)S.log.push(sysEntry(notes.join("　")));
   if(S.dead){save();render();return}
   if(ch.local){                              // 硬吞高級屍體：不用模型
     if(tier==="失敗"){
@@ -447,12 +449,12 @@ function pay(sel,sac,wb){
   if(ch.raid&&S.raid){
     const r=S.raid; let dmg=0;
     if(tier==="失敗"){dmg=dmgOf(ch.foeLv);S.hp-=dmg;r.fails++;const n=S.nest,n2=[`${r.name}${r.at&&r.at!==NEST()?"佔了上風":"衝破了一段防線"}：HP -${dmg}`];
-      if(!r.at||r.at===NEST()){if(n.pop>1){n.pop--;n2.push(`人口：${POP[n.pop-1]}`)} if(n.d>1){n.d--;n2.push(`戰力：${DEF[n.d-1]}`)}} checkDeath(n2);S.log.push(sysEntry(n2.join("　")))}
-    else if(ch.useSk)r.lastSk=ch.useSk;
-    else r.wins+=tier==="大成功"&&r.of>=5?2:1;
+      if((!r.at||r.at===NEST())&&!r.admin){if(n.pop>1){n.pop--;n2.push(`人口：${POP[n.pop-1]}`)} if(n.d>1){n.d--;n2.push(`戰力：${DEF[n.d-1]}`)}} checkDeath(n2);S.log.push(sysEntry(n2.join("　")))}
+    else{if(ch.useSk)r.lastSk=ch.useSk; r.wins+=tier==="大成功"&&r.of>=5?2:1}   // v0.54 修正：用技能成功也算守住
     r.mom=tier==="大成功"?1:tier==="失敗"?-1:0; r.stage++;
     if(S.dead){S.raid=null;save();render();return}
     const half=Math.floor(r.of/2)+1, end=r.fails>=half?"lose":(r.wins>=half||r.stage>r.of)?(r.wins>r.fails?"win":"lose"):null;
+    if(r.admin&&!end&&r.stage===5&&!r.halved){r.halved=true;S.hp=Math.max(1,Math.floor(S.hp/2));S.log.push(sysEntry(`亞當拿走了你的身體：HP 減半（${S.hp}/${S.hpMax}）。`))}
     S.opts=[]; save();
     doJob({kind:"raid",ctx:{stage:r.stage,end,prev:{tier,paid:paidT,dmg,skill:ch.useSk||null}}},snap(),S.log.length); return;
   }

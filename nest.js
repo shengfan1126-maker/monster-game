@@ -573,6 +573,9 @@ const ENDINGS=[
  {k:"collected",line:"管理員",n:"收藏品",need:"捨身累計 3 次以上，然後死亡"},
  {k:"servant",line:"管理員",n:"管理員的部下",need:"管理員的手機 8/8 去找管理員，吞噬過八王之一，選「替他做事」"},
  {k:"admin",line:"管理員",n:"成為管理員",need:"管理員的手機 8/8 去找管理員，選「接受」"},
+ {k:"reckless",line:"管理員",n:"有勇無謀",need:"不知道管理員的真名，就對他動手"},
+ {k:"a_rule",line:"管理員",n:"殺死管理員：成為管理員",need:"知道管理員的真名，一個人打贏七連戰，選「成為管理員」"},
+ {k:"a_none",line:"管理員",n:"殺死管理員：沒有管理員",need:"知道管理員的真名，一個人打贏七連戰，選「沒有管理員」"},
  {k:"home",line:"回到原本的世界",n:"回到原本的世界",need:"伴侶、見過管理員、挑戰過八王之一、問到三要素、9 組神器、S 級核心、精靈王的儀式",soon:"伴侶、八王、管理員、S 級地城、神器"}
 ];
 function endCheck(notes){
@@ -917,10 +920,11 @@ function adminMeet(choice){
   S.ended={k,day:S.day}; S.dead=true; S.log.push(sysEntry(`〈系統〉結局：${ENDINGS.find(e=>e.k===k).n}。`)); save(); TAB="story"; render();
 }
 function adminHTML(){
-  if(!kingsOpen()||phoneN()<8||S.dead)return "";
+  if(!kingsOpen()||phoneN()<8||S.dead||(S.raid&&S.raid.admin))return "";
+  if(S.adminDown)return `<div class="check"><h3>管理員亞當倒下了</h3><div class="padd" style="margin-top:6px"><button class="tl" id="admrule">成為管理員</button><button class="tl" id="admnone">沒有管理員</button></div><div class="note">選了這一局就結束（結局）。</div></div>`;
   const ate=Object.values(S.kings).some(x=>x.ate), met=S.metAdminLive;
   return `<div class="check"><h3>管理員的手機 8/8</h3>${met?`<div class="note">管理員：「我累啦，你想不想接手？你可以召喚卡車君帶人從地球到異世界哦？」</div>
-    <div class="padd" style="margin-top:6px"><button class="tl" id="admyes">接受（接手管理員）</button>${ate?`<button class="tl" id="admsv">替他做事（管理員的部下）</button>`:""}<button class="tl" id="admno">拒絕</button></div>`
+    <div class="padd" style="margin-top:6px"><button class="tl" id="admyes">接受（接手管理員）</button>${ate?`<button class="tl" id="admsv">替他做事（管理員的部下）</button>`:""}<button class="tl" id="admno">拒絕</button><button class="tl" id="admkill">殺他</button></div>`
     :`<button class="tl" id="admgo">去找管理員</button>`}</div>`;
 }
 function kingsHTML(){
@@ -1054,7 +1058,7 @@ function kingPay(k,id,arg,rew){
     else if(rew==="file"){let m=0;K_FIELDS.forEach(f=>{if(kingReveal(k,f[0],notes))m++});if(!m)notes.push("（他的檔案你都已經知道了）")}
     else if(rew==="bless")kingBless(k,notes)}
   if(k==="clown"&&x.paid.length>=3&&x.stance!=="ally"){x.stance="ally";S.trueName=true;
-    notes.push("小丑王：「好啊，結盟。」",`小丑王告訴你管理員的真名：${ADMIN_NAME}。`,"還有殺死他的辦法：沒有真名的時候，對他做什麼都會被他秒殺；知道真名，他就殺得死。要連打七場。","小丑王不會陪你去。（殺死管理員：之後的版本）")}
+    notes.push("小丑王：「好啊，結盟。」",`小丑王告訴你管理員的真名：${ADMIN_NAME}。`,"還有殺死他的辦法：沒有真名的時候，對他做什麼都會被他秒殺；知道真名，他就殺得死。要連打七場。","小丑王不會陪你去。（管理員的手機 8/8 見到他時，可以選「殺他」）")}
   endCheck(notes); S.log.push(sysEntry(notes.join("\n"))); save(); render();
 }
 function kingBless(k,notes){
@@ -1145,6 +1149,7 @@ function kingVows(){
   if(b.beast)o.push("獸王的加護：森林的野獸不會襲擊主角（不要寫野獸主動攻擊主角）");
   if(S.kings&&S.kings.worm&&S.kings.worm.hostage)o.push(`${S.kings.worm.hostage.n}是主角留在紫蟲王那裡的人質，不在主角身邊`);
   if(S.trueName)o.push(`主角從小丑王那裡知道了管理員的真名（${ADMIN_NAME}）。不要讓主角對別人說出來，除非玩家自己寫`);
+  if(S.adminDown)o.push(`管理員${ADMIN_NAME}已經倒下了，主角正要決定之後的世界`);
   return o;
 }
 
@@ -1213,4 +1218,46 @@ function kingsFix(o){
   const K=KINGS.elf; if(!o.world[K.lair]){o.world[K.lair]={kind:"八王領域",region:K.lair,note:K.desc,links:{[K.link]:3},known:false,king:"elf"};
     if(o.world[K.link]){o.world[K.link].links=o.world[K.link].links||{};o.world[K.link].links[K.lair]=3}}
   const g=o.kings.gold; if(g&&g.know&&g.know.lair&&!g.found)g.found=true;
+}
+
+/* ═════════ v0.54：殺死管理員（設計見專案《魔物篇_精靈王與殺死管理員_1112》）═════════
+   沒有真名就動手＝結局「有勇無謀」。有真名＝一個人七連戰（討伐戰引擎，S.raid.admin），每戰亞當改掉一條規則，你因為知道真名多一層優勢；輸四場死。
+   贏了選「成為管理員」「沒有管理員」（用戶寫的結局文字）。三個都是結局，之後照常轉生。 */
+const ADMIN_STEP=["他關掉了你的技能（這一戰主角只能用物品和神兵）","他把你的等級改回 F（主角的身體一下子變回最弱的時候）","他叫出你殺過的王的影子",
+  "他遮住了一切（主角看不見自己付了什麼）","他拿走了你的身體（主角的 HP 被砍掉一半）","他關掉了捨身","你叫出他的真名：亞當"];
+const END_TXT={reckless:"你舉起武器。管理員沒有看你。",
+  a_rule:"你進入一個空白木地板房間，房間內有大量的半透明藍色面板，這都是這個世界的元素，你想怎麼調整你就可以隨時調整。有一個藍色面板可以讓你召喚卡車君從地球召喚異世界人（任意人數）。",
+  a_none:"你不是管理員、你也不是王、即使你吞噬了王，但規則本身已經不存在了，這個世界變成一片混沌。小丑王十分喜歡你，他是唯一的王了，他背棄跟你的盟約，你什麼都沒有。只有一個人在異世界持續不斷的逃亡。"};
+function adminPrompt(r,c){
+  return [`【殺死管理員・七連戰】（現在 ${timeStr()}，${PERIOD(S.hour)}，地點：${r.at||S.at}）`,
+    `對手是這個世界的管理員，真名「${ADMIN_NAME}」。主角一個人來：沒有巢穴、沒有同伴，只有自己、裝備、技能。主角知道他的真名，所以這一次殺得死他。每一戰他都會改掉這個世界的一條規則。小丑王沒有來。輸了主角會死。`,
+    `第 3 戰他叫出的影子是：${r.shadow}。`];
+}
+function adminStage(ch,stage){
+  if(stage===1)ch.noSk=true;
+  if(stage===2)ch.lvF=true;
+  if(stage===4){ch.blind=true;ch.costs=(ch.costs||[]).sort(()=>Math.random()-0.5)}
+  if(stage===6)ch.noSac=true;
+}
+function endSet(k,pre,txt){
+  const M=metaGet(), e=ENDINGS.find(z=>z.k===k);
+  S.ends[k]=S.day; if(!M.ends[k])M.ends[k]={day:S.day,run:(S.rebirths||0)+1}; metaSave();
+  S.ended={k,day:S.day}; S.dead=true; S.log.push(sysEntry(`${END_TXT[k]}\n〈系統〉結局：${e.n}。`)); save(); TAB="story"; render();
+}
+function adminKill(){
+  if(busy||S.dead||S.raid||!S.metAdminLive||phoneN()<8||S.adminDown)return; const pre=snap();
+  S.log.push({who:"you",text:"對管理員動手",pre});
+  if(!S.trueName){endSet("reckless");return}
+  const beat=Object.keys(S.kings||{}).filter(k=>S.kings[k].beaten), sh=beat.length?kingOf(beat[rint(0,beat.length-1)]).t:"一位王";
+  S.raid={name:`管理員${ADMIN_NAME}`,lv:"S",size:"這個世界的管理員",admin:true,kind:"admin",at:S.at,on:true,stage:1,of:7,wins:0,fails:0,mom:0,prep:[],comp:[ADMIN_NAME],seen:true,shadow:sh};
+  S.opts=[]; save(); doJob({kind:"raid",ctx:{stage:1}},snap(),S.log.length);
+}
+function adminEnd(r,end,notes){
+  S.raid=null;
+  if(end==="win"){S.adminDown=true;notes.push(`〈系統〉管理員${ADMIN_NAME}倒下了。（下面選：成為管理員／沒有管理員）`)}
+  else{S.dead=true;S.deathWhy=`敗給了管理員${ADMIN_NAME}`;notes.push(`你敗給了管理員${ADMIN_NAME}。`,"（可以按「撤回」回到之前。）")}
+}
+function adminFinal(c){
+  if(busy||S.dead||!S.adminDown)return; const pre=snap();
+  S.log.push({who:"you",text:c==="rule"?"成為管理員":"沒有管理員",pre}); endSet(c==="rule"?"a_rule":"a_none");
 }
