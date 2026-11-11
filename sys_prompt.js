@@ -37,6 +37,8 @@ const SYS=`你是文字冒險遊戲《權能進化・魔物篇》的敘事者。
 - 判定代價可以讓同伴受傷：{"t":"描述","ally":"同伴名字"}。
 - 有名字的角色死了、被趕走、自己離開時，填 npc_gone：[{"name":"名字","why":"死了／被趕走／離開了"}]。之後他就不會再出場。
 【巢穴】灰岩洞的存糧、人口、戰力由程序計算。
+- 有角色（不是同伴）主動提出交換條件、想跟主角合作一段時間時，填 contract：{"name":"名字","task":"一句條件","type":"item 或 beast 或 place","target":"要交出的物品名／要一起打倒的生物／要一起去的地點"}。這只是提議，主角按「同意」才成立；完成後程序會讓他道謝、回原本的地方。不要自己寫他加入或離開隊伍。
+- 類人的同伴已經「追隨」主角，主角在故事裡解開了他的心結、兩人都是成年人、雙方自願成為伴侶時，填 heart：{"name":"名字","knot":"一句心結","skill":"心結技名字（2～4 字）","note":"一句效果"}。程序會讓他成為伴侶。不寫露骨的畫面，只寫關係的轉變。
 - 主角在故事裡正式成為巢穴之主（老首領退位、交出位子，或被打倒、趕走），填 chief：true。程序會換章節、改老首領的身分。
 - 主角把屍體、肉、獵物交給巢穴（交給族人、手下處理、分給大家）時，填 to_nest：["屍體或物品名"]，程序會入庫並從主角身上拿掉，不用再填 lost。
 - 一次打倒好幾隻、或把某個勢力趕跑時（例如一口氣殺了三隻灰狼），填 faction：[{"name":"餓狼群","n":-3}]。單挑打倒的那一隻程序會自己算，不用重複填。
@@ -94,7 +96,7 @@ const SYS=`你是文字冒險遊戲《權能進化・魔物篇》的敘事者。
 
 
 【輸出】只輸出 JSON，不要前言或 markdown 標記：
-{"narration":"故事，段落之間用 \\n 分隔","options":["選項一","選項二","選項三"],"loc":"目前地點短名","time":這段花了幾小時（0~3；說話、觀察、短距離走動是 0）,"check":null,"defeated":null,"caught":[],"found":[],"tag":null,"ate":[],"lost":[],"recruit":null,"npc_new":null,"npc_gone":[],"untag":[],"to_nest":[],"nest":null,"faction":[],"rel":[],"place_new":null,"rename":[],"skill_used":[],"capture":null,"deal":[],"heat":null,"equip":[],"chief":null}
+{"narration":"故事，段落之間用 \\n 分隔","options":["選項一","選項二","選項三"],"loc":"目前地點短名","time":這段花了幾小時（0~3；說話、觀察、短距離走動是 0）,"check":null,"defeated":null,"caught":[],"found":[],"tag":null,"ate":[],"lost":[],"recruit":null,"npc_new":null,"npc_gone":[],"untag":[],"to_nest":[],"nest":null,"faction":[],"rel":[],"place_new":null,"rename":[],"skill_used":[],"capture":null,"deal":[],"heat":null,"equip":[],"chief":null,"contract":null,"heart":null}
 defeated 的格式：{"name":"名字","kind":"種類，例如 灰狼、哥布林","lv":"F","dead":true}`;
 
 
@@ -108,12 +110,13 @@ function stateBrief(){
       技能:S.skills.filter(s=>isUq(s)||(s.box||"act")==="act").map(s=>s.n+(s.g?`（${s.g}級・${s.sys}）`:`（${s.sys}）`)),"倉庫技能（現在不能用）":boxList("store").map(s=>s.n),"今天已用過的技能（一天一次，今天不能再用）":S.usedSk||[],狀態:S.tags,物品:S.items.map(n=>{const m=matOf(n);return m?`${n}（${m.skill?`魔法物品，附帶技能 ${m.skill.n}`:"魔法原料"}・${m.lv}級）`:n}),
       身邊的屍體:S.corpses.map(c=>`${c.name}（${c.lv}級，${isFresh(c)?"新鮮":"不新鮮了"}）`),稱號:S.titles},
     時間:`${timeStr()}（${PERIOD(S.hour)}，${isDay(S.hour)?"白天":"夜裡"}）`,飽足:hasTag("飢餓")?"餓著":`還能撐 ${S.full} 小時`,地點:`${S.loc}（以這個為準）`,
-    同伴:S.party.length?S.party.map(p=>({...(p.gear?{裝備:`${p.gear}（附帶技能 ${p.gearMat.skill.n}）`}:{}),拿著:(p.hold||[]).length?p.hold.join("、"):(p.gear?"只有裝備":"空手"),...(p.dir?{方向:p.dir}:{}),名字:p.n,...(p.alias&&p.alias.length?{以前叫:p.alias.join("、")}:{}),種族:p.kind,等級:p.lv,本事:p.knack,技能:p.skills.map(x=>`${x.n}（${x.g||p.lv}級・${x.sys}）`),狀態:p.tags,位置:p.with?"跟在主角身邊":`留在${NEST()}`,...(!p.with&&p.job?{派工:p.job}:{}),...(p.note?{說明:p.note}:{})})):"沒有",
+    同伴:S.party.length?S.party.map(p=>({...(p.mate?{伴侶:"是（心結已解開）",心結技:p.heartSk&&p.heartSk.n,種族技:p.raceSk&&p.raceSk.n}:{}),...(p.temp?{契約同伴:`暫時同行，條件：${p.temp.task}；完成後會回${p.temp.home}`}:{}),...(p.gear?{裝備:`${p.gear}（附帶技能 ${p.gearMat.skill.n}）`}:{}),拿著:(p.hold||[]).length?p.hold.join("、"):(p.gear?"只有裝備":"空手"),...(p.dir?{方向:p.dir}:{}),名字:p.n,...(p.alias&&p.alias.length?{以前叫:p.alias.join("、")}:{}),種族:p.kind,等級:p.lv,本事:p.knack,技能:p.skills.map(x=>`${x.n}（${x.g||p.lv}級・${x.sys}）`),狀態:p.tags,位置:p.with?"跟在主角身邊":`留在${NEST()}`,...(!p.with&&p.job?{派工:p.job}:{}),...(p.note?{說明:p.note}:{})})):"沒有",
     巢穴:{名稱:n.name,存糧:`${PROS[n.p-1]}（${n.food||0} 份，每天吃 ${needOf()} 份，夠吃 ${daysOf()} 天）`,存糧狀況:daysOf()>=7?"很充足（敘述裡不要寫缺糧、空蕩、挨餓，貯藏區是滿的）":daysOf()>=3?"夠用":daysOf()>=1?"吃緊（可以寫族人擔心）":"快見底了",人口:`${POP[n.pop-1]}（人口格 ${n.pop}）`,無名族人:NAMELESS[n.pop-1]?`大約 ${NAMELESS[n.pop-1]} 隻，沒有名字、不用一個個寫`:"沒有（巢穴裡除了名單上有名字的同伴、NPC、俘虜，沒有別的族人，不要寫成一群族人）",戰力:DEF[n.d-1],標籤:n.tags.map(t=>t.t),...(n.lv?{等級:`${n.lv}級`,設施:(n.fac||[]).map(f=>`${f}${facOn(f)?"":"（缺人手）"}`)}:{}),說明:n.note},
     語言:(S.langs||["哥布林語"]),
+    ...(S.divine?{神兵:`${S.divine.name}（${S.divine.desc||"前世的武器"}）：能力 ${S.divine.abs.map(a=>a.n).join("、")}，永遠不會壞，每項一天 3 次`}:{}),
     ...(S.narr&&S.narr.length?{叙事注意:S.narr}:{}),
     位置:{現在在:S.at,種類:here().kind,情況:here().note||"",出口:exitsOf(S.at).map(([n,h])=>`${n}（${h} 小時）`),還沒探索的方向:hiddenOf(S.at).length?`還有 ${hiddenOf(S.at).length} 個`:"沒有了（再探索會發現新的冒險地點或地形）"},
-    已知的地點:Object.entries(S.world).filter(([n,x])=>x.known&&x.kind!=="地區"&&n!==NEST()).map(([n,x])=>({名稱:n,種類:x.kind,情況:x.note,...(isSettle(n)?{對主角:SREL[stOf(n)+2]}:{}),...((x.deals||[]).length?{約定:x.deals}:{}),...(x.grudge?{記仇:`知道主角當眾吃過他們的族人（${x.grudge} 次）`}:{}),從這裡走:`${pathHours(S.at,n)??"?"} 小時`,認識的人:S.npcs.filter(y=>y.where===n).map(y=>`${y.n}（${y.role}，對主角：${REL[relOf(y)+2]}）`)})),
+    已知的地點:Object.entries(S.world).filter(([n,x])=>x.known&&x.kind!=="地區"&&n!==NEST()).map(([n,x])=>({名稱:n,種類:x.kind,情況:x.note,...(isSettle(n)?{對主角:SREL[stOf(n)+2],...(domOf(n)?{被主角統治:DOM[domOf(n)]}:{})}:{}),...((x.deals||[]).length?{約定:x.deals}:{}),...(x.grudge?{記仇:`知道主角當眾吃過他們的族人（${x.grudge} 次）`}:{}),從這裡走:`${pathHours(S.at,n)??"?"} 小時`,認識的人:S.npcs.filter(y=>y.where===n).map(y=>`${y.n}（${y.role}，對主角：${REL[relOf(y)+2]}）`)})),
     ...(S.npcs.some(x=>!x.where&&!S.party.some(p=>p.n===x.n))?{其他認識的人:S.npcs.filter(x=>!x.where&&!S.party.some(p=>p.n===x.n)).map(x=>`${x.n}（${x.role}，住處不明，不住在${NEST()}）`)}:{}),
     巢穴裡的人:{位置:inNest()?"就在附近":`都在${NEST()}，不在主角身邊`,名單:S.npcs.filter(x=>!S.party.some(p=>p.n===x.n)&&x.where===NEST()).map(x=>({...(x.captive?{處境:"俘虜，被看管著"}:x.contract?{處境:"答應留下來幫忙（約定）"}:{}),名字:x.n,身分:x.role,等級:x.lv,想要:x.want,憑著:x.knack,表面:x.face,
       本能:x.inst,對主角:`${REL[relOf(x)+2]}（${relOf(x)}/${x.cap==null?3:x.cap}${x.foe?"，是對手，不會追隨你":relOf(x)<3?`，再好 ${3-relOf(x)} 級就會追隨你`:""}）`,...(x.secret?{祕密:x.secret}:{})}))},

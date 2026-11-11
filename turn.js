@@ -52,6 +52,8 @@ function getGains(o,a){
     a.deal=(Array.isArray(o.deal)?o.deal:o.deal?[o.deal]:[]).filter(x=>x&&x.place&&x.what).slice(0,2).map(x=>({place:String(x.place).slice(0,12),what:String(x.what).slice(0,30),end:!!x.end}));
     a.tradeOk=o.trade_ok===true||o.trade_ok==="true";
     a.chief=o.chief===true||o.chief==="true";
+    {const ct=one(o.contract);if(ct&&typeof ct==="object"&&ct.name&&ct.task)a.contract={name:String(ct.name).trim().slice(0,10),task:String(ct.task).slice(0,40),type:/item|beast|place/.test(ct.type)?String(ct.type).match(/item|beast|place/)[0]:"place",target:String(ct.target||"").trim().slice(0,16)}}
+    {const ht=one(o.heart);if(ht&&typeof ht==="object"&&ht.name)a.heart={name:String(ht.name).trim().slice(0,10),knot:String(ht.knot||"").slice(0,30),skill:String(ht.skill||"").slice(0,8),note:String(ht.note||"").slice(0,30)}}
     a.equip=(Array.isArray(o.equip)?o.equip:o.equip?[o.equip]:[]).filter(x=>x&&x.who&&x.item).slice(0,4).map(x=>({who:String(x.who).trim(),item:String(x.item).trim(),off:!!x.off}));
     {const h=one(o.heat);if(h&&typeof h==="object"&&h.d)a.heat={d:Math.max(-2,Math.min(2,parseInt(h.d,10)||0)),why:String(h.why||"").slice(0,16)}}
     a.mats={};
@@ -285,6 +287,9 @@ function gains(a,big,notes,guard){
     else{if(plainN>=plainMax){notes.push(`（${x}帶不走，留在原地）`);return}plainN++;receive(x,notes)}});
   (a.equip||[]).forEach(q=>equipAlly(q.who,q.item,q.off,notes));
   if(a.chief&&S.stage==="成體")becomeChief(notes);
+  if(a.contract)offerSet(a.contract,notes);
+  if(a.heart)makeMate(a.heart,notes);
+  contractCheck(a,notes);
 }
 function applyAlt(e){
   if(e.pre)restore(e.pre);

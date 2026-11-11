@@ -15,7 +15,7 @@ function dayChange(notes){
   notes.push(`—— 第 ${S.day} 天 ——`);
   if((S.usedSk||[]).length){S.usedSk=[];notes.push("技能和魔法物品的力量都恢復了。")}
   S.allyUsed=0; S.healDay=null;
-  const n=S.nest; dayJobs(notes); facDay(notes); nestHeatDay(notes); raidDay(notes); const need=needOf(), hungry=(n.food||0)<need;
+  const n=S.nest; dayJobs(notes); domDay(notes); facDay(notes); nestHeatDay(notes); raidDay(notes); const need=needOf(), hungry=(n.food||0)<need;
   dayCaptives(notes,hungry);
   if(!hungry){n.food-=need;n.fed=(n.fed||0)+1;
     if(n.fed>=3&&n.pop<POP.length){n.pop++;n.fed=0;notes.push(`${NEST()}連著三天都吃飽了，聚過來的同類變多了。人口：${POP[n.pop-1]}。`)}}
@@ -315,6 +315,7 @@ function gainExist(lv,notes,bonus,why){
   const g=existGain(lv)+(bonus||0);
   if(!g){notes.push("對手比你弱，存在值沒有增加。");return}
   S.exist=Math.min(existMax(S.lv),S.exist+g);
+  S.party.filter(p=>p.mate&&p.with).forEach(p=>{allyXp(p,g,notes);notes.push(`伴侶${p.n}存在值 +${g}（${p.xp||0}/${EVO_PTS}）`)});   // v0.47：伴侶同行拿一樣多
   notes.push(`存在值 +${g}${bonus?`（${why||"小頭目"} +${bonus}）`:""}（${S.exist}/${existMax(S.lv)}）`);
   if(S.exist>=existMax(S.lv)&&!S.evo&&!S.war){S.evo=newEvo();evoAnnounce(notes)}
 }
@@ -435,6 +436,7 @@ const LOOT_POOL=[{n:"蠻力",sys:"天生"},{n:"堅守",sys:"意圖"},{n:"劍術"
 function raidLoot(c,notes){
   if(!c||c.tier==="失敗"||!c.foeLv||!RAID_RE.test(c.what||"")||!RAID_FOE.test((c.foe||"")+(c.what||"")))return [];
   facHit({name:c.foe||"",kind:c.what||""},notes); if(c.tier==="大成功")facHit({name:c.foe||"",kind:c.what||""},notes);
+  domHit(S.at,c.tier,notes);   // v0.47：突襲聚落成功 → 威懾／壓制
   S.lootDay=S.lootDay||{}; const key=cleanName(c.foe||"營地"), again=S.lootDay[key]===S.day; S.lootDay[key]=S.day;
   const n=again?(Math.random()<0.3?1:0):(c.tier==="大成功"?2:1), got=[];
   const sp=cleanName(c.foe||"戰團").replace(/戰團|部落|巡邏隊|營地|巢穴|戰士/g,"")||"戰團";
@@ -538,7 +540,7 @@ function metaGet(){if(META)return META;let m=null;try{m=JSON.parse(ls.g(META_KEY
   META=(m&&typeof m==="object")?m:{}; if(!META.ends||typeof META.ends!=="object")META.ends={}; return META}
 function metaSave(){ls.s(META_KEY,JSON.stringify(metaGet()))}
 /* 結局用的「聚落」：各族聚落＋固定的敵對據點，知道的、還在的、不是自己的巢穴 */
-const allSettles=()=>[...DEMI.map(x=>x.n),...SITE_FIXED].filter(n=>{const x=S.world[n];return x&&n!==NEST()&&x.kind!=="廢棄的巢穴"});   // 這個世界裡所有的聚落（含還沒找到的）
+const allSettles=()=>[...DEMI.map(x=>x.n),...SITE_FIXED].filter(n=>{const x=S.world[n];return x&&n!==NEST()&&x.kind!=="廢棄的巢穴"&&!x.razed});   // 這個世界裡所有的聚落（含還沒找到的）
 const endSettles=()=>allSettles().filter(n=>S.world[n].known);
 function nearSettles(){                        // 巢穴附近：同一個地區、或跟巢穴直接相連的地方所在的地區
   const nd=S.world[NEST()]||{}, R=new Set([nd.region||NEST()]);
@@ -546,12 +548,14 @@ function nearSettles(){                        // 巢穴附近：同一個地區
   return endSettles().filter(n=>R.has(S.world[n].region)||(nd.links||{})[n]);
 }
 const ENDINGS=[
- {k:"family",line:"退休",n:"哥布林家族",need:"有大房子，加上伴侶（數量不限）",soon:"伴侶、大房子"},
+ {k:"family",line:"退休",n:"哥布林家族",need:"伴侶 3 位以上，而且巢穴人口到「興盛」（後代很多）",retire:true,
+  chk:()=>mates().length>=3&&S.nest.pop>=5},
  {k:"chief",line:"退休",n:"哥布林部落酋長",need:"當上巢穴之主，而且巢穴附近（同一個地區、或直接相連的地方）知道的聚落全部中立以上（至少 1 個）",retire:true,
-  chk:()=>{const a=nearSettles();return !!S.chief&&a.length>0&&a.every(n=>stOf(n)>=0)}},
- {k:"overlord",line:"退休",n:"部族共主",need:"這一局當上酋長，再找到這個世界的所有聚落，全部中立以上（威懾、壓制、統治之後的版本加進來）",retire:true,
-  chk:()=>{const a=allSettles();return !!S.ends.chief&&a.length>0&&a.every(n=>S.world[n].known&&stOf(n)>=0)}},
- {k:"conqueror",line:"退休",n:"哥布林征服者",need:"所有聚落都被消滅或稱臣",soon:"統治軌道（威懾→壓制→統治／消滅）"},
+  chk:()=>{const a=nearSettles();return !!S.chief&&a.length>0&&a.every(n=>stOf(n)>=0||domOf(n)===3)}},
+ {k:"overlord",line:"退休",n:"部族共主",need:"這一局當上酋長，再找到這個世界的所有聚落，每一個都是中立以上、或被你威懾／壓制／統治",retire:true,
+  chk:()=>{const a=allSettles();return !!S.ends.chief&&a.length>0&&a.every(n=>S.world[n].known&&(stOf(n)>=0||domOf(n)>=1))}},
+ {k:"conqueror",line:"退休",n:"哥布林征服者",need:"這個世界的每一個聚落，不是被你消滅、就是向你稱臣",retire:true,
+  chk:()=>{const a=allSettles();return a.length+(S.razed||[]).length>0&&a.every(n=>S.world[n].known&&domOf(n)===3)}},
  {k:"emperor",line:"退休",n:"哥布林皇帝",need:"殺死並吞噬八王之一，加上家族、酋長、共主、征服者全部",soon:"八王"},
  {k:"k_dead",line:"八王",n:"敗給八王",need:"八王戰戰敗死亡",soon:"八王"},
  {k:"k_mixed",line:"八王",n:"八王之間",need:"跟八王有贏有輸，也有不交戰的結盟或中立",soon:"八王"},
@@ -593,21 +597,143 @@ function endHTML(){
   const ended=S.ended&&ENDINGS.find(e=>e.k===S.ended.k), col=!ended&&(S.sacN||0)>=3;
   const sk=S.skills.filter(s=>!isUq(s)&&s.g).sort((a,b)=>gIdx(b.g)-gIdx(a.g));
   return `<div class="dead"><b>${ended?`結局：${esc(ended.n)}`:"你死了。"}</b><br>${ended?"":`你見到了管理員。${col?`<br>你身上有 ${S.sacN} 處捨身的傷。結局：收藏品。`:""}<br>`}按上面的「撤回」回到上一步，或在齒輪裡重新開始。
-    <div class="note" style="margin-top:8px">轉生（二周目）：從成體開始、所有地區一開始就知道。最多選 3 個技能帶過去（標成〔前世〕，不能整合、不會消失）；等級不帶。神兵還沒做。</div>
+    <div class="note" style="margin-top:8px">轉生（二周目）：從成體開始、所有地區一開始就知道。最多選 3 個技能帶過去（標成〔前世〕，不能整合、不會消失）；等級不帶。</div>
     <div class="tags">${sk.map(s=>`<button class="tag ut" data-rb="${esc(s.n)}" style="${RBP.includes(s.n)?"outline:2px solid currentColor":""}">${esc(s.n)}（${s.g}）</button>`).join("")}</div>
-    <div class="note">已選 ${RBP.length}／3</div><button class="tl" id="rbgo">轉生（帶 ${RBP.length} 個技能）</button></div>`;
+    <div class="note">已選 ${RBP.length}／3</div>
+    ${S.divine?`<div class="note" style="margin-top:8px">神兵「${esc(S.divine.name)}」會跟著你（能力：${S.divine.abs.map(a=>esc(a.n)).join("、")}）。</div>`:`<div class="note" style="margin-top:8px"><b>鑄一把神兵帶過去</b>：自己取名、描述，再選 3 個技能當它的魔法能力（每項一天 3 次、永遠不會壞）。不選滿 3 個就不鑄。</div>
+    <input id="dvn" maxlength="12" placeholder="神兵的名字" value="${esc(DVN)}" style="font:inherit;padding:6px;border:1px solid var(--line);border-radius:5px;width:100%;margin:4px 0">
+    <input id="dvd" maxlength="40" placeholder="長什麼樣子（一句話）" value="${esc(DVD)}" style="font:inherit;padding:6px;border:1px solid var(--line);border-radius:5px;width:100%;margin:4px 0">
+    <div class="tags">${sk.map(s=>`<button class="tag ut" data-rbd="${esc(s.n)}" style="${DVP.includes(s.n)?"outline:2px solid currentColor":""}">${esc(s.n)}</button>`).join("")}</div><div class="note">神兵能力已選 ${DVP.length}／3</div>`}
+    <button class="tl" id="rbgo">轉生（帶 ${RBP.length} 個技能${S.divine||DVP.length===3?"＋神兵":""}）</button></div>`;
 }
-function rebornWith(names){
+function rebornWith(names,div){
   if(!S||!S.dead)return; deathRecord();
   const old=S, ng=newGame(old.name);
+  if(old.divine)ng.divine=old.divine;
+  else if(div&&div.abs&&div.abs.length===3){const abs=div.abs.map(n=>old.skills.find(s=>s.n===n&&!isUq(s))).filter(Boolean).map(s=>({n:s.n,sys:s.sys,g:s.g||"F"}));
+    if(abs.length===3)ng.divine={name:String(div.name||"").trim().slice(0,12)||"無名的神兵",desc:String(div.desc||"").trim().slice(0,40),abs}}
   (names||[]).slice(0,3).map(n=>old.skills.find(s=>s.n===n&&!isUq(s))).filter(Boolean)
     .forEach(s=>ng.skills.push({n:s.n,sys:s.sys,g:s.g||"F",box:"act",past:true,note:s.note||""}));
   ng.rebirths=(old.rebirths||0)+1; ng.langs=["哥布林語"];
   ng.stage="成體"; ng.hpMax=20; ng.hp=20; ng.tags=ng.tags.filter(t=>t!=="幼體"); ng.growth=3;
   Object.values(ng.world).forEach(x=>{if(x.kind==="地區")x.known=true});
-  S=ng; RBP=[]; heal();
+  S=ng; RBP=[]; DVP=[]; DVN=""; DVD=""; heal();
   const keep=S.skills.filter(s=>s.past).map(s=>`${s.n}（${s.g}級）`);
-  S.log.push({who:"gm",kind:"sys",alts:[{text:`〈系統〉第 ${S.rebirths+1} 局。\n你吃了很多、長得很快。睜開眼的時候，你已經是成體了。${keep.length?`\n〈系統〉《大賢者》：「告。前世的記憶殘留了 ${keep.length} 項本領：${keep.join("、")}。」`:""}\n〈系統〉這一帶的地區你都記得。`,opts:REBORN_OPTS.slice()}],i:0});
+  S.log.push({who:"gm",kind:"sys",alts:[{text:`〈系統〉第 ${S.rebirths+1} 局。\n你吃了很多、長得很快。睜開眼的時候，你已經是成體了。${keep.length?`\n〈系統〉《大賢者》：「告。前世的記憶殘留了 ${keep.length} 項本領：${keep.join("、")}。」`:""}${S.divine?`\n〈系統〉神兵「${S.divine.name}」在你手邊。`:""}\n〈系統〉這一帶的地區你都記得。`,opts:REBORN_OPTS.slice()}],i:0});
   S.opts=REBORN_OPTS.slice(); TAB="story"; save(); render();
 }
 const REBORN_OPTS=["看看這個窩現在的樣子","出去找吃的","看看自己帶回來的本領"];
+
+
+/* ═════════ v0.47：神兵、伴侶、契約（短期）、統治軌道 ═════════ */
+let DVP=[], DVN="", DVD="", DOMC="";
+/* 神兵：S.divine={name,desc,abs:[{n,sys,g}]}。每項能力一天 3 次（skUsed 認「（神兵）」結尾），永遠不會壞，轉生時跟著走 */
+const divKey=n=>`${n}（神兵）`;
+const divLeft=n=>Math.max(0,3-(S.usedSk||[]).filter(x=>x===divKey(n)).length);
+function divineHTML(){
+  if(!S.divine)return "";
+  const d=S.divine;
+  return `<div class="card"><h3>神兵：${esc(d.name)}</h3>${d.desc?`<div class="note">${esc(d.desc)}</div>`:""}
+    ${d.abs.map(a=>`<div class="sk"><span class="n">${esc(a.n)}</span><span class="s">${esc(a.sys)}</span><span class="lv">${esc(a.g)}</span><span class="s">今天還能用 ${divLeft(a.n)}／3</span></div>`).join("")}
+    <div class="note" style="margin-top:6px">永遠不會壞，對手等級再高也照樣有效。判定卡「用哪個技能」選得到，不花 MP。</div></div>`;
+}
+/* 伴侶：類人＋追隨（同伴入隊時就是追隨）＋故事裡解開心結（模型填 heart）。心結技、種族技各一格，另外 5 格照同伴 */
+const capLv=p=>p&&p.mate?S.lv:allyLv();
+const mates=()=>S.party.filter(p=>p.mate);
+function makeMate(h,notes){
+  const p=S.party.find(x=>x.n===h.name||(x.alias||[]).includes(h.name));
+  if(!p){notes.push(`${h.name}還不是你的同伴，不能成為伴侶。`);return}
+  if(p.mate)return;
+  if(p.temp){notes.push(`${p.n}只是契約同伴，不會成為伴侶。`);return}
+  if(!isHumanoid({sp:p.kind,name:p.n})){notes.push(`${p.n}不是類人，不能成為伴侶。`);return}
+  if(/幼體|幼崽|小孩|孩子/.test(`${p.kind}${p.note||""}${(p.tags||[]).join("")}`)){notes.push(`${p.n}還沒成年，不能成為伴侶。`);return}
+  p.mate=true; p.knot=h.knot||"";
+  p.heartSk={n:h.skill||`${p.n}的心願`,sys:"心結",g:S.lv,note:h.note||""};
+  const pool=(poolKey(p.kind)&&POOLS[poolKey(p.kind)])||LOOT_POOL, cand=pool.filter(s=>!p.skills.some(x=>x.n===s.n)&&s.n!==p.heartSk.n);
+  if(cand.length){const rs=cand[rint(0,cand.length-1)];p.raceSk={n:rs.n,sys:rs.sys,g:p.lv}}
+  notes.push(`〈系統〉《世界之聲》：「${p.n} 成為你的伴侶。」`,
+    `${p.n}的心結解開了${p.knot?`（${p.knot}）`:""}：學會心結技「${p.heartSk.n}」${p.raceSk?`，自己學會了種族技「${p.raceSk.n}」`:""}。伴侶的等級上限和你一樣（${S.lv}），跟你同行時存在值和你拿一樣多。`);
+}
+function mateHTML(p,k){
+  const out=[];
+  if(p.mate)out.push(`<div class="d">💍 伴侶${p.knot?`・解開的心結：${esc(p.knot)}`:""}<br>心結技：<b>${esc(p.heartSk.n)}</b>${p.heartSk.note?`（${esc(p.heartSk.note)}）`:""}${p.raceSk?`　種族技：<b>${esc(p.raceSk.n)}</b>`:""}（這兩格不能忘掉）</div>`);
+  if(p.temp)out.push(`<div class="d">契約：${esc(p.temp.task)}（完成後回${esc(p.temp.home)}）${p.temp.type==="item"?`<br><button class="tl" data-cg="${k}"${S.items.some(n=>n===p.temp.target||n.includes(p.temp.target))?"":" disabled"}>交出 ${esc(p.temp.target)}</button>`:""}</div>`);
+  return out.join("");
+}
+/* 契約：模型填 contract 提議 → 畫面出卡片 → 玩家同意才暫時同行；條件完成就道謝、回原本的地方。關係從無視開始，最多信賴 */
+function offerSet(o,notes){
+  if(S.party.some(p=>p.n===o.name))return;
+  S.offer={...o,day:S.day,at:S.at};
+  notes.push(`〈系統〉${o.name}提出契約：${o.task}。（在下面選「同意」或「拒絕」）`);
+}
+function offerHTML(){
+  const o=S.offer; if(!o)return "";
+  return `<div class="check"><h3>契約提議：${esc(o.name)}</h3><div class="note">${esc(o.task)}${o.target?`（${o.type==="item"?"要交出":o.type==="beast"?"一起打倒":"一起去"}：${esc(o.target)}）`:""}<br>同意的話，${esc(o.name)}會暫時跟你同行；條件完成後道謝、回原本的地方。</div>
+    <div class="padd" style="margin-top:6px"><button class="tl" id="offok">同意</button><button class="tl" id="offno">拒絕</button></div></div>`;
+}
+function offerAccept(){
+  const o=S.offer; if(!o||busy||S.dead)return;
+  const pre=snap(), notes=[]; S.offer=null;
+  S.log.push({who:"you",text:`同意和${o.name}的契約`,pre});
+  if(S.party.filter(x=>x.with).length>=2)notes.push(`同行已經滿兩名，${o.name}沒辦法跟你走。契約沒有成立。`);
+  else{
+    let x=S.npcs.find(y=>y.n===o.name||(y.alias||[]).includes(o.name));
+    if(!x){x={n:o.name,role:"人類",lv:"F",want:"",knack:"",face:"",secret:"",inst:"",rel:"無視",r:0,where:o.at};S.npcs.push(x)}
+    const home=x.where||o.at||S.at; x.r=0; x.rel="無視"; x.cap=2;
+    S.party.push({n:x.n,kind:raceOf(x.role)||"人類",lv:gIdx(x.lv||"F")<gIdx(allyLv())?(x.lv||"F"):allyLv(),xp:0,knack:x.knack||"",note:x.face||"",skills:[],tags:[],with:true,
+      temp:{home,task:o.task,type:o.type,target:o.target}});
+    notes.push(`契約成立：${x.n}暫時跟你同行，直到「${o.task}」完成。`);
+  }
+  S.log.push(sysEntry(notes.join("\n"))); save(); render();
+}
+function offerReject(){
+  const o=S.offer; if(!o||busy)return; S.offer=null;
+  S.log.push(sysEntry(`你拒絕了${o.name}的契約。`)); save(); render();
+}
+function contractDone(p,notes){
+  notes.push(`${p.n}：「感謝合作。」`,`${p.n}離隊，回到${p.temp.home}。`);
+  const x=S.npcs.find(y=>y.n===p.n); if(x){x.where=p.temp.home}
+  S.party=S.party.filter(q=>q!==p);
+}
+function contractCheck(a,notes){
+  S.party.filter(p=>p.temp).slice().forEach(p=>{
+    const t=p.temp, tg=cleanName(t.target||""); if(!tg)return;
+    const d=a&&a.defeated, dn=d?cleanName(d.name):"";
+    if(t.type==="beast"&&d&&(dn.includes(tg)||tg.includes(dn)||String(d.kind||"").includes(tg)))contractDone(p,notes);
+    else if(t.type==="place"&&(S.at===t.target||S.at.includes(tg)||tg.includes(S.at)))contractDone(p,notes);
+  });
+}
+function contractGive(k){
+  const p=S.party[k]; if(!p||!p.temp||p.temp.type!=="item"||busy||S.dead)return;
+  const it=S.items.find(n=>n===p.temp.target||n.includes(p.temp.target)); if(!it)return;
+  const pre=snap(), notes=[`你把 ${it} 交給 ${p.n}。`];
+  S.log.push({who:"you",text:`把 ${it} 交給 ${p.n}`,pre});
+  S.items.splice(S.items.indexOf(it),1); delete S.mat[it]; contractDone(p,notes);
+  S.log.push(sysEntry(notes.join("\n"))); save(); render();
+}
+/* 統治軌道：聚落多一個 dom（0 無、1 威懾、2 壓制、3 統治＝稱臣），另外 razed＝被消滅。
+   突襲成功 +1（大成功 +2），最多到壓制；壓制後在那裡選「稱臣」或「消滅」。統治的聚落每天上貢 2 份存糧。和友好那條（st）分開算 */
+const DOM=["","威懾","壓制","統治"];
+const domOf=n=>(S.world[n]&&S.world[n].dom)||0;
+function domHit(n,tier,notes){
+  const x=S.world[n]; if(!x||x.razed||![...DEMI.map(y=>y.n),...SITE_FIXED].includes(n))return;
+  const was=x.dom||0; if(was>=2)return;
+  x.dom=Math.min(2,was+(tier==="大成功"?2:1));
+  notes.push(`${n}：${DOM[was]||"沒被壓著"} → ${DOM[x.dom]}${x.dom===2?"（可以到「地點」頁逼他們稱臣，或消滅他們）":""}`);
+}
+function domAct(kind,n){
+  const x=S.world[n]; if(!x||(x.dom||0)!==2||busy||S.dead||S.at!==n)return;
+  const pre=snap(), notes=[];
+  S.log.push({who:"you",text:kind==="sub"?`逼${n}稱臣`:`消滅${n}`,pre});
+  advanceTime(4,notes);
+  if(kind==="sub"){x.dom=3;notes.push(`〈系統〉${n}向你稱臣了。之後每天上貢 2 份存糧。`);heatAdd(1,`${n}向哥布林稱臣`,notes)}
+  else{x.razed=true;x.dom=0;x.kind="廢墟";x.note=`被你消滅的${n}，只剩廢墟。`;S.razed=[...(S.razed||[]),n];
+    S.npcs.filter(y=>y.where===n&&!S.party.some(p=>p.n===y.n)).forEach(y=>npcGone(y.n,"聚落被消滅",notes));
+    heatAdd(3,`${n}被哥布林消滅了`,notes);notes.push(`〈系統〉${n}被你消滅了。`)}
+  endCheck(notes);
+  S.log.push(sysEntry(notes.join("\n"))); save(); render();
+}
+function domDay(notes){
+  const ruled=Object.keys(S.world||{}).filter(n=>domOf(n)===3&&!S.world[n].razed); if(!ruled.length||!S.nest)return;
+  S.nest.food=(S.nest.food||0)+2*ruled.length; notes.push(`〔稱臣〕${ruled.join("、")}上貢了 ${2*ruled.length} 份存糧`);
+}

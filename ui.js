@@ -60,7 +60,7 @@ function tabsHTML(){
   return `<nav class="tabs">${T.map(([k,n])=>`<button data-tab="${k}" class="${TAB===k?"on":""}">${n}</button>`).join("")}</nav>`;
 }
 function panelHTML(){
-  if(TAB==="skill") return skillHTML();
+  if(TAB==="skill") return divineHTML()+skillHTML();
   if(TAB==="nest") return nestHTML();
   if(TAB==="record") return recordHTML();
   if(TAB==="map") return mapHTML();
@@ -101,6 +101,7 @@ function checkHTML(ch){
       <button class="tl" data-rt="hp">HP 上限 -5</button><button class="tl" data-rt="maim">留下【殘缺】</button>
       ${S.items.map((it,i)=>`<button class="tl" data-rt="item|${i}">丟下 ${esc(it)}</button>`).join("")}</div>`:""}`:"";
   const sks=boxList("act").map(x=>({v:x.n,t:`${x.n}（${x.sys}・${x.g}）MP -1${skUsed(x.n)?"・今天已用":""}`,off:S.mp<1||skUsed(x.n)}));
+  if(S.divine)S.divine.abs.forEach(a=>{const k=divKey(a.n);sks.push({v:k,t:`${a.n}（神兵「${S.divine.name}」・今天還能用 ${divLeft(a.n)} 次）`,off:divLeft(a.n)<=0})});
   S.items.forEach(n=>{const m=matOf(n);if(m&&m.skill){const k=`${m.skill.n}（${n}）`, weak=ch.foeLv&&gIdx(m.lv)<gIdx(ch.foeLv);sks.push({v:k,t:`${m.skill.n}（✦${n}・${m.lv}級）${skUsed(k)?"・今天已用":weak?`・等級低於對手(${ch.foeLv})，沒效果，硬用會壞`:""}`,off:skUsed(k)})}});
   const ones=oneShots(), itBox=ones.length?`<div class="sacbox"><label>用掉一件普通武器防具（多一層優勢，用完就沒了）</label><select id="itemsel"><option value="">不用</option>${ones.map(n=>`<option value="${esc(n)}"${ch.useItem===n?" selected":""}>${esc(n)}</option>`).join("")}</select></div>`:"";
   const abs=S.party.filter(p=>allyElig(p)&&allyAbOf(p)&&allyAbOf(p)!=="治療"), abBox=abs.length?`<div class="sacbox"><label>同伴幫忙（今天全隊還能用 ${Math.max(0,2-allyUses())} 次）</label><select id="allysel"><option value="">不用</option>${abs.map(p=>`<option value="${esc(p.n)}"${ch.allyAb===p.n?" selected":""}${allyUses()>=2?" disabled":""}>${esc(p.n)}：${allyAbOf(p)}${allyAbOf(p)==="增傷"?"（多一層優勢）":"（替你吃 HP 代價，自己負傷）"}</option>`).join("")}</select></div>`:"";
@@ -182,7 +183,7 @@ function storyHTML(){
     bottom=`<div class="check war"><h3>${esc(f.name)}找上門了</h3><div class="note">${esc(f.kind)}・${f.lv}級。${esc(f.note)}<br>期限已過，躲不掉了。</div><button class="paybtn" data-war="${S.evo.forced}">迎戰</button></div>`}
   else if(!busy&&!S.err){
     const opts=S.opts.map((o,i)=>`<button class="opt" data-o="${i}">${esc(o)}</button>`).join("");
-    const raidOk=S.stage!=="幼體"&&S.at!==NEST()&&S.world[S.at]&&/營地|巢穴/.test(S.world[S.at].kind||"")&&stOf(S.at)<=-1;
+    const raidOk=S.stage!=="幼體"&&S.at!==NEST()&&S.world[S.at]&&/營地|巢穴|聚落|村|城鎮/.test(S.world[S.at].kind||"")&&stOf(S.at)<=-1;   // v0.47：敵對的聚落也能突襲（統治軌道）
     const menu=(S.stage==="幼體"?MENU_KID:raidOk?[...MENU_ADULT.slice(0,3),{k:"raid",t:"突襲・4h"},...MENU_ADULT.slice(3)]:MENU_ADULT).map(m=>`<button class="mb" data-mn="${m.k}">${m.k==="nest"&&!inNest()?`回巢穴・${pathHours(S.at,NEST())??"?"}h`:m.t}</button>`).join("");
     const left=S.evo?S.evo.due-nowH():0;
     const evoCard=S.evo?`<div class="check war evo"><h3>進化戰</h3><div class="note">存在值已滿，不會再增加。期限：${hStr(S.evo.due)}（還有 ${left} 小時）。逾期，其中一名會主動找上門。單挑，同伴不能插手；共 5 個階段。</div>
@@ -196,7 +197,7 @@ function storyHTML(){
         <button class="send" id="sendbtn">送出</button>
       </div>`;
   }
-  return `<div class="log" id="log">${html}${tail}</div><div class="choices">${S.dead?"":bag}${bottom}</div>`;
+  return `<div class="log" id="log">${html}${tail}</div><div class="choices">${S.dead?"":bag}${!S.dead&&!busy&&!ch?offerHTML():""}${bottom}</div>`;
 }
 function bindStory(){
   const on=(id,f)=>{const b=$(id);if(b)b.onclick=f};
@@ -249,7 +250,10 @@ function bindStory(){
       upd()}); if(ss)ss.onchange=upd;
     pb.onclick=()=>pay(sel(),sac());
   }
-  {const rb=$("rbgo"); if(rb)rb.onclick=()=>rebornWith(RBP.slice())}
+  {const rb=$("rbgo"); if(rb)rb.onclick=()=>rebornWith(RBP.slice(),{name:($("dvn")||{}).value||"",desc:($("dvd")||{}).value||"",abs:DVP.slice()})}
+  document.querySelectorAll("[data-rbd]").forEach(b=>b.onclick=()=>{const n=b.dataset.rbd;DVN=($("dvn")||{}).value||DVN;DVD=($("dvd")||{}).value||DVD;DVP=DVP.includes(n)?DVP.filter(x=>x!==n):DVP.length<3?[...DVP,n]:DVP;render()});
+  on("offok",()=>offerAccept()); on("offno",()=>offerReject());
+  document.querySelectorAll("[data-cg]").forEach(b=>b.onclick=()=>contractGive(+b.dataset.cg));
   document.querySelectorAll("[data-rb]").forEach(b=>b.onclick=()=>{const n=b.dataset.rb;RBP=RBP.includes(n)?RBP.filter(x=>x!==n):RBP.length<3?[...RBP,n]:RBP;render()});
   on("retry",()=>retry()); on("regen",regen); on("undo",undo);
   on("prv",()=>flip(-1)); on("nxt",()=>flip(1));
@@ -288,11 +292,12 @@ function track(k,label,list,v){
 }
 let ASD="";
 function partyHTML(){
-  const rows=S.party.map((p,k)=>`<div class="npc"><div class="h"><b>${esc(p.n)}</b><span>${esc(p.kind)}・${p.lv} 級${p.knack?`・本事：${esc(p.knack)}`:""}</span></div>
-      <div class="d">${p.named?`職業：${esc(p.dir)}${allyAbOf(p)?`（能力：${allyAbOf(p)}）`:""}`:"還沒進化，沒有職業"}・存在值 ${p.xp||0}／${EVO_PTS}${gIdx(p.lv)>=gIdx(allyLv())?(gIdx(p.lv)>=gIdx(allyLv())&&gIdx(S.lv)>0?"（等級已到上限，主角進化後才能再升）":""):""}${!allyElig(p)&&gIdx(p.lv)<gIdx(allyLv())?"・<span style=\"color:var(--bad,#c33)\">等級太低，上不了戰場</span>":""}${allyElig(p)?"・在場減傷 −1":""}</div>
+  const rows=S.party.map((p,k)=>`<div class="npc"><div class="h"><b>${p.mate?"💍":""}${esc(p.n)}${p.temp?"〔契約〕":""}</b><span>${esc(p.kind)}・${p.lv} 級${p.knack?`・本事：${esc(p.knack)}`:""}</span></div>
+      <div class="d">${p.named?`職業：${esc(p.dir)}${allyAbOf(p)?`（能力：${allyAbOf(p)}）`:""}`:"還沒進化，沒有職業"}・存在值 ${p.xp||0}／${EVO_PTS}${gIdx(p.lv)>=gIdx(capLv(p))?(gIdx(p.lv)>=gIdx(capLv(p))&&gIdx(S.lv)>0?"（等級已到上限，主角進化後才能再升）":""):""}${!allyElig(p)&&gIdx(p.lv)<gIdx(allyLv())?"・<span style=\"color:var(--bad,#c33)\">等級太低，上不了戰場</span>":""}${allyElig(p)?"・在場減傷 −1":""}</div>
       ${allyAbOf(p)==="情報"&&allyElig(p)?`<div class="pbtn"><button class="tl" data-as2="${k}"${allyUses()>=2?" disabled":""}>請他偵查（找到附近 1 個新地點，不花時間）</button></div>`:""}
       ${allyAbOf(p)==="治療"&&allyElig(p)?`<div class="pbtn"><button class="tl" data-ah="${k}"${S.healDay===S.day||allyUses()>=2?" disabled":""}>請他治療你（HP +50%，一天一次）</button></div>`:""}
       ${!allyArmed(p)?`<div class="d" style="color:var(--bad,#c33)">空著手：${p.with?"跟著你戰鬥時，判定會多一項劣勢（容易被圍毆）":"他出門跟你戰鬥時，判定會多一項劣勢"}。把武器（背包裡的白字武器或魔法武器）交給牠。</div>`:""}
+      ${mateHTML(p,k)}
       <div class="d">${p.skills.length?p.skills.map((x,j)=>`${esc(x.n)}（${esc(x.g||p.lv)}級）<button class="tl" data-as="${k}|${j}">${ASD===k+":"+j?"確定忘掉？":"忘掉"}</button>`).join("　"):"還沒有技能"}${p.tags.length?`　【${p.tags.map(esc).join("】【")}】`:""}</div>
       ${p.note?`<div class="d" style="color:var(--mute)">${esc(p.note)}</div>`:""}
       <div class="pbtn"><button class="tl" data-pw="${k}">${p.with?"同行中 → 留在巢穴":p.fac?`在〔${esc(p.fac)}〕工作`:"留在巢穴 → 帶在身邊"}</button>${p.fac?`<button class="tl" data-pf="${k}">離開設施</button>`:p.noFac&&!p.with?`<button class="tl" data-pf="${k}">回去顧設施</button>`:""}<button class="tl" data-pq="${k}">${PQ===k?"確定讓牠離開？":"離隊"}</button><button class="tl" data-rn="${k}">改名</button></div>
@@ -307,6 +312,7 @@ function partyHTML(){
 }
 let PQ=-1;
 function bindNest(){
+  document.querySelectorAll("[data-cg]").forEach(b=>b.onclick=()=>contractGive(+b.dataset.cg));
   {const b=$("nup");if(b)b.onclick=upgradeNest}
   document.querySelectorAll("[data-as2]").forEach(b=>b.onclick=()=>allyScout(+b.dataset.as2));
   document.querySelectorAll("[data-ah]").forEach(b=>b.onclick=()=>allyHeal(+b.dataset.ah));
@@ -351,7 +357,7 @@ function placesHTML(){return ""}
 function mapHTML(){
   const h=here(), known=Object.entries(S.world).filter(([n,x])=>x.known&&n!==S.at);
   const ppl=n=>S.npcs.filter(y=>y.where===n&&!S.party.some(p=>p.n===y.n));
-  const sl=n=>isSettle(n)?`<div class="d">對你：<b>${SREL[stOf(n)+2]}</b>${S.world[n].grudge?`　記仇 ${S.world[n].grudge}`:""}${(S.world[n].deals||[]).length?`<br>約定：${S.world[n].deals.map(esc).join("；")}`:""}</div>`:"";
+  const sl=n=>isSettle(n)?`<div class="d">對你：<b>${SREL[stOf(n)+2]}</b>${domOf(n)?`　統治：<b>${DOM[domOf(n)]}</b>`:""}${domOf(n)===2&&S.at===n?`<br><button class="tl" data-dom="sub|${esc(n)}">逼他們稱臣（4 小時）</button><button class="tl" data-dom="raze|${esc(n)}">消滅他們（4 小時）</button>`:""}${S.world[n].grudge?`　記仇 ${S.world[n].grudge}`:""}${(S.world[n].deals||[]).length?`<br>約定：${S.world[n].deals.map(esc).join("；")}`:""}</div>`:"";
   const row=([n,x])=>`<div class="npc"><div class="h"><b>${x.kind==="地區"?"":"📍"}${esc(n)}</b><span>${esc(x.kind)}${x.kind!=="地區"&&x.region&&x.region!==n?`・屬於${esc(x.region)}`:""}・從這裡 ${pathHours(S.at,n)??"?"} 小時</span></div>
       ${x.note?`<div class="d">${esc(x.note)}</div>`:""}${sl(n)}${ppl(n).map(y=>`<div class="d">・${esc(y.n)}（${esc(y.role)}・${y.lv}級）對你：<b>${REL[relOf(y)+2]}</b></div>`).join("")}</div>`;
   return tradeHTML()+`<div class="card"><h3>現在在：${esc(S.at)}</h3><div class="note">${esc(h.kind)}${h.note?`・${esc(h.note)}`:""}</div>${sl(S.at)}
@@ -370,6 +376,7 @@ function mapHTML(){
       <div class="padd" style="margin-top:6px"><input id="mt" maxlength="40" placeholder="一句話說明（可以不填）"><button class="tl" id="madd">加入</button></div></div>`;
 }
 function bindMap(){
+  document.querySelectorAll("[data-dom]").forEach(b=>b.onclick=()=>{const [k,n]=b.dataset.dom.split("|");if(DOMC!==b.dataset.dom){DOMC=b.dataset.dom;b.textContent="確定？再按一次";return}DOMC="";domAct(k,n)});
   document.querySelectorAll("[data-tr]").forEach(c=>c.onchange=()=>{TRD.sel[c.dataset.tr]=c.checked;render()});
   {const w=$("trw");if(w){w.oninput=e=>TRD.want=e.target.value;$("trok").onclick=()=>{TRD.want=w.value;doTrade()}}}
   const b=$("madd"); if(b)b.onclick=()=>{const n=$("mn").value.trim();if(!n)return;
@@ -436,6 +443,7 @@ const GUIDE=[
  ["討伐戰的準備與俘虜",`討伐隊的組成會顯示在<b>巢穴頁</b>「外面的眼光」。你有對應職業的同伴（戰士壓斥候、斥候壓法師、法師壓戰士、祭司和工匠互剋）就多一層優勢。<br>回巢穴<b>備戰</b>（設陷阱、埋伏、備戰），每樣多一層優勢，三樣都做完這場只打一個階段。<br>第一次打贏如果贏得不漂亮，只是逼退，幾天後會帶更多人回來。漂亮贏了會抓到俘虜：可以<b>吃掉</b>（變成屍體）、<b>讓同伴單挑</b>練手、或<b>收為己用</b>。每 30 天（第 25 天起預告）還會有固定的大討伐。全滅時可以帶 1 個技能轉生。`],
  ["語言與同伴的新用法",`吃下新鮮的野豬人、狗頭人、諾姆、精靈、人類的屍體，就學會那一族的<b>語言</b>（哥布林語是母語）。不會的語言聽不懂，也沒辦法跟他們交易、招募。<br>判定卡上可以請同伴<b>代打</b>（一天共 2 次）：他的 HP 代價由他吃，等級夠高優勢更多。進化戰前可以請同伴<b>看對手弱點</b>，打那一隻多一層優勢。掠奪營地成功會直接搶到魔法物品。右下角有 ↑ 回頂部、↓ 跳到最新。`],
  ["結局簿與轉生",`<b>履歷</b>頁最上面是<b>結局簿</b>：每個結局的條件都寫在那裡，達成就解鎖，<b>好幾個結局可以同時解鎖</b>。退休類的結局解鎖後，可以選擇在那裡退休、結束這一局，也可以繼續玩。結局簿跨局保存，轉生不會清掉。<br>死了（或退休）之後可以<b>轉生</b>：二周目從<b>成體</b>開始、所有地區一開始就知道，最多帶 <b>3 個技能</b>過去（標成〔前世〕，不能整合、不會消失）。等級不帶。`],
+ ["神兵、伴侶、契約、統治",`<b>神兵</b>：轉生時可以把前世的 3 個技能鑄成一把神兵（自己取名、描述），每項能力一天 3 次、永遠不會壞，判定卡「用哪個技能」選得到。<br><b>伴侶</b>：類人的同伴對你「追隨」、你在故事裡解開他的心結、雙方自願，就會成為伴侶（💍）：多一個心結技、一個種族技（最多 7 個技能），等級上限和你一樣，跟你同行時存在值和你拿一樣多。<br><b>契約</b>：有人提出交換條件時，畫面會出「契約提議」，按同意他就暫時跟你走；條件完成後他會道謝、回到原本的地方。<br><b>統治</b>：突襲敵對的聚落成功會讓他們「威懾」→「壓制」；壓制之後到那裡的「地點」頁，可以逼他們稱臣（每天上貢 2 份存糧）或消滅他們。`],
  ["遇到怪事",`AI 有時會寫錯或漏掉東西（地點、物品、同伴位置）。點頁面上的 <b>OOC</b> 跟「規則助手」說一聲，它會幫你更正。巢穴位置請用「搬家」，不要靠 OOC。<br>覺得這回合不滿意可以「重試」，做錯了可以「撤回」。換裝置前先到 ⚙ 匯出存檔。`]
 ];
 function guideHTML(){return GUIDE.map(([h,b])=>`<h4 style="margin:12px 0 4px">${h}</h4><div class="note" style="line-height:1.7">${b}</div>`).join("")}

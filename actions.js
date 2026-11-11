@@ -245,7 +245,7 @@ function learnFor(j,k){
    同伴最高等級＝主角等級 −1（最低 F）；低於這個等級就上不了戰場。上得了戰場的同伴在場就永久減傷 −1（兩個 −2）。
    同伴的能力一天全隊合計 2 次：戰士＝防禦（替你吃這次的 HP 代價，自己【負傷】）、法師＝增傷（多一層優勢）、祭司＝治療（回 50% HP，一天一次）。 */
 const EVO_PTS=20;
-const allyElig=p=>!!p.with&&!p.tags.includes("重傷")&&gIdx(p.lv)>=gIdx(allyLv());
+const allyElig=p=>!!p.with&&!p.tags.includes("重傷")&&gIdx(p.lv)>=gIdx(capLv(p))-(p.mate?1:0);
 const allyShield=()=>S&&S.party?Math.min(2,S.party.filter(allyElig).length):0;
 const ABIL={"戰士":"防禦","法師":"增傷","祭司":"治療","斥候":"情報","工匠":"交易"};
 const CHECK_AB=["增傷","防禦"];
@@ -260,9 +260,9 @@ function allyCatchUp(notes){
   S.party.forEach(p=>{if(p.xp==null)p.xp=0;allyXp(p,0,notes)});
 }
 function allyXp(p,n,notes){
-  if(gIdx(p.lv)>=gIdx(allyLv())&&!p.ready){p.xp=Math.min(EVO_PTS,(p.xp||0)+n);return}   // 已經到頂：點數先存著，主角進化後再用
+  if(gIdx(p.lv)>=gIdx(capLv(p))&&!p.ready){p.xp=Math.min(EVO_PTS,(p.xp||0)+n);return}   // 已經到頂：點數先存著，主角進化後再用
   p.xp=Math.min(EVO_PTS,(p.xp||0)+n);
-  if(p.xp>=EVO_PTS&&gIdx(p.lv)<gIdx(allyLv())){
+  if(p.xp>=EVO_PTS&&gIdx(p.lv)<gIdx(capLv(p))){
     if(p.named){p.lv=GRADES[gIdx(p.lv)+1];p.xp=0;notes&&notes.push(`${p.n}進化了：${p.lv} 級，存在值歸零。`)}
     else if(!p.ready){p.ready=true;notes&&notes.push(`${p.n}的存在值湊滿了，可以進化。到主畫面取名、選職業。`)}
   }
