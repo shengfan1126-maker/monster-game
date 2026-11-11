@@ -113,6 +113,7 @@ function stateBrief(){
     同伴:S.party.length?S.party.map(p=>({...(p.mate?{伴侶:"是（心結已解開）",心結技:p.heartSk&&p.heartSk.n,種族技:p.raceSk&&p.raceSk.n}:{}),...(p.temp?{契約同伴:`暫時同行，條件：${p.temp.task}；完成後會回${p.temp.home}`}:{}),...(p.gear?{裝備:`${p.gear}（附帶技能 ${p.gearMat.skill.n}）`}:{}),拿著:(p.hold||[]).length?p.hold.join("、"):(p.gear?"只有裝備":"空手"),...(p.dir?{方向:p.dir}:{}),名字:p.n,...(p.alias&&p.alias.length?{以前叫:p.alias.join("、")}:{}),種族:p.kind,等級:p.lv,本事:p.knack,技能:p.skills.map(x=>`${x.n}（${x.g||p.lv}級・${x.sys}）`),狀態:p.tags,位置:p.with?"跟在主角身邊":`留在${NEST()}`,...(!p.with&&p.job?{派工:p.job}:{}),...(p.note?{說明:p.note}:{})})):"沒有",
     巢穴:{名稱:n.name,存糧:`${PROS[n.p-1]}（${n.food||0} 份，每天吃 ${needOf()} 份，夠吃 ${daysOf()} 天）`,存糧狀況:daysOf()>=7?"很充足（敘述裡不要寫缺糧、空蕩、挨餓，貯藏區是滿的）":daysOf()>=3?"夠用":daysOf()>=1?"吃緊（可以寫族人擔心）":"快見底了",人口:`${POP[n.pop-1]}（人口格 ${n.pop}）`,無名族人:NAMELESS[n.pop-1]?`大約 ${NAMELESS[n.pop-1]} 隻，沒有名字、不用一個個寫`:"沒有（巢穴裡除了名單上有名字的同伴、NPC、俘虜，沒有別的族人，不要寫成一群族人）",戰力:DEF[n.d-1],標籤:n.tags.map(t=>t.t),...(n.lv?{等級:`${n.lv}級`,設施:(n.fac||[]).map(f=>`${f}${facOn(f)?"":"（缺人手）"}`)}:{}),說明:n.note},
     語言:(S.langs||["哥布林語"]),
+    ...(kingsOpen()?{八王:kingsState()}:{}),
     ...(S.divine?{神兵:`${S.divine.name}（${S.divine.desc||"前世的武器"}）：能力 ${S.divine.abs.map(a=>a.n).join("、")}，永遠不會壞，每項一天 3 次`}:{}),
     ...(S.narr&&S.narr.length?{叙事注意:S.narr}:{}),
     位置:{現在在:S.at,種類:here().kind,情況:here().note||"",出口:exitsOf(S.at).map(([n,h])=>`${n}（${h} 小時）`),還沒探索的方向:hiddenOf(S.at).length?`還有 ${hiddenOf(S.at).length} 個`:"沒有了（再探索會發現新的冒險地點或地形）"},
@@ -123,7 +124,7 @@ function stateBrief(){
     地區:(r=>({名稱:r.n,常見生物:[...r.F,...r.E,...r.D,...(r.C||[]),...(r.B||[])].map(e=>e[0]).filter((x,i,a)=>a.indexOf(x)===i).filter(x=>!Object.entries(S.factions).some(([k,f])=>f.n<=0&&facRe(k).test(x))),
       勢力:Object.entries(S.factions).filter(([k,f])=>[...r.F,...r.E,...r.D,...(r.C||[]),...(r.B||[])].some(e=>e[2]===k)).map(([k,f])=>f.n>0?`${k}（還有約 ${f.n}）`:`${k}（已經被打散）`)}))(regionOf()),
     注目度:`${HEAT[heatLv()].n}（${["沒人在意這窩哥布林","山外有傳聞，偶爾有好奇的獵人或冒險者經過","有冒險者在附近打探巢穴的位置（可以寫一兩個偵察的冒險者）","人類組了討伐隊","人類派出了討伐軍"][heatLv()]}）${S.raid?`；${S.raid.name}（${S.raid.size}・${S.raid.lv}級）${S.raid.now?"已經到了巢穴外面":"正在路上，還沒到（不要寫他們攻進來）"}`:""}${S.raidCool&&S.day<S.raidCool?"；剛打退一次討伐，近期不會再有討伐":""}`,
-    階段:`第${S.chap||1}章・${chapOf().name}：${chapOf().world}（這一章的壓力：${chapOf().press}）`,
+    階段:`第${S.chapOpen&&S.chap===6?"6～8":S.chap||1}章・${chapOf().name}：${chapOf().world}（這一章的壓力：${chapOf().press}）`,
     ...(S.gone.length?{已經不在的人:S.gone.map(x=>`${x.n}（${x.why}）——不會再出場，不要寫他`)}:{}),
     ...(S.war?{進化戰:`正在和 ${S.war.foe.name}（${S.war.foe.kind}・${S.war.foe.lv}級）單挑，第 ${Math.min(5,S.war.stage)}/5 階段`}:S.evo?{進化戰:`存在值已滿，等待挑戰：${S.evo.cands.map(f=>f.name).join("、")}`}:{})
   };

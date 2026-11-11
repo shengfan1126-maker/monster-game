@@ -9,6 +9,7 @@ function render(){
   if(TAB==="story") bindStory();
   if(TAB==="nest") bindNest();
   if(TAB==="map") bindMap();
+  if(TAB==="record") document.querySelectorAll("[data-kst]").forEach(b=>b.onclick=()=>kingAct("study",b.dataset.kst));
   if(TAB==="record") document.querySelectorAll("[data-rt]").forEach(b=>b.onclick=()=>{const k=b.dataset.rt;if(RT!==k){RT=k;render();return}RT="";retireAt(k)});
   if(TAB==="skill") document.querySelectorAll("[data-sd]").forEach(b=>b.onclick=()=>{const i=+b.dataset.sd;if(SD!==i){SD=i;render();return}SD=-1;const s=S.skills[i];if(s&&!isUq(s)&&!s.past&&!S.err){S.skills.splice(i,1);SWI=[];SWO=[];MG=[];MGK="";const n=[];fillAct(n);if(n.length)S.log.push(sysEntry(n.join("\n")))}save();render()});
   if(TAB==="skill") document.querySelectorAll("[data-sw]").forEach(b=>b.onclick=()=>{const i=+b.dataset.sw;SWI=SWI.includes(i)?SWI.filter(x=>x!==i):[...SWI,i];render()});
@@ -108,7 +109,7 @@ function checkHTML(ch){
   const dos=(ch.war||ch.local)?[]:S.party.filter(allyElig), doBox=dos.length?`<div class="sacbox"><label>請同伴代打（吃今天 2 次裡的 1 次；他等級≥對手＝2 層優勢，否則 1 層；HP 代價由他吃）</label><select id="allydo"><option value="">不用</option>${dos.map(p=>`<option value="${esc(p.n)}"${ch.allyDo===p.n?" selected":""}${allyUses()>=2?" disabled":""}>${esc(p.n)}（${p.lv||"F"}級）</option>`).join("")}</select></div>`:"";
   const skBox=sks.length?`<div class="sacbox"><label>用哪個技能（多一層優勢，一次一個；自己的技能 MP -1，魔法物品的不用）</label><select id="skillsel"><option value="">不用技能</option>${sks.map(x=>`<option value="${esc(x.v)}"${ch.useSk===x.v?" selected":""}${x.off?" disabled":""}>${esc(x.t)}</option>`).join("")}</select></div>`:"";
   return `<div class="check${war||raid?" war":""}">
-    <h3>${raid?`討伐戰 ${ch.raid.stage}/${ch.raid.of}・${esc(S.raid.name)}：`:war?`進化戰 ${ch.war.stage}/5・${esc(S.war.foe.name)}：`:ch.multi?`連戰 ${ch.multi.n}/${ch.multi.of}・${ch.multi.cls?"小頭目 ":""}${esc(ch.foe)}：`:"判定："}${esc(ch.what)}</h3>
+    <h3>${raid?`${S.raid.king?(S.raid.kind==="scout"?"斥候五連戰":"八王戰"):"討伐戰"} ${ch.raid.stage}/${ch.raid.of}・${esc(S.raid.name)}：`:war?`進化戰 ${ch.war.stage}/5・${esc(S.war.foe.name)}：`:ch.multi?`連戰 ${ch.multi.n}/${ch.multi.of}・${ch.multi.cls?"小頭目 ":""}${esc(ch.foe)}：`:"判定："}${esc(ch.what)}</h3>
     ${ch.multi?`<div class="note" style="margin-bottom:6px">${ch.multi.group?`對方有 ${ch.multi.group} 個，每贏一階段打倒或打跑一個。`:`帶職業的小頭目，打兩個階段。`}大成功＝直接打倒${ch.multi.group?"帶頭的，其餘潰散":"牠"}。失敗會挨一下，但還能繼續打。</div>`:""}
     ${lay?`<div class="lay">${lay}</div>`:""}
     <div class="need">付 <b>${ci.need}</b> 項成功・付 <b>${ci.big}</b> 項大成功${ci.need===0?"（不付也會成功）":""}<br><small>虛線框的通用代價一次只能選一項${ci.stalled?"；這場已經拖過一次，不能再拖":""}</small></div>
@@ -174,7 +175,7 @@ function storyHTML(){
       <label>方向</label><select id="ned">${Object.keys(DIRS).map(d=>`<option${d===NE.dir?" selected":""}>${d}</option>`).join("")}</select></div>
       <button class="paybtn" id="neok">命名</button><div style="text-align:right;margin-top:6px"><button class="tl" id="neno">這次不命名</button></div></div>`}
   else if(!busy&&!S.err&&S.raid&&S.raid.now&&!S.raid.on){const r=S.raid;
-    bottom=`<div class="check war"><h3>${esc(r.name)}來了</h3><div class="note">${esc(r.size)}・${r.lv}級。在${esc(NEST())}迎戰，共 ${r.of||(r.army?5:3)} 個階段，同伴全部上場。<br>對你有利：${raidAdv().slice(0,3).map(esc).join("、")||"沒有"}<br>輸了就是全滅。不想打，只能丟下一切逃走（存糧全失、人口剩一格、俘虜走散）。</div>
+    bottom=`<div class="check war"><h3>${esc(r.name)}來了</h3><div class="note">${esc(r.size)}・${r.lv}級。在${esc(NEST())}迎戰，共 ${r.ofK||r.of||(r.army?5:3)} 個階段，同伴全部上場。<br>對你有利：${(r.king?kingAdv(r):raidAdv()).slice(0,3).map(esc).join("、")||"沒有"}<br>${r.king?(r.kind==="scout"?"擋不住也不會死，但會什麼都問不到。":"這是八王戰：輸了你會死。"):"輸了就是全滅。"}不想打，只能丟下一切逃走（存糧全失、人口剩一格、俘虜走散）。</div>
       <button class="paybtn" id="raidgo">迎戰</button>
       <div class="padd" style="margin-top:8px"><select id="fleeto">${moveDests().map(n=>`<option>${esc(n)}</option>`).join("")}</select><button class="tl" id="raidflee">丟下巢穴逃走</button></div></div>`}
   else if(!busy&&!S.err&&S.raid&&S.raid.on&&!(S.log.at(-1).alts&&S.log.at(-1).alts[S.log.at(-1).i].check)) bottom=`<div class="check war"><h3>討伐戰還沒打完</h3><button class="paybtn" id="raidcont">繼續（第 ${Math.min(S.raid.of,S.raid.stage)}/${S.raid.of} 階段）</button></div>`;
@@ -197,7 +198,7 @@ function storyHTML(){
         <button class="send" id="sendbtn">送出</button>
       </div>`;
   }
-  return `<div class="log" id="log">${html}${tail}</div><div class="choices">${S.dead?"":bag}${!S.dead&&!busy&&!ch?offerHTML():""}${bottom}</div>`;
+  return `<div class="log" id="log">${html}${tail}</div><div class="choices">${S.dead?"":bag}${!S.dead&&!busy&&!ch?offerHTML()+adminHTML():""}${bottom}</div>`;
 }
 function bindStory(){
   const on=(id,f)=>{const b=$(id);if(b)b.onclick=f};
@@ -254,6 +255,7 @@ function bindStory(){
   {const rb=$("rbgo"); if(rb)rb.onclick=()=>rebornWith(RBP.slice(),{name:($("dvn")||{}).value||"",desc:($("dvd")||{}).value||"",abs:DVP.slice()})}
   document.querySelectorAll("[data-rbd]").forEach(b=>b.onclick=()=>{const n=b.dataset.rbd;DVN=($("dvn")||{}).value||DVN;DVD=($("dvd")||{}).value||DVD;DVP=DVP.includes(n)?DVP.filter(x=>x!==n):DVP.length<3?[...DVP,n]:DVP;render()});
   on("offok",()=>offerAccept()); on("offno",()=>offerReject()); on("endexp",()=>exp.onclick());
+  on("admgo",()=>adminMeet()); on("admyes",()=>adminMeet("yes")); on("admno",()=>adminMeet("no")); on("admsv",()=>adminMeet("sv"));
   document.querySelectorAll("[data-cg]").forEach(b=>b.onclick=()=>contractGive(+b.dataset.cg));
   document.querySelectorAll("[data-rb]").forEach(b=>b.onclick=()=>{const n=b.dataset.rb;RBP=RBP.includes(n)?RBP.filter(x=>x!==n):RBP.length<3?[...RBP,n]:RBP;render()});
   on("retry",()=>retry()); on("regen",regen); on("undo",undo);
@@ -361,7 +363,7 @@ function mapHTML(){
   const sl=n=>isSettle(n)?`<div class="d">對你：<b>${SREL[stOf(n)+2]}</b>${domOf(n)?`　統治：<b>${DOM[domOf(n)]}</b>`:""}${domOf(n)===2&&S.at===n?`<br><button class="tl" data-dom="sub|${esc(n)}">逼他們稱臣（4 小時）</button><button class="tl" data-dom="raze|${esc(n)}">消滅他們（4 小時）</button>`:""}${S.world[n].grudge?`　記仇 ${S.world[n].grudge}`:""}${(S.world[n].deals||[]).length?`<br>約定：${S.world[n].deals.map(esc).join("；")}`:""}</div>`:"";
   const row=([n,x])=>`<div class="npc"><div class="h"><b>${x.kind==="地區"?"":"📍"}${esc(n)}</b><span>${esc(x.kind)}${x.kind!=="地區"&&x.region&&x.region!==n?`・屬於${esc(x.region)}`:""}・從這裡 ${pathHours(S.at,n)??"?"} 小時</span></div>
       ${x.note?`<div class="d">${esc(x.note)}</div>`:""}${sl(n)}${ppl(n).map(y=>`<div class="d">・${esc(y.n)}（${esc(y.role)}・${y.lv}級）對你：<b>${REL[relOf(y)+2]}</b></div>`).join("")}</div>`;
-  return tradeHTML()+`<div class="card"><h3>現在在：${esc(S.at)}</h3><div class="note">${esc(h.kind)}${h.note?`・${esc(h.note)}`:""}</div>${sl(S.at)}
+  return lairHTML()+tradeHTML()+`<div class="card"><h3>現在在：${esc(S.at)}</h3><div class="note">${esc(h.kind)}${h.note?`・${esc(h.note)}`:""}</div>${sl(S.at)}
       ${ppl(S.at).map(y=>`<div class="d">・${esc(y.n)}（${esc(y.role)}）對你：<b>${REL[relOf(y)+2]}</b></div>`).join("")}
       <div class="exits" style="margin-top:8px"><div class="k">出口</div>${exitsOf(S.at).map(([n,x])=>`<div class="row"><span>${esc(n)}</span><span>${x} 小時</span></div>`).join("")}
       ${hiddenOf(S.at).length?`<div class="note">還有 ${hiddenOf(S.at).length} 個方向沒探索過，按「探索」去找。</div>`:`<div class="note">這附近的路都走過了；再探索會發現新的冒險地點或地形。</div>`}</div>
@@ -377,6 +379,9 @@ function mapHTML(){
       <div class="padd" style="margin-top:6px"><input id="mt" maxlength="40" placeholder="一句話說明（可以不填）"><button class="tl" id="madd">加入</button></div></div>`;
 }
 function bindMap(){
+  document.querySelectorAll("[data-kf]").forEach(b=>b.onclick=()=>{const k=b.dataset.kf;if(KC!==k){KC=k;render();return}KC="";kingFight(k)});
+  document.querySelectorAll("[data-ka]").forEach(b=>b.onclick=()=>{const [a,k]=b.dataset.ka.split("|");kingAct(a,k)});
+  {const g=$("lichgo");if(g)g.onclick=()=>kingAct("lich","lich",$("lichsk").value)}
   document.querySelectorAll("[data-dom]").forEach(b=>b.onclick=()=>{const [k,n]=b.dataset.dom.split("|");if(DOMC!==b.dataset.dom){DOMC=b.dataset.dom;b.textContent="確定？再按一次";return}DOMC="";domAct(k,n)});
   document.querySelectorAll("[data-tr]").forEach(c=>c.onchange=()=>{TRD.sel[c.dataset.tr]=c.checked;render()});
   {const w=$("trw");if(w){w.oninput=e=>TRD.want=e.target.value;$("trok").onclick=()=>{TRD.want=w.value;doTrade()}}}
@@ -424,7 +429,7 @@ function nestHTML(){
     </div>`;
 }
 function recordHTML(){
-  return endBookHTML()+`<div class="card"><h3>吞噬圖鑑</h3>${S.eaten.length?S.eaten.map(e=>`<div class="row"><span class="k">第${e.day}天</span><span>${esc(e.what)}${e.got?"　→ "+esc(e.got):""}</span></div>`).join(""):`<div class="empty">還沒有紀錄。</div>`}</div>
+  return endBookHTML()+kingsHTML()+`<div class="card"><h3>吞噬圖鑑</h3>${S.eaten.length?S.eaten.map(e=>`<div class="row"><span class="k">第${e.day}天</span><span>${esc(e.what)}${e.got?"　→ "+esc(e.got):""}</span></div>`).join(""):`<div class="empty">還沒有紀錄。</div>`}</div>
     <div class="card"><h3>語言</h3><div>${esc((S.langs||["哥布林語"]).join("、"))}</div><div class="empty">吃下那一族的新鮮屍體可以學會他們的語言。</div></div>
     <div class="card"><h3>稱號</h3>${S.titles.length?S.titles.map(t=>`<div>${esc(t)}</div>`).join(""):`<div class="empty">還沒有。</div>`}</div>`;
 }
@@ -445,6 +450,7 @@ const GUIDE=[
  ["語言與同伴的新用法",`吃下新鮮的野豬人、狗頭人、諾姆、精靈、人類的屍體，就學會那一族的<b>語言</b>（哥布林語是母語）。不會的語言聽不懂，也沒辦法跟他們交易、招募。<br>判定卡上可以請同伴<b>代打</b>（一天共 2 次）：他的 HP 代價由他吃，等級夠高優勢更多。進化戰前可以請同伴<b>看對手弱點</b>，打那一隻多一層優勢。掠奪營地成功會直接搶到魔法物品。右下角有 ↑ 回頂部、↓ 跳到最新。`],
  ["結局簿與轉生",`<b>履歷</b>頁最上面是<b>結局簿</b>：每個結局的條件都寫在那裡，達成就解鎖，<b>好幾個結局可以同時解鎖</b>。退休類的結局解鎖後，可以選擇在那裡退休、結束這一局，也可以繼續玩。結局簿跨局保存，轉生不會清掉；也會抄進存檔，匯出存檔帶到別的裝置再匯入，結局簿會一起過去。<br>死了（或退休）之後可以<b>轉生</b>：二周目從<b>成體</b>開始、所有地區一開始就知道，最多帶 <b>3 個技能</b>過去（標成〔前世〕，不能整合、不會消失）。等級不帶。`],
  ["神兵、伴侶、契約、統治",`<b>神兵</b>：轉生時可以把前世的 3 個技能鑄成一把神兵（自己取名、描述），每項能力一天 3 次、永遠不會壞，判定卡「用哪個技能」選得到。<br><b>伴侶</b>：類人的同伴對你「追隨」、你在故事裡解開他的心結、雙方自願，就會成為伴侶（💍）：多一個心結技、一個種族技（最多 7 個技能），等級上限和你一樣，跟你同行時存在值和你拿一樣多；同行時判定卡可以用<b>合體技</b>（多兩層優勢，每位伴侶一天一次，進化戰不行）。伴侶 7 位以上、巢穴人口興盛＝哥布林家族。<br><b>契約</b>：有人提出交換條件時，畫面會出「契約提議」，按同意他就暫時跟你走；條件完成後他會道謝、回到原本的地方。<br><b>統治</b>：突襲敵對的聚落成功會讓他們「威懾」→「壓制」；壓制之後到那裡的「地點」頁，可以逼他們稱臣（每天上貢 2 份存糧）或消滅他們。`],
+ ["八王與管理員",`巢穴到 A 級、或你到 B 級，第 6～8 章一起打開：八王（D&D 的八個陣營，你是絕對中立的第九王）都聞到你的異香了。<b>履歷</b>頁有<b>八王檔案</b>，每位六欄，一開始是「？？？」，可以「打聽」（8 小時，有斥候同伴 4 小時）一欄一欄揭開。<br>只有最弱的那位會主動找上門。其他的要你自己去他的領域（地點頁）：開戰（八王戰，7 場輸 4 場就死，可以捨身）、問他要通信記錄（付他想要的東西）、潛進去偷、或約好互不侵犯。打倒的王留下屍體，吃下去＝吞噬一位王。<br>每位王身上有一片<b>管理員的通信記錄</b>，湊齊 8/8 就能去找管理員。`],
  ["遇到怪事",`AI 有時會寫錯或漏掉東西（地點、物品、同伴位置）。點頁面上的 <b>OOC</b> 跟「規則助手」說一聲，它會幫你更正。巢穴位置請用「搬家」，不要靠 OOC。<br>覺得這回合不滿意可以「重試」，做錯了可以「撤回」。換裝置前先到 ⚙ 匯出存檔。`]
 ];
 function guideHTML(){return GUIDE.map(([h,b])=>`<h4 style="margin:12px 0 4px">${h}</h4><div class="note" style="line-height:1.7">${b}</div>`).join("")}

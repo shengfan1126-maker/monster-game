@@ -101,7 +101,7 @@ function autoDis(ch){
 function checkInfo(ch){
   const lvDiff=ch.foeLv?Math.max(0,gIdx(ch.foeLv)-gIdx(S.lv)):0;
   const crit=!!(ch.war||ch.raid);                          // 關鍵戰（進化戰、討伐戰）：至少要付 1 項代價、傷害 ×1.5
-  const net0=advList(ch).length+(ch.useSk&&!skUsed(ch.useSk)&&!weakSk(ch)&&S.mp>=skillMp(ch)?1:0)+(ch.useItem&&S.items.includes(ch.useItem)?1:0)+(allyAbOn(ch)==="增傷"?1:0)+allyDoBonus(ch)+(comboOn(ch)?2:0)+(ch.war&&S.war&&S.war.foe&&S.war.foe.weak?1:0)-ch.dis.length-autoDis(ch).length-lvDiff, net=crit?Math.min(net0,0):net0;
+  const net0=advList(ch).length+(ch.useSk&&!skUsed(ch.useSk)&&!weakSk(ch)&&!clownMem(ch)&&S.mp>=skillMp(ch)?1:0)+(ch.useItem&&S.items.includes(ch.useItem)?1:0)+(allyAbOn(ch)==="增傷"?1:0)+allyDoBonus(ch)+(comboOn(ch)?2:0)+(ch.war&&S.war&&S.war.foe&&S.war.foe.weak?1:0)-ch.dis.length-autoDis(ch).length-lvDiff, net=crit?Math.min(net0,0):net0;
   const need=Math.max(0,1-net), big=need+1;
   const d=Math.ceil(dmgOf(ch.foeLv)*(crit?1.5:1)), fight=!!ch.foe, stalled=fight&&S.fightDelay&&S.fightDelay===ch.foe;
   const half=Math.ceil(S.mpMax/2), skMp=skillMp(ch);

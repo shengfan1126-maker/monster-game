@@ -178,7 +178,7 @@ function eatCorpse(i,label,how){
 }
 async function devour(i,tier){
   const c=S.corpses[i], notes=[];
-  S.corpses.splice(i,1);
+  S.corpses.splice(i,1); kingAte(c,notes);
   const hf=hungerOf().full; feed(c.small?Math.ceil(hf/2):hf); const heal=c.small?1:2; S.hp=Math.min(S.hpMax,S.hp+heal); checkDeath(notes);
   const fresh=isFresh(c);
   if(fresh&&S.stage==="幼體"){S.growth++; if(S.growth>=3)grow(notes)}
@@ -441,8 +441,9 @@ function pay(sel,sac){
   }
   if(ch.raid&&S.raid){
     const r=S.raid; let dmg=0;
-    if(tier==="失敗"){dmg=dmgOf(ch.foeLv);S.hp-=dmg;r.fails++;const n=S.nest,n2=[`${r.name}衝破了一段防線：HP -${dmg}`];
-      if(n.pop>1){n.pop--;n2.push(`人口：${POP[n.pop-1]}`)} if(n.d>1){n.d--;n2.push(`戰力：${DEF[n.d-1]}`)} checkDeath(n2);S.log.push(sysEntry(n2.join("　")))}
+    if(tier==="失敗"){dmg=dmgOf(ch.foeLv);S.hp-=dmg;r.fails++;const n=S.nest,n2=[`${r.name}${r.at&&r.at!==NEST()?"佔了上風":"衝破了一段防線"}：HP -${dmg}`];
+      if(!r.at||r.at===NEST()){if(n.pop>1){n.pop--;n2.push(`人口：${POP[n.pop-1]}`)} if(n.d>1){n.d--;n2.push(`戰力：${DEF[n.d-1]}`)}} checkDeath(n2);S.log.push(sysEntry(n2.join("　")))}
+    else if(ch.useSk)r.lastSk=ch.useSk;
     else r.wins+=tier==="大成功"&&r.of>=5?2:1;
     r.mom=tier==="大成功"?1:tier==="失敗"?-1:0; r.stage++;
     if(S.dead){S.raid=null;save();render();return}

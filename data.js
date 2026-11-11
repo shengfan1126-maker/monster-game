@@ -293,8 +293,10 @@ const CHAPTERS=[null,
   events:["部下回報狩獵的收穫","族人為了分肉打起來","有外來的哥布林想投靠","洞口外發現陌生的腳印","有人偷懶被抓到","幼崽餓得一直哭","有族人想學主角的本事"]},
  {name:"搬家與異族爭端",world:"灰岩洞不夠用了，周圍的異族也開始搶地盤。",press:"找新據點、異族擴張",events:["族人擠得睡不下","偵察的部下回報了新地方","異族的斥候在附近出沒","存糧不夠全族吃"]},
  {name:"人類、盟友與強敵",world:"主角的勢力已經不小，人類、盟友和強大的生物都可能找上門。",press:"人類的注目、結盟、強大生物",events:["部下回報人類的動靜","有勢力派使者來","山裡出現了巨大的足跡"]},
- null,null,
- {name:"九王八王",world:"第九名吞噬者的名號傳遍八王的領域。",press:"八王",events:["某位王的使者出現了"]}
+ {name:"八王的使者／管理員／結尾？",world:"第九名吞噬者的異香傳遍了八王的領域。八王都知道你了，但他們不急著出手。",press:"八王、管理員、回家的路",
+  events:["遠處有野獸一直盯著巢穴","某位王的使者出現了","有人提到「管理員」這個詞","斥候回報陌生的巨大足跡"]},
+ {name:"管理員",world:"有人在世界之外看著。",press:"管理員",events:["有人提到「管理員」這個詞"]},
+ {name:"結尾？",world:"第九名吞噬者的名號傳遍八王的領域。",press:"八王",events:["某位王的使者出現了"]}
 ];
 const chapOf=()=>CHAPTERS[S.chap||1]||CHAPTERS[5];
 /* 自動推進：①→② 長大成體；②→③ 黑顎不在了（打倒、吃掉、趕走） */
@@ -304,8 +306,9 @@ function chapCheck(notes){
   if(S.chap<2&&S.stage==="成體")S.chap=2;
   if(!S.chief&&S.nest&&S.nest.tags.some(t=>/新首領|巢穴之主/.test(t.t)))becomeChief(null);   // 故事裡已經接下巢穴（例如黑顎退位）
   if(S.chap<3&&S.stage==="成體"&&(S.chief||S.gone.some(x=>x.n==="黑顎")||(S.beaten||[]).includes("黑顎")))S.chap=3;
+  if(S.chap>=5&&!S.chapOpen&&((S.nest&&S.nest.lv&&gIdx(S.nest.lv)>=5)||gIdx(S.lv)>=4)){S.chapOpen=[6,7,8];S.chap=6;kingsInit(notes)}   // v0.50：巢穴 A 級或主角 B 級，6～8 章一起開
   if(S.chap>=3&&S.chap<5&&((S.nest&&S.nest.lv&&gIdx(S.nest.lv)>=3)||(S.heat||0)>=HEAT[4].at||Object.values(S.world||{}).some(x=>x.known&&(x.st||0)>=3)))S.chap=5;   // v0.46：巢穴 C 級／注目度到討伐軍／第一次有聚落同盟，先到者
-  if(S.chap!==before&&notes)notes.push(`〈系統〉《世界之聲》：「第${S.chap}章・${chapOf().name}」`);
+  if(S.chap!==before&&notes)notes.push(`〈系統〉《世界之聲》：「第${S.chapOpen&&S.chap===6?"6～8":S.chap}章・${chapOf().name}」`);
   endCheck(notes);
 }
 /* 主角成為巢穴之主：老首領退位（還在的話留下來，不再是對手） */

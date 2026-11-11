@@ -124,20 +124,27 @@ async function runJob(job,ctx){
     return a;
   }
   if(job.kind==="raid"){
-    const r=S.raid, c=job.ctx, steps=RAID_STEPS[r.of];
-    const t=[`【討伐戰】（現在 ${timeStr()}，${PERIOD(S.hour)}，地點：${NEST()}）`,`來的是${r.name}（${r.size}，${r.lv}級；組成：${raidComp(r).join("、")}）。他們是來把整窩哥布林清掉的。主角和同伴、族人一起守巢穴。`];
+    const r=S.raid, c=job.ctx, steps=r.king?(r.king==="beast"&&r.kind==="full"?BEAST_STEP:KSTEPS[r.kind]):RAID_STEPS[r.of];
+    const t=r.king?[`【${r.kind==="scout"?"斥候五連戰":"八王戰"}】（現在 ${timeStr()}，${PERIOD(S.hour)}，地點：${r.at||NEST()}）`,
+      r.kind==="scout"?`來的是一波又一波沒有報名號的野獸斥候（狼、鷹、狐），一共五波。牠們不像普通野獸，像是有誰在背後指揮。不要說出是誰。`
+      :`對手是八王之一：${r.name}（S 級；${kingOf(r.king).desc}）。${r.kind==="half"?`他這次只用${r.form}的形態來試探，不是全力。`:`這是他的完全體。`}${r.king==="clown"?`他戴著永遠在笑的面具，開口第一句一定是：「${CLOWN_LINE}」他會說謊、挑撥。`:""}輸了主角會死。`]
+      :[`【討伐戰】（現在 ${timeStr()}，${PERIOD(S.hour)}，地點：${NEST()}）`,`來的是${r.name}（${r.size}，${r.lv}級；組成：${raidComp(r).join("、")}）。他們是來把整窩哥布林清掉的。主角和同伴、族人一起守巢穴。`];
     if(c.prev)t.push(`上一階段（第 ${c.stage-1}/${r.of} 階段・${steps[c.stage-2]}）的結果：${c.prev.tier}。${c.prev.skill?`主角用了技能「${c.prev.skill}」。`:""}玩家付出：${c.prev.paid.length?c.prev.paid.join("；"):"沒有付"}。${c.prev.tier==="失敗"?`這一段守不住，主角挨了一下（HP -${c.prev.dmg}），巢穴也有損失。`:c.prev.tier==="大成功"?"打得漂亮，敵人退了一大截。":"守住了。"}先照這個結果寫上一階段怎麼收場，除了玩家付的代價不要讓主角多失去東西。`);
-    if(c.end==="win")t.push(`這是結局：${r.name}撤退了（或被打垮了）。寫出敵人退走、巢穴裡的大家鬆了一口氣的樣子。found 可以給一兩件敵人丟下的裝備。check 給 null，options 給 3 個。`);
+    if(r.king&&c.end==="win")t.push(r.kind==="full"?`這是結局：${r.name}倒下了。寫出他倒下的樣子，不要寫主角吃掉他（玩家自己決定）。check 給 null，options 給 3 個。`:`這是結局：${r.name}${r.kind==="half"?"受了傷，掉頭逃走，主角追不上":"退走了"}。check 給 null，options 給 3 個。`);
+    else if(r.king&&c.end==="lose")t.push(r.kind==="scout"?`這是結局：斥候看夠了，退回森林。主角沒擋住，但還活著。check 給 null，options 給 3 個。`:`這是結局：主角敗給了${r.name}。用安靜、不血腥的方式寫出主角最後看見的東西。check 給 null，options 給空陣列。`);
+    else if(c.end==="win")t.push(`這是結局：${r.name}撤退了（或被打垮了）。寫出敵人退走、巢穴裡的大家鬆了一口氣的樣子。found 可以給一兩件敵人丟下的裝備。check 給 null，options 給 3 個。`);
     else if(c.end==="lose")t.push(`這是結局：巢穴守不住了。用安靜、不血腥的方式寫出灰飛煙滅的結局：火光、倒下的同伴、主角最後看見的東西。check 給 null，options 給空陣列。`);
     else t.push(`然後寫第 ${c.stage}/${r.of} 階段：${steps[c.stage-1]}。停在交手前的一刻，不要寫勝負。必須給 check（foe 填「${r.name}」，foeLv 填「${r.lv}」），costs 給 2~4 項，可以是主角的傷、同伴受傷（ally）、物品，也可以是巢穴的損失（例如「讓出外洞」）；options 給空陣列。`);
     const res=await callModel(buildMessages(t.join("\n"),ctx),3000,validateTurn,showLive);
-    const o=res.val, a=baseAlt(o,res); a.time=0; a.loc=NEST();
+    const o=res.val, a=baseAlt(o,res); a.time=0; a.loc=r.at||NEST();
     getGains(o,a); a.lost=[]; a.caught=[]; a.capture=null;
-    if(c.end){a.raidEnd=c.end; if(c.end==="win"&&!a.opts.length)a.opts=["清點損失","照顧受傷的同伴","把敵人丟下的東西撿回來"]; if(c.end==="lose")a.opts=[]}
+    if(r.king){a.found=[];a.defeated=null}
+    if(c.end){a.raidEnd=c.end; if(r.king&&c.end==="lose"&&r.kind==="scout")a.opts=["清點損失","照顧受傷的同伴","想想牠們背後是誰"]; if(c.end==="win"&&!a.opts.length)a.opts=["清點損失","照顧受傷的同伴","把敵人丟下的東西撿回來"]; if(c.end==="lose")a.opts=[]}
     else{
       const ch=normCheck(o.check)||{what:steps[c.stage-1],adv:[],dis:[],costs:[{t:"硬擋下來，傷口裂開",hp:-dmgOf(r.lv)}]};
-      ch.foe=r.name; ch.foeLv=r.lv; ch.raid={stage:c.stage,of:r.of}; ch.adv=raidAdv().slice(0,4); ch.dis=[];
-      ch.dis.push(r.army?"對方人多勢眾":"對方人多，配合得好"); if(r.mom>0)ch.adv.push("上一階段打得漂亮"); if(r.mom<0)ch.dis.push("上一階段沒守住");
+      ch.foe=r.name; ch.foeLv=r.lv; ch.raid={stage:c.stage,of:r.of}; ch.adv=r.king?kingAdv(r):raidAdv().slice(0,4); ch.dis=[];
+      ch.dis.push(r.king?(r.kind==="scout"?"斥候一波接一波":"對方是八王（S 級）"):r.army?"對方人多勢眾":"對方人多，配合得好");
+      if(r.king==="clown"&&metaGet().clownKill)ch.dis.push(`小丑王：「${CLOWN_LINE}」（「${metaGet().clownKill}」對他沒有優勢）`); if(r.mom>0)ch.adv.push("上一階段打得漂亮"); if(r.mom<0)ch.dis.push("上一階段沒守住");
       a.check=ch; a.opts=[];
     }
     return a;
@@ -348,7 +355,8 @@ function applyAlt(e){
     if(c.tier!=="失敗"&&/狩獵|獵殺|捕獵|打獵/.test(c.what||"")&&(S.nest.pop||0)>=4){S.nest.food=(S.nest.food||0)+1;notes.push("多打到一份獵物，直接送進巢穴存糧（+1）。")}   // 營地人多了，狩獵多給一份
     if(a.tag){addTag(a.tag);notes.push(`【${a.tag}】`)}
   }
-  if(e.kind==="raid"&&a.raidEnd&&S.raid){
+  if(e.kind==="raid"&&a.raidEnd&&S.raid&&S.raid.king)kingEnd(S.raid,a.raidEnd,a,notes);
+  else if(e.kind==="raid"&&a.raidEnd&&S.raid){
     const r=S.raid;
     if(a.raidEnd==="win"){
       gains(a,true,notes);
