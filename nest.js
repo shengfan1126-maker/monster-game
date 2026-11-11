@@ -873,14 +873,31 @@ function kingAct(kind,k,arg){
     advanceTime(4,notes); const d=Math.ceil(S.hp/2); S.hp-=d; checkDeath(notes); x.frag=true; x.stance="war";
     notes.push(`你從${x.hide}摸走了通信記錄（HP -${d}）。${K.t}發現了，從此把你當敵人。管理員的手機：${phoneN()}/8`)}
   else if(kind==="neutral"){if(K.ins==="立刻吃"||S.at!==K.lair)return; x.stance="neutral"; txt=`和${K.t}約好互不侵犯`; notes.push(`${K.t}答應了：互不侵犯。`)}
-  else if(kind==="lich"){if(k!=="lich"||S.at!==K.lair)return; const s=S.skills.find(z=>!isUq(z)&&!z.past&&z.n===arg); if(!s)return;
-    S.skills=S.skills.filter(z=>z!==s); txt=`付出「${s.n}」，向巫妖王打聽`; notes.push(`你失去了「${s.n}」。巫妖王說了很多。`);
-    let n=0; Object.keys(S.kings).filter(z=>z!=="lich").forEach(z=>K_FIELDS.forEach(f=>{if(n<3&&!S.kings[z].know[f[0]]&&!(z==="elf"&&f[0]!=="ins"&&f[0]!=="attr")&&kingReveal(z,f[0],notes))n++}))}
+  else if(kind==="lich"){if(k!=="lich"||S.at!==K.lair||(x.asks||0)>=3)return;
+    const tg=arg&&arg.king, pay=arg&&arg.pay, T=S.kings[tg]; if(!T||tg==="lich"||!LICH_PAY[pay]||(x.paid||[]).includes(pay))return;
+    if(pay==="life"){const p=S.party.find(z=>z.n===arg.who);if(!p)return;S.party=S.party.filter(z=>z!==p);npcGone(p.n,"被巫妖王收走了性命",notes,true);
+      notes.push(`${p.n}的生命，被巫妖王收走了。${p.mate?"（你的伴侶）":""}`)}
+    else{const it=arg.item;if(!it||!S.items.includes(it)||!LICH_PAY[pay].ok(it))return;S.items.splice(S.items.indexOf(it),1);delete S.mat[it];S.party.forEach(q=>{if(q.gear===it){q.gear=null;q.gearMat=null}});
+      notes.push(`你交出了 ✦${it}。它不會再回來了。`)}
+    x.asks=(x.asks||0)+1; x.paid=[...(x.paid||[]),pay]; txt=`付出${LICH_PAY[pay].t}，向巫妖王打聽${kingOf(tg).t}`;
+    notes.push(`巫妖王說了${kingOf(tg).t}的事。（巫妖王的情報：${x.asks}/3）`);
+    let n=0; K_FIELDS.forEach(f=>{if(n<3&&!(tg==="elf"&&f[0]==="lair"&&!T.elfFound)&&kingReveal(tg,f[0],notes))n++}); if(!n)notes.push("（這位王你都已經知道了）");
+    if(x.asks>=3)notes.push("巫妖王：「三次了。再要，就要你的命來支付了。」")}
+  else if(kind==="lichAlly"){if(k!=="lich"||S.at!==K.lair||!S.kings.gold.beaten||x.stance==="ally")return;
+    x.stance="ally"; txt="和巫妖王結盟"; notes.push("金龍王死了。巫妖王接受了你：結盟。")}
   else if(kind==="study"){const f=K_FIELDS.find(z=>!x.know[z[0]]&&!(k==="elf"&&z[0]==="lair")); if(!f)return;
     const fast=S.party.some(p=>p.dir==="斥候"&&!p.tags.includes("重傷")); txt=`打聽${K.t}的事`; advanceTime(fast?4:8,notes); kingReveal(k,f[0],notes);
     if(fast)notes.push("（有斥候同伴幫忙，花了 4 小時）")}
   else return;
   S.log.push({who:"you",text:txt,pre}); endCheck(notes); S.log.push(sysEntry(notes.join("\n"))); save(); render();
+}
+/* 巫妖王的代價（用戶 11-11 23:12）：三次情報，每次一種代價，每種只能付一次；第四次再要＝決戰 */
+const LICH_PAY={life:{t:"一條你看重的生命"},
+  unique:{t:"一件獨特的聚落魔法物品",ok:n=>{const m=matOf(n);return !!(m&&m.unique)}},
+  sgrade:{t:"一件 S 級的魔法物品",ok:n=>{const m=matOf(n);return !!(m&&m.skill&&m.lv==="S")}}};
+function lichFinal(){
+  const x=S.kings&&S.kings.lich; if(!x||(x.asks||0)<3||busy||S.raid)return;
+  S.log.push(sysEntry("巫妖王：「要就要你的命來支付了。」")); kingFight("lich");
 }
 /* 管理員：手機 8/8 才能去找 */
 function adminMeet(choice){
@@ -917,7 +934,7 @@ function lairHTML(){
   if(!x.frag&&K.ins!=="立刻吃"&&x.know.want&&x.stance!=="war")b.push(`<button class="tl" data-ka="ask|${k}">問他要通信記錄（付：${esc(w.t)}）</button>`);
   if(!x.frag&&x.know.hide)b.push(`<button class="tl" data-ka="steal|${k}">潛進去偷通信記錄（4 小時、HP 減半，他會變成敵人）</button>`);
   if(K.ins!=="立刻吃"&&!x.stance)b.push(`<button class="tl" data-ka="neutral|${k}">約好互不侵犯</button>`);
-  if(k==="lich"&&sk.length)b.push(`<div class="padd"><select id="lichsk">${sk.map(z=>`<option>${esc(z.n)}</option>`).join("")}</select><button class="tl" id="lichgo">付出這個技能，問巫妖王別的王的事（揭開 3 欄）</button></div>`);
+  if(k==="lich")b.push(lichHTML(x));
   return `<div class="card"><h3>${esc(K.t)}的領域</h3><div class="note">${esc(K.desc)}${k==="clown"?`<br>小丑王：「${CLOWN_LINE}」`:""}</div><div class="padd" style="flex-wrap:wrap">${b.join("")}</div></div>`;
 }
 let KC="";
@@ -932,3 +949,18 @@ function kingsState(){
     out[K.t]=o});
   return out;
 }
+
+function lichHTML(x){
+  const asks=x.asks||0, paid=x.paid||[];
+  const ally=S.kings.gold.beaten&&x.stance!=="ally"?`<button class="tl" data-ka="lichAlly|lich">和巫妖王結盟（金龍王已死）</button>`:x.stance==="ally"?"":`<div class="note">巫妖王：要結盟，先殺了金龍王。</div>`;
+  if(asks>=3)return `<div class="d" style="width:100%">巫妖王的情報已經給了三次。<br><button class="tl" id="lichfin">${LC?"確定？這是決戰（八王戰，輸了會死）":"再向他要情報（決戰）"}</button>${ally}</div>`;
+  const kings=Object.keys(KINGS).filter(z=>z!=="lich"&&S.kings[z].page!==false), uni=S.items.filter(n=>LICH_PAY.unique.ok(n)), sg=S.items.filter(n=>LICH_PAY.sgrade.ok(n));
+  const opt=(v,t,ok,why)=>`<option value="${v}"${ok&&!paid.includes(v)?"":" disabled"}>${t}${paid.includes(v)?"（付過了）":ok?"":`（${why}）`}</option>`;
+  return `<div class="d" style="width:100%"><b>向巫妖王要情報</b>（${asks}/3）：選一位王，一次揭開他 3 欄。每次付一種代價，每種只能付一次。
+    <div class="padd" style="flex-wrap:wrap;margin-top:4px"><select id="lichk">${kings.map(z=>`<option value="${z}">${esc(kingOf(z).t)}</option>`).join("")}</select>
+    <select id="lichp">${opt("life","一條你看重的生命",S.party.length>0,"身邊沒有同伴")}${opt("unique","一件獨特的聚落魔法物品",uni.length>0,"還沒有")}${opt("sgrade","一件 S 級的魔法物品",sg.length>0,"還沒有")}</select>
+    <select id="lichw">${S.party.map(p=>`<option value="${esc(p.n)}">${p.mate?"💍":""}${esc(p.n)}</option>`).join("")}${[...uni,...sg].map(n=>`<option value="item:${esc(n)}">✦${esc(n)}</option>`).join("")}</select>
+    <button class="tl" id="lichgo">${LC==="go"?"確定付出？（回不來）":"付出代價"}</button></div>
+    ${ally}</div>`;
+}
+let LC="";

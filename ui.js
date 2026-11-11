@@ -381,7 +381,9 @@ function mapHTML(){
 function bindMap(){
   document.querySelectorAll("[data-kf]").forEach(b=>b.onclick=()=>{const k=b.dataset.kf;if(KC!==k){KC=k;render();return}KC="";kingFight(k)});
   document.querySelectorAll("[data-ka]").forEach(b=>b.onclick=()=>{const [a,k]=b.dataset.ka.split("|");kingAct(a,k)});
-  {const g=$("lichgo");if(g)g.onclick=()=>kingAct("lich","lich",$("lichsk").value)}
+  {const g=$("lichgo");if(g)g.onclick=()=>{if(LC!=="go"){LC="go";g.textContent="確定付出？（回不來）";return}LC="";const w=$("lichw").value,pay=$("lichp").value;
+     kingAct("lich","lich",{king:$("lichk").value,pay,who:w.startsWith("item:")?null:w,item:w.startsWith("item:")?w.slice(5):null})}}
+  {const f=$("lichfin");if(f)f.onclick=()=>{if(!LC){LC="fin";render();return}LC="";lichFinal()}}
   document.querySelectorAll("[data-dom]").forEach(b=>b.onclick=()=>{const [k,n]=b.dataset.dom.split("|");if(DOMC!==b.dataset.dom){DOMC=b.dataset.dom;b.textContent="確定？再按一次";return}DOMC="";domAct(k,n)});
   document.querySelectorAll("[data-tr]").forEach(c=>c.onchange=()=>{TRD.sel[c.dataset.tr]=c.checked;render()});
   {const w=$("trw");if(w){w.oninput=e=>TRD.want=e.target.value;$("trok").onclick=()=>{TRD.want=w.value;doTrade()}}}
