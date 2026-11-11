@@ -44,6 +44,7 @@ function menuSeed(k,arg){
     return {label:`在${where}狩獵`,prompt:`【這段要發生的事（程序抽到的，照這個寫）】你在${where}${spot?"附近":"一帶"}狩獵${spot?`（這裡屬於${reg.n}，就在這個地點附近，不要跑到別的地方）`:""}。在${spot?`${spot}附近的`:""}${rnd(reg.terr)}，你發現了${grpW(grp)}${sp}（${lv}級），${/群|兩隻/.test(grp)?"牠們":"牠"}${rnd(ACTIVITY)}。${cls?`牠是帶職業的${cls}，是個小頭目，比一般的${sp.replace(cls,"")}難纏（${CLASSES[cls].act}）。`:""}寫出發現牠的過程，停在要不要動手的那一刻。玩家選擇動手、或牠先撲上來時，給 check（foe 填「${sp}」，foeLv 填「${lv}」${many?"，group 填牠們的數量":""}）。loc 填「${where}」開頭的地名。`};
   }
   if(k==="explore"){
+    const cl=clueSeed(); if(cl)return cl;                                    // v0.53：精靈王、金龍王的線索
     const hid=hiddenOf(S.at), from=S.at;
     const rg0=(S.world[from]||{}).region; S.expl=S.expl||{};
     if(rg0&&S.sites){S.expl[rg0]=(S.expl[rg0]||0)+1;
@@ -154,6 +155,7 @@ function witnesses(c){
 function eatCorpse(i,label,how){
   if(busy||S.dead)return;
   const c=S.corpses[i]; if(!c)return;
+  if(S.vowHuman&&HUMAN_RE.test(`${c.sp||""}${c.name}`)){S.log.push(sysEntry(`你在金龍教受過洗：不再吃人類。${c.name}你不能吃。`));save();render();return}   // v0.53
   if(S.vow&&isHumanoid(c)){S.log.push(sysEntry(`你對獨角獸王發過誓：不再吃類人。${c.name}你不能吃。`));save();render();return}   // v0.52
   const pre=snap(), w=isHumanoid(c)?witnesses(c):[];
   if(w.length&&!how)how=/偷偷|私下|拖到|沒人|躲起來/.test(label||"")?"private":"public";
@@ -208,7 +210,7 @@ async function devour(i,tier){
   }
   {const lg=langOf(`${c.sp||""}${c.name}`);S.langs=S.langs||["哥布林語"];
    if(fresh&&tier!=="失敗"&&!c.harvested&&lg&&!S.langs.includes(lg)){S.langs.push(lg);lines.push(`〈系統〉《大賢者》：「告。習得語言：${lg}。現在聽得懂、也說得出${lg}了。」`)}}
-  S.eaten.unshift({day:S.day,what:c.name,got:null});
+  S.eaten.unshift({day:S.day,what:c.name,got:null,sp:c.sp||speciesOf(c.name,""),king:c.king||null});   // v0.53：記下吃的是誰（精靈王的代價要用）
   npcGone(cleanName(c.name),"被你吃掉",null);
   if(c.evo){S.evoReady={name:c.name,kind:c.kind||c.sp,lv:c.lv};lines.push("〈系統〉《大賢者》：「告。進化戰對手吞噬完成。進化開始。」")}
   S.log.push({who:"gm",kind:"devour",alts:[{text:[...lines,...notes].join("\n"),opts:S.opts.slice(),cands}],i:0});
@@ -329,7 +331,7 @@ function learn(j){
   S.log.push({who:"you",text:`學習：${p.n}`,pre});
   let s=S.skills.find(x=>x.n===p.n), line;
   if(s){line=`〈系統〉《世界之聲》：「${p.n} 你已經會了，沒有學到新東西。」`}
-  else{s=addSkill(p);line=`〈系統〉《世界之聲》：「習得 ${p.n}（${s.g}級・${p.sys}）。${s.box==="store"?"可用的位置滿了，先放進倉庫。":""}」`}
+  else{s=addSkill(p);const e0=S.eaten[0];if(e0&&!e0.got){if(e0.king)s.srcK=e0.king;if(/精靈/.test(`${e0.sp||""}${e0.what||""}`))s.src="精靈"}line=`〈系統〉《世界之聲》：「習得 ${p.n}（${s.g}級・${p.sys}）。${s.box==="store"?"可用的位置滿了，先放進倉庫。":""}」`}
   notes.push(line); checkAroma(notes);
   if(boxList("store").length>boxCap(S.lv)[1])notes.push("〈系統〉《大賢者》：「告。倉庫滿了。請到技能頁整合或放棄。」");
   if(S.eaten[0]&&!S.eaten[0].got)S.eaten[0].got=`${p.n}（${s.g}）`;

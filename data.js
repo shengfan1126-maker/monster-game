@@ -219,7 +219,7 @@ const SITE_NOTE={"大哥布林巢穴":"大哥布林戰團的地盤，比灰岩�
 const SITE_ST={"大哥布林巢穴":-2,"野豬人營地":-2,"狗頭人窩":-1,"獸人營地":-2};
 const SITE_REGIONS=["碎石坡","黑松林","結冰的山澗","狼群的舊獵場","廢棄礦坑","地底暗河","黑水溝","雪線以上","東側山谷"], SITE_NEAR=["碎石坡","黑松林","結冰的山澗"];
 function siteInit(w){
-  const demi=[...DEMI].sort(()=>Math.random()-0.5), pick=demi.slice(0,7);
+  const must=["精靈村","人類城鎮"], demi=[...DEMI].sort(()=>Math.random()-0.5), pick=[...DEMI.filter(x=>must.includes(x.n)),...demi.filter(x=>!must.includes(x.n)).slice(0,5)];   // v0.53：精靈村、人類城鎮每局一定有
   demi.forEach(x=>{if(!pick.includes(x))delete w[x.n]});
   pick.forEach(x=>{w[x.n]=w[x.n]||{kind:x.kind,links:{}};w[x.n].kind=x.kind;w[x.n].note=x.note;w[x.n].st=x.st});
   const names=[...SITE_FIXED,...pick.map(x=>x.n)];
@@ -309,6 +309,7 @@ function chapCheck(notes){
   if(S.chap>=5&&!S.chapOpen&&((S.nest&&S.nest.lv&&gIdx(S.nest.lv)>=5)||gIdx(S.lv)>=4)){S.chapOpen=[6,7,8];S.chap=6;kingsInit(notes)}   // v0.50：巢穴 A 級或主角 B 級，6～8 章一起開
   if(S.chap>=3&&S.chap<5&&((S.nest&&S.nest.lv&&gIdx(S.nest.lv)>=3)||(S.heat||0)>=HEAT[4].at||Object.values(S.world||{}).some(x=>x.known&&(x.st||0)>=3)))S.chap=5;   // v0.46：巢穴 C 級／注目度到討伐軍／第一次有聚落同盟，先到者
   if(S.chap!==before&&notes)notes.push(`〈系統〉《世界之聲》：「第${S.chapOpen&&S.chap===6?"6～8":S.chap}章・${chapOf().name}」`);
+  if(notes)clueCheck(notes);                                  // v0.53：精靈王、金龍王的行蹤
   endCheck(notes);
 }
 /* 主角成為巢穴之主：老首領退位（還在的話留下來，不再是對手） */

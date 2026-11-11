@@ -109,6 +109,7 @@ function heal(){
     if(S.raid&&!S.raid.on&&!S.raid.now&&S.heat<HEAT[3].at){S.raid=null;S.raidCool=S.day+5}
     if(S.party.filter(p=>p.with).length>2)S.party.forEach((p,i)=>p.with=i<2&&p.with);
     S.party.forEach(p=>{if(!p.hold)p.hold=[]}); nestSync()}
+  kingsFix(S);                                                // v0.53
   chapCheck(null);
   Object.keys(S.world||{}).forEach(n=>{const x=S.world[n];if(x.st!=null||!isSettle(n))return;      // 舊存檔：聚落態度照住在那裡的人推
     const rs=S.npcs.filter(y=>y.where===n).map(relOf); x.st=rs.length?Math.max(-1,Math.min(2,Math.max(...rs))):-1; if(x.grudge)x.st=Math.max(-2,x.st-1)});

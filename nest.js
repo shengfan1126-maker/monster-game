@@ -557,13 +557,13 @@ const ENDINGS=[
  {k:"family",line:"退休",n:"哥布林家族",need:"伴侶 7 位以上，而且巢穴人口到「興盛」（後代很多）",retire:true,
   chk:()=>mates().length>=7&&S.nest.pop>=5},
  {k:"chief",line:"退休",n:"哥布林部落酋長",need:"當上巢穴之主，而且巢穴附近（同一個地區、或直接相連的地方）知道的聚落全部中立以上（至少 1 個）",retire:true,
-  chk:()=>{const a=nearSettles();return !!S.chief&&a.length>0&&a.every(n=>stOf(n)>=0||domOf(n)===3)}},
+  chk:()=>{const a=nearSettles();return !!S.chief&&!S.abdicated&&a.length>0&&a.every(n=>stOf(n)>=0||domOf(n)===3)}},
  {k:"overlord",line:"退休",n:"部族共主",need:"這一局當上酋長，再找到這個世界的所有聚落，每一個都是中立以上、或被你威懾／壓制／統治",retire:true,
-  chk:()=>{const a=allSettles();return !!S.ends.chief&&a.length>0&&a.every(n=>S.world[n].known&&(stOf(n)>=0||domOf(n)>=1))}},
+  chk:()=>{const a=allSettles();return !!S.ends.chief&&!S.abdicated&&a.length>0&&a.every(n=>S.world[n].known&&(stOf(n)>=0||domOf(n)>=1))}},
  {k:"conqueror",line:"退休",n:"哥布林征服者",need:"這個世界的每一個聚落，不是被你消滅、就是向你稱臣",retire:true,
   chk:()=>{const a=allSettles();return a.length+(S.razed||[]).length>0&&a.every(n=>S.world[n].known&&domOf(n)===3)}},
  {k:"emperor",line:"退休",n:"哥布林皇帝",need:"殺死並吞噬八王之一，加上家族、酋長、共主、征服者全部",retire:true,
-  chk:()=>!!S.kings&&Object.values(S.kings).some(x=>x.ate)&&["family","chief","overlord","conqueror"].every(k=>S.ends[k])},
+  chk:()=>!!S.kings&&!S.abdicated&&Object.values(S.kings).some(x=>x.ate)&&["family","chief","overlord","conqueror"].every(k=>S.ends[k])},
  {k:"k_dead",line:"八王",n:"敗給八王",need:"八王戰戰敗死亡（按轉生或重新開始時記進來）"},
  {k:"k_mixed",line:"八王",n:"八王之間",need:"打倒至少一位王，也和至少一位王結盟或約好中立",chk:()=>!!S.kings&&Object.values(S.kings).some(x=>x.beaten)&&Object.values(S.kings).some(x=>x.stance==="ally"||x.stance==="neutral")},
  {k:"k_one",line:"八王",n:"吞噬一王",need:"打贏八王其一並吞噬",chk:()=>!!S.kings&&Object.values(S.kings).some(x=>x.ate)},
@@ -778,7 +778,7 @@ function metaMerge(m){
    八王戰沿用討伐戰引擎（S.raid 加 king、kind：scout 五連戰／half 半成品上門／full 完全體，at＝在哪打）。 */
 const KINGS={
  gold:{t:"金龍王",al:"守序善良",attr:"火",ins:"養肥再吃",lair:"金龍王的山",link:"東側山谷",desc:"古老的金龍，老迂腐，以為自己在管理整個世界",weak:"被證明他錯了（拿出他判錯的證據）"},
- elf:{t:"精靈王",al:"中立善良",attr:"木",ins:"不在乎",lair:null,desc:"活了數千年的精靈，早就把精靈村交給下一代，下落不明",weak:"沒人知道"},
+ elf:{t:"精靈王",al:"中立善良",attr:"木",ins:"不在乎",lair:"精靈王的隱居地",link:"黑松林",desc:"活了數千年的精靈，早就把精靈村交給下一代，下落不明",weak:"沒人知道"},
  uni:{t:"獨角獸王",al:"混亂善良",attr:"光",ins:"不在乎",lair:"獨角獸王的草原",link:"東側山谷",desc:"天使血統、比城堡還高的獨角獸",weak:"被束縛（鎖、契約、圍欄）"},
  beast:{t:"獸王",al:"守序中立",attr:"風",ins:"立刻吃",lair:"獸王的森林",link:"狼群的舊獵場",desc:"德魯伊獸王，能變成狼、熊、鹿、鳥、鷹，以為自己是正義的代行者",weak:"身邊的頭狼、頭熊被殺或收服，他就變弱",weakest:true},
  clown:{t:"小丑王",al:"混亂中立",attr:null,ins:null,lair:null,desc:"",weak:""},
@@ -812,7 +812,7 @@ function kingsInit(notes){
   notes&&notes.push("〈系統〉《世界之聲》：「第九名吞噬者的異香，傳遍了八王的領域。」","〈系統〉八王都知道你了，但他們不急著出手。（「履歷」頁多了八王檔案）");
 }
 function kingReveal(k,f,notes){
-  const x=S.kings&&S.kings[k]; if(!x||x.know[f])return false; x.know[f]=true;
+  const x=S.kings&&S.kings[k]; if(!x||x.know[f]||(f==="lair"&&lairHid(k)))return false; x.know[f]=true;
   if(f==="lair"){const K=kingOf(k); if(K.lair&&S.world[K.lair]){S.world[K.lair].known=true;if(S.world[K.link])S.world[K.link].known=true}}
   notes&&notes.push(`八王檔案・${kingOf(k).t}：揭開「${K_FIELDS.find(z=>z[0]===f)[1]}」`); return true;
 }
@@ -829,7 +829,7 @@ function kingDay(notes){
 }
 /* 在老巢開戰：完全體八王戰 */
 function kingFight(k,help){
-  const K=kingOf(k), x=S.kings[k]; if(busy||S.raid||!x||x.ate||x.beaten||S.at!==K.lair)return;
+  const K=kingOf(k), x=S.kings[k]; if(busy||S.raid||!x||x.ate||x.beaten||S.at!==K.lair||lairHid(k))return;
   const pre=snap(); S.log.push({who:"you",text:`向${K.t}開戰${help&&helpers(k).includes(help)?`（請${kingOf(help).t}來幫忙）`:""}`,pre});
   S.raid={name:K.t,lv:"S",size:K.desc,king:k,kind:"full",ofK:7,at:S.at,on:true,stage:1,of:7,wins:0,fails:0,mom:0,prep:[],comp:k==="beast"?BEAST_FORMS.slice():[K.t],seen:true};
   helpSet(S.raid,help);
@@ -871,6 +871,7 @@ function kingAte(c,notes){ if(!c||!c.king||!S.kings)return; const x=S.kings[c.ki
 /* 問、偷、中立、巫妖情報、打聽 */
 function kingAct(kind,k,arg){
   const K=kingOf(k), x=S.kings&&S.kings[k]; if(!x||busy||S.dead)return;
+  if(["steal","neutral","ally"].includes(kind)&&lairHid(k))return;           // v0.53：還沒找到的王
   const pre=snap(), notes=[]; let txt="";
   if(kind==="steal"){if(x.frag||!x.know.hide||S.at!==K.lair)return; txt=`潛進去偷${K.t}的通信記錄`;
     advanceTime(4,notes); const d=Math.ceil(S.hp/2); S.hp-=d; checkDeath(notes); x.frag=true; x.stance="war";
@@ -884,11 +885,13 @@ function kingAct(kind,k,arg){
       notes.push(`你交出了 ✦${it}。它不會再回來了。`)}
     x.asks=(x.asks||0)+1; x.paid=[...(x.paid||[]),pay]; txt=`付出${LICH_PAY[pay].t}，向巫妖王打聽${kingOf(tg).t}`;
     notes.push(`巫妖王說了${kingOf(tg).t}的事。（巫妖王的情報：${x.asks}/3）`);
-    let n=0; K_FIELDS.forEach(f=>{if(n<3&&!(tg==="elf"&&f[0]==="lair"&&!T.elfFound)&&kingReveal(tg,f[0],notes))n++}); if(!n)notes.push("（這位王你都已經知道了）");
+    let n=0; K_FIELDS.forEach(f=>{if(n<3&&kingReveal(tg,f[0],notes))n++}); if(!n)notes.push("（這位王你都已經知道了）");
     if(x.asks>=3)notes.push("巫妖王：「三次了。再要，就要你的命來支付了。」")}
+  else if(kind==="ally"&&k==="elf"){if(S.at!==K.lair||lairHid(k)||ateN()>=3||x.stance==="ally"||x.stance==="war"||x.beaten)return;
+    x.stance="ally"; txt="和精靈王結盟"; notes.push("精靈王接受了你：結盟。（打別的八王時，可以請他來幫一戰）")}
   else if(kind==="ally"){const need=ALLY_NEED[k]; if(!need||S.at!==K.lair||!S.kings[need].beaten||x.stance==="ally"||x.stance==="war"||x.beaten)return;
     x.stance="ally"; txt=`和${K.t}結盟`; notes.push(`${kingOf(need).t}死了。${K.t}接受了你：結盟。（打別的八王時，可以請他來幫一戰）`)}
-  else if(kind==="study"){const f=K_FIELDS.find(z=>!x.know[z[0]]&&!(k==="elf"&&z[0]==="lair")); if(!f)return;
+  else if(kind==="study"){const f=K_FIELDS.find(z=>!x.know[z[0]]&&!(z[0]==="lair"&&lairHid(k))); if(!f)return;
     const fast=S.party.some(p=>p.dir==="斥候"&&!p.tags.includes("重傷")); txt=`打聽${K.t}的事`; advanceTime(fast?4:8,notes); kingReveal(k,f[0],notes);
     if(fast)notes.push("（有斥候同伴幫忙，花了 4 小時）")}
   else return;
@@ -926,12 +929,13 @@ function kingsHTML(){
     const st=x.ate?"已吞噬":x.beaten?"打倒了":x.stance==="ally"?"結盟":x.stance==="neutral"?"中立":x.stance==="war"?"敵對":"";
     return `<div class="npc"><div class="h"><b>${esc(K.t)}</b><span>${esc(K.al)}${st?`・${st}`:""}${x.frag?"・📱已拿到通信記錄":""}</span></div>
       ${open?`<div class="d">${esc(K.desc||"")}</div>${K_FIELDS.map(([f,l])=>`<div class="d">${l}：${x.know[f]?`<b>${esc(kingField(k,f))}</b>`:"？？？"}</div>`).join("")}
-      ${K_FIELDS.some(([f])=>!x.know[f]&&!(k==="elf"&&f==="lair"))&&!S.dead?`<button class="tl" data-kst="${k}">打聽（${S.party.some(p=>p.dir==="斥候")?4:8} 小時，揭開 1 欄）</button>`:""}`:`<div class="d">檔案還沒打開。</div>`}</div>`}).join("");
+      ${clueLine(k)}${K_FIELDS.some(([f])=>!x.know[f]&&!(f==="lair"&&lairHid(k)))&&!S.dead?`<button class="tl" data-kst="${k}">打聽（${S.party.some(p=>p.dir==="斥候")?4:8} 小時，揭開 1 欄）</button>`:""}`:`<div class="d">檔案還沒打開。</div>`}</div>`}).join("");
   return `<div class="card"><h3>八王檔案</h3><div class="note">管理員的手機：${phoneN()}/8（每位王身上一片通信記錄：問、偷、或打倒他拿）。${metaGet().clownKill?`小丑王記得你上一次用「${esc(metaGet().clownKill)}」殺了他。`:""}</div>${rows}</div>`;
 }
 function lairHTML(){
   const n=S.at, nd=S.world[n]; if(!nd||!nd.king||!S.kings||S.dead)return "";
   const k=nd.king, K=kingOf(k), x=S.kings[k], w=K_WANT[x.want], sk=S.skills.filter(z=>!isUq(z)&&!z.past);
+  if(lairHid(k))return `<div class="card"><h3>${esc(K.t)}的行蹤</h3><div class="note">${x.lost?`${esc(K.t)}不會出現了。`:`在這裡探索，找${esc(K.t)}留下的線索（${x.clue||0}/3）。第三條線索會帶你找到他。`}</div></div>`;
   const b=[];
   if(!x.ate&&!x.beaten)b.push(`${helpSel(k)}<button class="tl" data-kf="${k}">向他開戰（八王戰）</button>`);
   if(!x.frag&&x.know.hide)b.push(`<button class="tl" data-ka="steal|${k}">潛進去偷通信記錄（4 小時、HP 減半，他會變成敵人）</button>`);
@@ -989,13 +993,21 @@ function razeSettle(n,why,notes){
 }
 const KPAY={
  gold:[
-  {id:"law",t:"身上刻下律令：之後再也不能突襲、消滅任何聚落（永久）",can:()=>S.law?"已經刻了":null,do:(a,n)=>{S.law=true;n.push("金龍王在你身上刻下了律令。從此你不能再突襲、消滅任何聚落。")}},
-  {id:"free",t:"釋放所有俘虜、解除所有契約",can:()=>S.npcs.some(x=>x.where===NEST()&&(x.captive||x.contract))||S.party.some(p=>p.temp)?null:"沒有俘虜，也沒有契約",
-   do:(a,n)=>{S.npcs.filter(x=>x.where===NEST()&&x.captive&&!S.party.some(p=>p.n===x.n)).forEach(x=>npcGone(x.n,"被你放走了",n));
-    S.npcs.filter(x=>x.where===NEST()&&x.contract&&!S.party.some(p=>p.n===x.n)).forEach(x=>{const t=TECH[x.cls||classOf(x.role)||""];npcGone(x.n,"約定解除，離開了",n);
-      if(t&&t.tag&&!kept().some(y=>y.contract&&TECH[y.cls||classOf(y.role)||""]&&TECH[y.cls||classOf(y.role)||""].tag===t.tag)){S.nest.tags=S.nest.tags.filter(z=>z.t!==t.tag);n.push(`巢穴少了〔${t.tag}〕`)}});
-    S.party.filter(p=>p.temp).forEach(p=>{const h=p.temp.home;S.party=S.party.filter(q=>q!==p);const x=S.npcs.find(y=>y.n===p.n);if(x)x.where=h;n.push(`和${p.n}的契約解除了，${p.n}回到${h}。`)})}},
-  {id:"give",t:"交出一個向你稱臣的聚落",opts:()=>ruledList().map(z=>[z,z]),do:(a,n)=>{const x=S.world[a];x.dom=0;x.lord="金龍王";n.push(`${a}從此歸金龍王管，不再向你上貢。`)}}],
+  {id:"evil",get t(){return evilAbd()?"退位：放棄巢穴之主的身分（這一局拿不到酋長、共主、皇帝）":"消滅三個非人類的聚落（之前消滅的也算）"},
+   can:()=>evilAbd()?(S.abdicated?"已經退位了":null):(evilN()>=3?null:`現在 ${evilN()}/3`),
+   do:(a,n)=>{if(evilAbd()){S.abdicated=true;n.push("你在金龍王面前退位。巢穴還是你的家，但你不再是巢穴之主。（這一局拿不到酋長、共主、皇帝）")}else n.push(`金龍王數了數：你消滅了 ${evilN()} 個邪惡的據點。他很滿意。`)}},
+  {id:"corpse",t:"交出冰霜巨人王的屍體（不能吃）",can:()=>giantCorpse()>=0?null:S.kings.giant.ate?"冰霜巨人王已經被你吃了":"要先殺了冰霜巨人王，而且屍體還沒被吃掉",
+   do:(a,n)=>{S.corpses.splice(giantCorpse(),1);S.kings.giant.given=true;n.push("你把冰霜巨人王的屍體交給了金龍王。這位王，你再也吞噬不到了。")}},
+  {id:"mates2",t:"交出兩位伴侶",opts:()=>{const m=mates().map(p=>p.n), o=[];m.forEach((x,i)=>m.slice(i+1).forEach(y=>o.push([`${x}|${y}`,`${x}、${y}`])));return o},
+   do:(a,n)=>{a.split("|").forEach(z=>npcGone(z,"被交給了金龍王",n,true))}}],
+ elf:[
+  {id:"elfback",t:"歸還從精靈身上得到的一切（精靈語、從精靈學來的技能、精靈的物品）",can:()=>{const e=elfStuff();return e.lang||e.sk.length||e.it.length?null:"你身上沒有從精靈得來的東西"},
+   do:(a,n)=>{const e=elfStuff();if(e.lang)S.langs=S.langs.filter(l=>l!=="精靈語");S.skills=S.skills.filter(z=>!e.sk.includes(z));
+    e.it.forEach(i=>{S.items.splice(S.items.indexOf(i),1);delete S.mat[i];S.party.forEach(q=>{if(q.gear===i){q.gear=null;q.gearMat=null}})});
+    n.push(`你把從精靈身上得到的都還了回去：${[e.lang?"精靈語":"",...e.sk.map(z=>`「${z.n}」`),...e.it.map(i=>`✦${i}`)].filter(Boolean).join("、")}。`)}},
+  {id:"kingpow",t:"放下一位王的力量（吞噬那位王得到的技能全部失去）",opts:()=>Object.keys(KINGS).filter(k=>S.skills.some(z=>z.srcK===k)).map(k=>[k,`${kingOf(k).t}（${S.skills.filter(z=>z.srcK===k).map(z=>z.n).join("、")}）`]),
+   do:(a,n)=>{const l=S.skills.filter(z=>z.srcK===a);S.skills=S.skills.filter(z=>z.srcK!==a);n.push(`你放下了${kingOf(a).t}的力量：${l.map(z=>`「${z.n}」`).join("、")}再也用不了。`)}},
+  {id:"guard",t:"留下一位同伴，在精靈村當守林人",opts:()=>compList().map(p=>[p.n,`${p.mate?"💍":""}${p.n}`]),do:(a,n)=>npcGone(a,"留在精靈村當守林人",n,true)}],
  giant:[
   {id:"raze",t:"消滅一個友好以上的聚落",opts:()=>friendList().map(z=>[z,`${z}（${SREL[stOf(z)+2]}）`]),do:(a,n)=>{razeSettle(a,"被你消滅了",n);heatAdd(3,`${a}被哥布林消滅了`,n)}},
   {id:"duel",t:"當著他的面，和自己的一位同伴決鬥到死",opts:()=>compList().map(p=>[p.n,`${p.mate?"💍":""}${p.n}`]),do:(a,n)=>{const p=S.party.find(q=>q.n===a);npcGone(a,"在冰霜巨人王面前和你決鬥，死了",n,true);n.push(`你和${a}決鬥。倒下的是${a}。${p&&p.mate?"（你的伴侶）":""}`)}},
@@ -1016,10 +1028,10 @@ const KPAY={
   {id:"beast",t:"交出一位野獸系同伴，讓牠回歸自然",opts:()=>beastComp().map(p=>[p.n,`${p.n}（${p.kind}）`]),do:(a,n)=>npcGone(a,"回歸了自然",n,true)}],
  clown:[
   {id:"betray",t:`背叛盟友 ${BETRAY_N} 次以上（在友好、同盟的聚落選「背叛」）`,can:()=>(S.betray||0)>=BETRAY_N?null:`現在 ${S.betray||0}/${BETRAY_N}`,do:(a,n)=>n.push(`小丑王數著你背叛過的人：${S.betray} 個。他笑得很開心。`)},
-  {id:"kings",t:"殺掉除了他以外的七位王",can:()=>{const l=Object.keys(KINGS).filter(k=>k!=="clown"&&!S.kings[k].beaten);return l.length?`還剩 ${l.length} 位`:null},do:(a,n)=>n.push("小丑王：「七個都死了啊。」")},
+  {id:"kings",t:"殺掉除了他以外的七位王",can:()=>{if(S.kings.elf.lost)return "精靈王不會出現了，這一項付不出來";const l=Object.keys(KINGS).filter(k=>k!=="clown"&&!S.kings[k].beaten);return l.length?`還剩 ${l.length} 位`:null},do:(a,n)=>n.push("小丑王：「七個都死了啊。」")},
   {id:"alone",t:"不再有巢穴、同伴、伴侶——只剩你自己、裝備和技能（永久）",can:()=>S.alone?"已經是一個人了":null,do:(a,n)=>goAlone(n)}]
 };
-const KBLESS={gold:"替你壓下人類的討伐一次（注目度歸零，正在路上的討伐隊撤回）",giant:"他的氏族來替你守一次討伐戰（那一整場每階段多一層優勢）",
+const KBLESS={elf:"回家的儀式（回家的結局還沒做，先記下來）",gold:"替你壓下人類的討伐一次（注目度歸零，正在路上的討伐隊撤回）",giant:"他的氏族來替你守一次討伐戰（那一整場每階段多一層優勢）",
   uni:"治好一處捨身留下的永久傷",worm:"一次判定裡，你付的一項代價由他替你付",beast:"森林的野獸不再襲擊你"};
 const KREW=k=>[["frag","他的通信記錄"],...(KBLESS[k]?[["bless",`加護：${KBLESS[k]}`]]:[]),["file","他的檔案全開"]];
 function goAlone(n){
@@ -1032,7 +1044,7 @@ function goAlone(n){
 }
 function kingPay(k,id,arg,rew){
   const K=kingOf(k), x=S.kings&&S.kings[k], c=(KPAY[k]||[]).find(z=>z.id===id);
-  if(!x||!c||busy||S.dead||S.at!==K.lair||!x.know.want||x.stance==="war"||x.beaten||(x.paid||[]).includes(id))return;
+  if(!x||!c||busy||S.dead||S.at!==K.lair||lairHid(k)||!x.know.want||x.stance==="war"||x.beaten||(x.paid||[]).includes(id))return;
   if(c.can&&c.can())return; if(c.opts&&!c.opts().some(o=>o[0]===arg))return;
   const pre=snap(), notes=[];
   S.log.push({who:"you",text:`向${K.t}付出：${c.t.replace(/（永久）$/,"")}${arg?`（${arg}）`:""}`,pre});
@@ -1048,6 +1060,7 @@ function kingPay(k,id,arg,rew){
 function kingBless(k,notes){
   S.bless=S.bless||{};
   if(k==="gold"){S.heat=0;if(S.raid&&!S.raid.king&&!S.raid.on){notes.push(`${S.raid.name}接到了撤退的命令。`);S.raid=null}notes.push("金龍王的加護：人類的注目度歸零。")}
+  else if(k==="elf"){S.ritual=true;notes.push("精靈王教了你回家的儀式。（回家的結局之後的版本才有）")}
   else if(k==="beast"){S.bless.beast=true;notes.push("獸王的加護：森林的野獸不再襲擊你。")}
   else{S.bless[k]=1;notes.push(`${kingOf(k).t}的加護：${KBLESS[k]}。（留著，用的時候才算）`)}
 }
@@ -1090,7 +1103,7 @@ const helpers=k=>Object.keys(S.kings||{}).filter(z=>z!==k&&S.kings[z].stance==="
 const helpSel=k=>{const h=helpers(k);return h.length?`<select id="khelp"><option value="">不叫結盟的王</option>${h.map(z=>`<option value="${z}">請${esc(kingOf(z).t)}來幫這一戰（只有一次）</option>`).join("")}</select>`:""};
 function helpSet(r,h){if(!r||!r.king||!h||!helpers(r.king).includes(h))return;r.help=h;S.kings[h].helped=true}
 function kingPayHTML(k,x){
-  if(k==="lich"||k==="elf"||!KPAY[k]||x.beaten||!x.know.want)return "";
+  if(k==="lich"||!KPAY[k]||x.beaten||!x.know.want)return "";
   if(x.stance==="war")return `<div class="note" style="width:100%">${esc(kingOf(k).t)}把你當敵人，不會再收你的代價。</div>`;
   const paid=x.paid||[], got=x.got||[], rw=KREW(k).filter(r=>!got.includes(r[0]));
   return `<div class="d" style="width:100%"><b>向${esc(kingOf(k).t)}付代價</b>（每種只能付一次，付了回不來）${k==="clown"?"：三種都付清就結盟，他會告訴你管理員的真名和殺死他的辦法。":""}
@@ -1100,6 +1113,8 @@ function kingPayHTML(k,x){
         ${done?`<span class="note">（付過了）</span>`:off?`<span class="note">（${esc(why||"沒有可以付的")}）</span>`:`<button class="tl" data-kp="${k}|${c.id}">付出</button>`}</div>`}).join("")}</div>`;
 }
 function allyHTML(k,x){
+  if(k==="elf"&&!x.beaten&&x.stance!=="war"){if(x.stance==="ally")return `<div class="note" style="width:100%">已結盟${x.helped?"（幫過你一戰了）":"：打別的八王時可以請他來幫一戰"}</div>`;
+    return ateN()>=3?`<div class="note" style="width:100%">精靈王：「你吞了太多王。我不跟你結盟。」</div>`:`<button class="tl" data-ka="ally|elf">和精靈王結盟</button>`}
   const need=ALLY_NEED[k]; if(!need||x.beaten)return "";
   if(x.stance==="ally")return `<div class="note" style="width:100%">已結盟${x.helped?"（幫過你一戰了）":"：打別的八王時可以請他來幫一戰"}</div>`;
   if(x.stance==="war")return "";
@@ -1112,7 +1127,7 @@ function blessHTML(){
   if(b.worm)out.push("紫蟲王：一次判定裡替你付一項代價（判定卡上勾選）");
   const uh=b.uni?sacHurtList():[];
   const tri=S.kings&&S.kings.worm&&S.kings.worm.tribute?`<div class="d">紫蟲王的上貢：第 ${S.kings.worm.tribute} 天要交 10 份存糧</div>`:"";
-  const flags=[S.law?"金龍王的律令：不能突襲、消滅聚落":"",S.vow?"對獨角獸王的誓：不吃類人":"",S.alone?"小丑王：你沒有巢穴、同伴、伴侶":"",(S.betray||0)?`背叛過 ${S.betray} 次`:"",S.trueName?`管理員的真名：${ADMIN_NAME}`:""].filter(Boolean);
+  const flags=[S.vowHuman?"金龍教的受洗：不吃人類":"",S.abdicated?"在金龍王面前退位了（這一局拿不到酋長、共主、皇帝）":"",S.ritual?"精靈王教的回家儀式（回家的結局之後才有）":"",S.law?"金龍王的律令：不能突襲、消滅聚落":"",S.vow?"對獨角獸王的誓：不吃類人":"",S.alone?"小丑王：你沒有巢穴、同伴、伴侶":"",(S.betray||0)?`背叛過 ${S.betray} 次`:"",S.trueName?`管理員的真名：${ADMIN_NAME}`:""].filter(Boolean);
   if(!out.length&&!b.uni&&!tri&&!flags.length)return "";
   return `<div class="card"><h3>加護與代價</h3>${out.map(t=>`<div class="d">${esc(t)}</div>`).join("")}
     ${b.uni?`<div class="d">獨角獸王：治好一處捨身的傷${uh.length?`<div class="padd" style="margin-top:4px"><select id="uhsel">${uh.map(o=>`<option value="${o[0]}">${esc(o[1])}</option>`).join("")}</select><button class="tl" id="uhgo">治好它</button></div>`:"（你身上沒有捨身的傷，先留著）"}</div>`:""}
@@ -1124,8 +1139,78 @@ function kingVows(){
   if(S.alone)o.push("主角為了小丑王丟下了巢穴、同伴、伴侶：現在只有自己一個人，不能寫同伴、族人出場，也沒有巢穴可以回");
   if(S.law)o.push("主角身上刻著金龍王的律令：不能突襲、消滅任何聚落");
   if(S.vow)o.push("主角對獨角獸王發過誓：不吃類人（不要寫主角吃類人）");
+  if(S.vowHuman)o.push("主角在金龍教受過洗：不吃人類（不要寫主角吃人類）");
+  if(S.abdicated)o.push("主角在金龍王面前退位了：不再是巢穴之主");
+  if(S.ritual)o.push("主角從精靈王那裡學到了回家的儀式（還沒用）");
   if(b.beast)o.push("獸王的加護：森林的野獸不會襲擊主角（不要寫野獸主動攻擊主角）");
   if(S.kings&&S.kings.worm&&S.kings.worm.hostage)o.push(`${S.kings.worm.hostage.n}是主角留在紫蟲王那裡的人質，不在主角身邊`);
   if(S.trueName)o.push(`主角從小丑王那裡知道了管理員的真名（${ADMIN_NAME}）。不要讓主角對別人說出來，除非玩家自己寫`);
   return o;
+}
+
+/* ═════════ v0.53：找到精靈王、金龍王；兩位王的新代價（設計見專案《魔物篇_精靈王與殺死管理員_1112》）═════════
+   精靈王：精靈村同盟 → 告訴你行蹤 → 在那裡探索 3 次（每次一條線索）→ 找到他。找到之前精靈村被消滅＝他不會出現。
+   金龍王：人類城鎮同盟 → 金龍教要你受洗（發誓不再吃人類）→ 告訴你行蹤 → 探索 3 次 → 找到他。
+   x.trace＝知道行蹤、x.clue＝線索數、x.found＝找到了、x.lost＝不會出現了；S.vowHuman＝受洗的誓；S.abdicated＝退位；S.ritual＝回家的儀式。 */
+const K_CLUE={elf:"精靈村",gold:"人類城鎮"};
+const HUMAN_RE=/人類|冒險者|衛兵|商人/;
+const lairHid=k=>!!K_CLUE[k]&&!!S.kings&&!!S.kings[k]&&!S.kings[k].found;
+const ateN=()=>Object.values(S.kings||{}).filter(x=>x.ate).length;
+const evilN=()=>(S.razed||[]).filter(n=>!/人類/.test(n)).length;
+const evilLeft=()=>Object.keys(S.world||{}).filter(n=>isSettle(n)&&!S.world[n].razed&&!/人類/.test(n)&&S.world[n].kind!=="廢棄的巢穴").length;
+const evilAbd=()=>evilN()<3&&evilN()+evilLeft()<3;            // 世界上剩下的非人類聚落湊不到 3 個 → 這一項變成退位
+const giantCorpse=()=>(S.corpses||[]).findIndex(c=>c.king==="giant");
+function elfStuff(){
+  return {lang:(S.langs||[]).includes("精靈語"),sk:S.skills.filter(z=>z.src==="精靈"),it:(S.items||[]).filter(i=>/精靈/.test(i))};
+}
+function clueLine(k){
+  const x=S.kings[k]; if(!K_CLUE[k]||x.found)return "";
+  return `<div class="d">${x.lost?`${esc(kingOf(k).t)}不會出現了（${K_CLUE[k]}沒了）。`:x.trace?`行蹤：${esc(kingOf(k).t==="金龍王"?"金龍教":"精靈村")}說他在「${esc(kingOf(k).lair)}」。線索 ${x.clue||0}/3（去那裡探索）。`
+    :k==="elf"?"要找他：精靈村跟你同盟，他們才會說。":"要找他：人類城鎮跟你同盟，金龍教的人才會來找你。"}</div>`;
+}
+function traceOpen(k,notes){
+  const x=S.kings[k], K=kingOf(k), nd=S.world[K.lair], from=K_CLUE[k]; if(!nd)return;
+  x.trace=true; nd.known=true; nd.links=nd.links||{}; nd.links[from]=3; if(S.world[from]){S.world[from].links=S.world[from].links||{};S.world[from].links[K.lair]=3}
+  notes.push(`〈系統〉地圖上多了「${K.lair}」（從${from}走 3 小時）。在那裡探索三次，找${K.t}留下的線索。`);
+}
+/* 每回合檢查：精靈村同盟就說行蹤；精靈村、人類城鎮沒了，那位王就不會出現 */
+function clueCheck(notes){
+  if(!kingsOpen()||!S.kings)return;
+  Object.keys(K_CLUE).forEach(k=>{const x=S.kings[k], v=K_CLUE[k]; if(!x||x.found||x.lost)return;
+    if(!S.world[v]||S.world[v].razed){x.lost=true; const nd=S.world[kingOf(k).lair]; if(nd)nd.known=false;
+      notes.push(`〈系統〉${v}沒了。${kingOf(k).t}的行蹤，再也沒有人知道了。`);return}
+    if(x.trace||stOf(v)<3)return;
+    if(k==="elf"){notes.push(`精靈村的長老告訴你：精靈王最後出現在「${kingOf(k).lair}」。`);traceOpen(k,notes)}
+    else if(!x.asked){x.asked=true;notes.push("金龍教的人來找你：「受洗吧。發誓不再吃人類，我們就告訴你金龍王在哪裡。」（到人類城鎮，在地圖頁決定）")}});
+}
+/* 金龍教的受洗 */
+function baptize(){
+  const x=S.kings&&S.kings.gold; if(busy||S.dead||!x||x.trace||x.lost||S.at!=="人類城鎮"||stOf("人類城鎮")<3||!kingsOpen())return;
+  const pre=snap(), notes=[]; S.log.push({who:"you",text:"在金龍教受洗",pre});
+  advanceTime(1,notes); S.vowHuman=true; x.asked=true;
+  notes.push("你在金龍教受洗，發誓不再吃人類。（永久：人類的屍體你不能吃）",`金龍教的人告訴你：金龍王在「${kingOf("gold").lair}」。`);
+  traceOpen("gold",notes);
+  S.log.push(sysEntry(notes.join("\n"))); save(); render();
+}
+const baptHTML=()=>{const x=S.kings&&S.kings.gold;
+  return x&&kingsOpen()&&!x.trace&&!x.lost&&S.at==="人類城鎮"&&stOf("人類城鎮")>=3&&!S.dead?`<br><button class="tl" id="bapt">受洗：發誓不再吃人類（金龍教告訴你金龍王在哪；永久）</button>`:""};
+/* 探索：在王的行蹤找線索（第三條＝找到他） */
+function clueSeed(){
+  const nd=S.world[S.at]; if(!nd||!nd.king||!K_CLUE[nd.king])return null;
+  const k=nd.king, x=S.kings[k], K=kingOf(k); if(!x||x.found||!x.trace||x.lost)return null;
+  x.clue=(x.clue||0)+1;
+  if(x.clue<3)return {label:`探索：${S.at}`,prompt:`【這段要發生的事（程序抽到的，照這個寫）】你在${S.at}探索，找到了${K.t}留下的第 ${x.clue} 條線索（共 3 條）。自己想一個符合他的痕跡（${K.desc}）。不要讓主角見到他本人。`};
+  x.found=true; const n=[]; kingReveal(k,"lair",n);
+  return {label:`探索：${S.at}`,prompt:`【這段要發生的事（程序抽到的，照這個寫）】你順著三條線索，在${S.at}找到了${K.t}本人（${K.desc}）。寫出第一次見到他的樣子。他還沒有出手。`};
+}
+/* 舊存檔：補精靈王的領域；已經揭開金龍王領域的當作找到了；精靈村、人類城鎮沒有就補上（藏在隨機地區） */
+function kingsFix(o){
+  if(!o||!o.world)return;
+  ["精靈村","人類城鎮"].forEach(n=>{if(o.world[n])return; const d=DEMI.find(z=>z.n===n), region=SITE_REGIONS[rint(0,SITE_REGIONS.length-1)];
+    o.world[n]={kind:d.kind,note:d.note,st:d.st,region,links:{},known:false};
+    if(o.sites)o.sites.push({n,region,need:rint(2,4),found:false}); else{o.world[n].known=true;o.world[n].links[region]=3;if(o.world[region])o.world[region].links[n]=3}});
+  if(!o.kings)return;
+  const K=KINGS.elf; if(!o.world[K.lair]){o.world[K.lair]={kind:"八王領域",region:K.lair,note:K.desc,links:{[K.link]:3},known:false,king:"elf"};
+    if(o.world[K.link]){o.world[K.link].links=o.world[K.link].links||{};o.world[K.link].links[K.lair]=3}}
+  const g=o.kings.gold; if(g&&g.know&&g.know.lair&&!g.found)g.found=true;
 }
