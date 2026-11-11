@@ -114,6 +114,7 @@ function stateBrief(){
     巢穴:{名稱:n.name,存糧:`${PROS[n.p-1]}（${n.food||0} 份，每天吃 ${needOf()} 份，夠吃 ${daysOf()} 天）`,存糧狀況:daysOf()>=7?"很充足（敘述裡不要寫缺糧、空蕩、挨餓，貯藏區是滿的）":daysOf()>=3?"夠用":daysOf()>=1?"吃緊（可以寫族人擔心）":"快見底了",人口:`${POP[n.pop-1]}（人口格 ${n.pop}）`,無名族人:NAMELESS[n.pop-1]?`大約 ${NAMELESS[n.pop-1]} 隻，沒有名字、不用一個個寫`:"沒有（巢穴裡除了名單上有名字的同伴、NPC、俘虜，沒有別的族人，不要寫成一群族人）",戰力:DEF[n.d-1],標籤:n.tags.map(t=>t.t),...(n.lv?{等級:`${n.lv}級`,設施:(n.fac||[]).map(f=>`${f}${facOn(f)?"":"（缺人手）"}`)}:{}),說明:n.note},
     語言:(S.langs||["哥布林語"]),
     ...(kingsOpen()?{八王:kingsState()}:{}),
+    ...(kingVows().length?{八王的加護與代價:kingVows()}:{}),
     ...(S.divine?{神兵:`${S.divine.name}（${S.divine.desc||"前世的武器"}）：能力 ${S.divine.abs.map(a=>a.n).join("、")}，永遠不會壞，每項一天 3 次`}:{}),
     ...(S.narr&&S.narr.length?{叙事注意:S.narr}:{}),
     位置:{現在在:S.at,種類:here().kind,情況:here().note||"",出口:exitsOf(S.at).map(([n,h])=>`${n}（${h} 小時）`),還沒探索的方向:hiddenOf(S.at).length?`還有 ${hiddenOf(S.at).length} 個`:"沒有了（再探索會發現新的冒險地點或地形）"},

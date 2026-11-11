@@ -142,9 +142,9 @@ function contWar(){
 const SAC={hp:"HP 上限 -5",maim:"留下【殘缺】"};
 function sacDo(v,notes){
   if(v)S.sacN=(S.sacN||0)+1;   // v0.46：捨身累計次數（收藏品結局用）
-  if(v==="hp"){S.hpMax-=5;S.hp=Math.min(S.hp,S.hpMax);notes.push(`舍身：HP 上限永久 -5（${S.hpMax}）`)}
-  else if(v==="maim"){addTag("殘缺");notes.push("舍身：留下永久的【殘缺】")}
-  else if(v&&v.startsWith("sk:")){const n=v.slice(3);S.skills=S.skills.filter(x=>x.n!==n);notes.push(`舍身：永遠失去了技能「${n}」`)}
+  if(v==="hp"){S.hpMax-=5;S.hp=Math.min(S.hp,S.hpMax);notes.push(`舍身：HP 上限永久 -5（${S.hpMax}）`);(S.sacHurt=S.sacHurt||[]).push({k:"hp"})}
+  else if(v==="maim"){addTag("殘缺");notes.push("舍身：留下永久的【殘缺】");(S.sacHurt=S.sacHurt||[]).push({k:"maim"})}
+  else if(v&&v.startsWith("sk:")){const n=v.slice(3), s=S.skills.find(x=>x.n===n);S.skills=S.skills.filter(x=>x.n!==n);notes.push(`舍身：永遠失去了技能「${n}」`);if(s)(S.sacHurt=S.sacHurt||[]).push({k:"sk",sk:JSON.parse(JSON.stringify(s))})}
 }
 const sacLabel=v=>v&&v.startsWith("sk:")?`失去技能「${v.slice(3)}」`:SAC[v]||"";
 function retreat(k,arg){

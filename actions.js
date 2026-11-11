@@ -154,6 +154,7 @@ function witnesses(c){
 function eatCorpse(i,label,how){
   if(busy||S.dead)return;
   const c=S.corpses[i]; if(!c)return;
+  if(S.vow&&isHumanoid(c)){S.log.push(sysEntry(`你對獨角獸王發過誓：不再吃類人。${c.name}你不能吃。`));save();render();return}   // v0.52
   const pre=snap(), w=isHumanoid(c)?witnesses(c):[];
   if(w.length&&!how)how=/偷偷|私下|拖到|沒人|躲起來/.test(label||"")?"private":"public";
   S.log.push({who:"you",text:label||(how==="private"?`把${c.name}拖到沒人的地方吃掉`:`吃掉${c.name}`),pre});
@@ -402,7 +403,7 @@ function eatItem(i,label){
   S.eaten.unshift({day:S.day,what:it,got:null});
   S.log.push(sysEntry(notes.join("\n"))); save(); render();
 }
-function pay(sel,sac){
+function pay(sel,sac,wb){
   const L=S.log, e=L[L.length-1]; if(busy||!e)return;
   const ch=e.alts[e.i].check; if(!ch)return;
   if(!ch.war&&!ch.raid)sac=null;
@@ -424,7 +425,9 @@ function pay(sel,sac){
   const ab=allyAbOn(ch), abP=ab&&S.party.find(x=>x.n===ch.allyAb);
   if(dp){S.allyUsed=allyUses()+1;notes.push(`${dp.n}替你上場（代打）：今天同伴能力還剩 ${Math.max(0,2-S.allyUsed)} 次。`)}
   if(abP){S.allyUsed=allyUses()+1;notes.push(`${abP.n}幫忙（${ab}）：今天同伴能力還剩 ${2-S.allyUsed} 次。`)}
-  chosen.forEach(c=>{if(dp&&!(ab==="防禦"&&abP)&&c.hp){woundAlly(dp.n,notes);notes.push(`${dp.n}替你吃下這一下（HP 沒扣）。`);const c3={...c};delete c3.hp;applyCost(c3,notes)}else if(ab==="防禦"&&c.hp&&abP){woundAlly(abP.n,notes);notes.push(`${abP.n}替你擋下這一下（HP 沒扣）。`);const c2={...c};delete c2.hp;applyCost(c2,notes)}else applyCost(c,notes)}); if(sac)sacDo(sac,notes);
+  const wc=wb&&S.bless&&S.bless.worm&&chosen.length?chosen[0]:null;   // v0.52：紫蟲王的加護替你付一項
+  if(wc){S.bless.worm=0;notes.push(`紫蟲王替你付了：${wc.t}（加護用掉了）`)}
+  chosen.forEach(c=>{if(c===wc)return;if(dp&&!(ab==="防禦"&&abP)&&c.hp){woundAlly(dp.n,notes);notes.push(`${dp.n}替你吃下這一下（HP 沒扣）。`);const c3={...c};delete c3.hp;applyCost(c3,notes)}else if(ab==="防禦"&&c.hp&&abP){woundAlly(abP.n,notes);notes.push(`${abP.n}替你擋下這一下（HP 沒扣）。`);const c2={...c};delete c2.hp;applyCost(c2,notes)}else applyCost(c,notes)}); if(sac)sacDo(sac,notes);
   if(!ch.local&&!ch.war&&ch.foe)S.party.filter(allyElig).forEach(p=>allyXp(p,2,notes));
   const stall=!!ch.foe&&!ch.war&&!ch.raid&&chosen.some(c=>c.time);
   if(stall)S.fightDelay=ch.foe;

@@ -9,7 +9,7 @@ function render(){
   if(TAB==="story") bindStory();
   if(TAB==="nest") bindNest();
   if(TAB==="map") bindMap();
-  if(TAB==="record") document.querySelectorAll("[data-kst]").forEach(b=>b.onclick=()=>kingAct("study",b.dataset.kst));
+  if(TAB==="record"){document.querySelectorAll("[data-kst]").forEach(b=>b.onclick=()=>kingAct("study",b.dataset.kst));const u=$("uhgo");if(u)u.onclick=()=>uniHeal(($("uhsel")||{}).value)}
   if(TAB==="record") document.querySelectorAll("[data-rt]").forEach(b=>b.onclick=()=>{const k=b.dataset.rt;if(RT!==k){RT=k;render();return}RT="";retireAt(k)});
   if(TAB==="skill") document.querySelectorAll("[data-sd]").forEach(b=>b.onclick=()=>{const i=+b.dataset.sd;if(SD!==i){SD=i;render();return}SD=-1;const s=S.skills[i];if(s&&!isUq(s)&&!s.past&&!S.err){S.skills.splice(i,1);SWI=[];SWO=[];MG=[];MGK="";const n=[];fillAct(n);if(n.length)S.log.push(sysEntry(n.join("\n")))}save();render()});
   if(TAB==="skill") document.querySelectorAll("[data-sw]").forEach(b=>b.onclick=()=>{const i=+b.dataset.sw;SWI=SWI.includes(i)?SWI.filter(x=>x!==i):[...SWI,i];render()});
@@ -114,7 +114,7 @@ function checkHTML(ch){
     ${lay?`<div class="lay">${lay}</div>`:""}
     <div class="need">付 <b>${ci.need}</b> 項成功・付 <b>${ci.big}</b> 項大成功${ci.need===0?"（不付也會成功）":""}<br><small>虛線框的通用代價一次只能選一項${ci.stalled?"；這場已經拖過一次，不能再拖":""}</small></div>
     <div class="costs">${ci.costs.map((c,i)=>`<label class="cost${c.g?" gen":""}"><input type="checkbox" data-c="${i}"><span>${esc(c.t)}${c.g?"":effOf(c)}</span></label>`).join("")}</div>
-    ${skBox}${comboBox(ch)}${itBox}${abBox}${doBox}${warBox}
+    ${skBox}${comboBox(ch)}${itBox}${abBox}${doBox}${warBox}${S.bless&&S.bless.worm?`<div class="sacbox"><label><input type="checkbox" id="wormb"> 紫蟲王的加護：你勾的第一項代價由他替你付（算數，但你不用付；只有一次）</label></div>`:""}
     <button class="paybtn" id="paybtn">付出 0 項：${tierOf(0,ci)}</button>
   </div>`;
 }
@@ -176,7 +176,7 @@ function storyHTML(){
       <button class="paybtn" id="neok">命名</button><div style="text-align:right;margin-top:6px"><button class="tl" id="neno">這次不命名</button></div></div>`}
   else if(!busy&&!S.err&&S.raid&&S.raid.now&&!S.raid.on){const r=S.raid;
     bottom=`<div class="check war"><h3>${esc(r.name)}來了</h3><div class="note">${esc(r.size)}・${r.lv}級。在${esc(NEST())}迎戰，共 ${r.ofK||r.of||(r.army?5:3)} 個階段，同伴全部上場。<br>對你有利：${(r.king?kingAdv(r):raidAdv()).slice(0,3).map(esc).join("、")||"沒有"}<br>${r.king?(r.kind==="scout"?"擋不住也不會死，但會什麼都問不到。":"這是八王戰：輸了你會死。"):"輸了就是全滅。"}不想打，只能丟下一切逃走（存糧全失、人口剩一格、俘虜走散）。</div>
-      <button class="paybtn" id="raidgo">迎戰</button>
+      ${r.king?helpSel(r.king):""}<button class="paybtn" id="raidgo">迎戰</button>
       <div class="padd" style="margin-top:8px"><select id="fleeto">${moveDests().map(n=>`<option>${esc(n)}</option>`).join("")}</select><button class="tl" id="raidflee">丟下巢穴逃走</button></div></div>`}
   else if(!busy&&!S.err&&S.raid&&S.raid.on&&!(S.log.at(-1).alts&&S.log.at(-1).alts[S.log.at(-1).i].check)) bottom=`<div class="check war"><h3>討伐戰還沒打完</h3><button class="paybtn" id="raidcont">繼續（第 ${Math.min(S.raid.of,S.raid.stage)}/${S.raid.of} 階段）</button></div>`;
   else if(!busy&&!S.err&&S.war) bottom=`<div class="check war"><h3>進化戰還沒打完</h3><button class="paybtn" id="warcont">繼續（第 ${Math.min(5,S.war.stage)}/5 階段）</button></div>`;
@@ -184,7 +184,7 @@ function storyHTML(){
     bottom=`<div class="check war"><h3>${esc(f.name)}找上門了</h3><div class="note">${esc(f.kind)}・${f.lv}級。${esc(f.note)}<br>期限已過，躲不掉了。</div><button class="paybtn" data-war="${S.evo.forced}">迎戰</button></div>`}
   else if(!busy&&!S.err){
     const opts=S.opts.map((o,i)=>`<button class="opt" data-o="${i}">${esc(o)}</button>`).join("");
-    const raidOk=S.stage!=="幼體"&&S.at!==NEST()&&S.world[S.at]&&/營地|巢穴|聚落|村|城鎮/.test(S.world[S.at].kind||"")&&stOf(S.at)<=-1;   // v0.47：敵對的聚落也能突襲（統治軌道）
+    const raidOk=S.stage!=="幼體"&&S.at!==NEST()&&S.world[S.at]&&/營地|巢穴|聚落|村|城鎮/.test(S.world[S.at].kind||"")&&stOf(S.at)<=-1&&!S.law;   // v0.47；v0.52 金龍王的律令之後不能突襲：敵對的聚落也能突襲（統治軌道）
     const menu=(S.stage==="幼體"?MENU_KID:raidOk?[...MENU_ADULT.slice(0,3),{k:"raid",t:"突襲・4h"},...MENU_ADULT.slice(3)]:MENU_ADULT).map(m=>`<button class="mb" data-mn="${m.k}">${m.k==="nest"&&!inNest()?`回巢穴・${pathHours(S.at,NEST())??"?"}h`:m.t}</button>`).join("");
     const left=S.evo?S.evo.due-nowH():0;
     const evoCard=S.evo?`<div class="check war evo"><h3>進化戰</h3><div class="note">存在值已滿，不會再增加。期限：${hStr(S.evo.due)}（還有 ${left} 小時）。逾期，其中一名會主動找上門。單挑，同伴不能插手；共 5 個階段。</div>
@@ -226,7 +226,7 @@ function bindStory(){
   document.querySelectorAll("[data-rt]").forEach(b=>b.onclick=()=>{const [k,a]=b.dataset.rt.split("|");retreat(k,a==null?null:+a)});
   on("rtopen",()=>{RETREAT=!RETREAT;render()});
   on("warcont",()=>contWar());
-  on("raidgo",()=>startRaid());
+  on("raidgo",()=>startRaid(($("khelp")||{}).value||""));
   on("raidflee",()=>moveNest($("fleeto").value,true));
   on("raidcont",()=>{const r=S.raid;if(!r||busy)return;const half=Math.floor(r.of/2)+1;doJob({kind:"raid",ctx:{stage:r.stage,end:r.fails>=half?"lose":(r.wins>=half||r.stage>r.of)?(r.wins>r.fails?"win":"lose"):null}},snap(),S.log.length)});
   {const k=$("nek");if(k){k.onchange=()=>{NE.k=+k.value;render()};$("nen").oninput=e=>NE.name=e.target.value;$("ned").onchange=e=>NE.dir=e.target.value;
@@ -250,7 +250,7 @@ function bindStory(){
     document.querySelectorAll("[data-c]").forEach(x=>x.onchange=()=>{
       if(x.checked&&ci.costs[+x.dataset.c].g)document.querySelectorAll("[data-c]").forEach(y=>{if(y!==x&&ci.costs[+y.dataset.c].g)y.checked=false});
       upd()}); if(ss)ss.onchange=upd;
-    pb.onclick=()=>pay(sel(),sac());
+    pb.onclick=()=>pay(sel(),sac(),!!($("wormb")&&$("wormb").checked));
   }
   {const rb=$("rbgo"); if(rb)rb.onclick=()=>rebornWith(RBP.slice(),{name:($("dvn")||{}).value||"",desc:($("dvd")||{}).value||"",abs:DVP.slice()})}
   document.querySelectorAll("[data-rbd]").forEach(b=>b.onclick=()=>{const n=b.dataset.rbd;DVN=($("dvn")||{}).value||DVN;DVD=($("dvd")||{}).value||DVD;DVP=DVP.includes(n)?DVP.filter(x=>x!==n):DVP.length<3?[...DVP,n]:DVP;render()});
@@ -360,7 +360,7 @@ function placesHTML(){return ""}
 function mapHTML(){
   const h=here(), known=Object.entries(S.world).filter(([n,x])=>x.known&&n!==S.at);
   const ppl=n=>S.npcs.filter(y=>y.where===n&&!S.party.some(p=>p.n===y.n));
-  const sl=n=>isSettle(n)?`<div class="d">對你：<b>${SREL[stOf(n)+2]}</b>${domOf(n)?`　統治：<b>${DOM[domOf(n)]}</b>`:""}${domOf(n)===2&&S.at===n?`<br><button class="tl" data-dom="sub|${esc(n)}">逼他們稱臣（4 小時）</button><button class="tl" data-dom="raze|${esc(n)}">消滅他們（4 小時）</button>`:""}${S.world[n].grudge?`　記仇 ${S.world[n].grudge}`:""}${(S.world[n].deals||[]).length?`<br>約定：${S.world[n].deals.map(esc).join("；")}`:""}</div>`:"";
+  const sl=n=>isSettle(n)?`<div class="d">對你：<b>${SREL[stOf(n)+2]}</b>${domOf(n)?`　統治：<b>${DOM[domOf(n)]}</b>`:""}${domOf(n)===2&&S.at===n?`<br><button class="tl" data-dom="sub|${esc(n)}">逼他們稱臣（4 小時）</button>${S.law?"":`<button class="tl" data-dom="raze|${esc(n)}">消滅他們（4 小時）</button>`}`:""}${stOf(n)>=2&&S.at===n&&!S.dead?`<br><button class="tl" data-bt="${esc(n)}">背叛他們（2 小時，關係變敵對）</button>`:""}${S.world[n].grudge?`　記仇 ${S.world[n].grudge}`:""}${(S.world[n].deals||[]).length?`<br>約定：${S.world[n].deals.map(esc).join("；")}`:""}</div>`:"";
   const row=([n,x])=>`<div class="npc"><div class="h"><b>${x.kind==="地區"?"":"📍"}${esc(n)}</b><span>${esc(x.kind)}${x.kind!=="地區"&&x.region&&x.region!==n?`・屬於${esc(x.region)}`:""}・從這裡 ${pathHours(S.at,n)??"?"} 小時</span></div>
       ${x.note?`<div class="d">${esc(x.note)}</div>`:""}${sl(n)}${ppl(n).map(y=>`<div class="d">・${esc(y.n)}（${esc(y.role)}・${y.lv}級）對你：<b>${REL[relOf(y)+2]}</b></div>`).join("")}</div>`;
   return lairHTML()+tradeHTML()+`<div class="card"><h3>現在在：${esc(S.at)}</h3><div class="note">${esc(h.kind)}${h.note?`・${esc(h.note)}`:""}</div>${sl(S.at)}
@@ -379,7 +379,10 @@ function mapHTML(){
       <div class="padd" style="margin-top:6px"><input id="mt" maxlength="40" placeholder="一句話說明（可以不填）"><button class="tl" id="madd">加入</button></div></div>`;
 }
 function bindMap(){
-  document.querySelectorAll("[data-kf]").forEach(b=>b.onclick=()=>{const k=b.dataset.kf;if(KC!==k){KC=k;render();return}KC="";kingFight(k)});
+  document.querySelectorAll("[data-kf]").forEach(b=>b.onclick=()=>{const k=b.dataset.kf;if(KC!==k){KC=k;b.textContent="確定開戰？（八王戰：7 場，輸 4 場就死；可以捨身）";return}KC="";kingFight(k,($("khelp")||{}).value||"")});
+  document.querySelectorAll("[data-kp]").forEach(b=>b.onclick=()=>{const [k,id]=b.dataset.kp.split("|");if(KPC!==b.dataset.kp){KPC=b.dataset.kp;b.textContent="確定付出？（回不來）";return}KPC="";
+    kingPay(k,id,($("kpw_"+id)||{}).value||"",($("kpr")||{}).value||"")});
+  document.querySelectorAll("[data-bt]").forEach(b=>b.onclick=()=>{if(BTC!==b.dataset.bt){BTC=b.dataset.bt;b.textContent="確定背叛？（關係直接變敵對，回不來）";return}BTC="";betray(b.dataset.bt)});
   document.querySelectorAll("[data-ka]").forEach(b=>b.onclick=()=>{const [a,k]=b.dataset.ka.split("|");kingAct(a,k)});
   {const g=$("lichgo");if(g)g.onclick=()=>{if(LC!=="go"){LC="go";g.textContent="確定付出？（回不來）";return}LC="";const w=$("lichw").value,pay=$("lichp").value;
      kingAct("lich","lich",{king:$("lichk").value,pay,who:w.startsWith("item:")?null:w,item:w.startsWith("item:")?w.slice(5):null})}}
@@ -410,6 +413,7 @@ function heatHTML(){
 }
 function nestHTML(){
   const n=S.nest;
+  if(S.alone)return heatHTML()+`<div class="card"><h3>沒有巢穴</h3><div class="note">你為了小丑王丟下了巢穴、同伴和伴侶。現在只有你自己、你的裝備、你的技能。</div></div>`;
   return partyHTML()+heatHTML()+`<div class="card"><h3>${esc(n.name)}</h3>
       <div class="note" style="margin-bottom:8px">${esc(n.note)}</div>
       ${track("p","存糧",PROS,n.p)}${track("pop","人口",POP,n.pop)}${track("d","戰力",DEF,n.d)}
@@ -431,7 +435,7 @@ function nestHTML(){
     </div>`;
 }
 function recordHTML(){
-  return endBookHTML()+kingsHTML()+`<div class="card"><h3>吞噬圖鑑</h3>${S.eaten.length?S.eaten.map(e=>`<div class="row"><span class="k">第${e.day}天</span><span>${esc(e.what)}${e.got?"　→ "+esc(e.got):""}</span></div>`).join(""):`<div class="empty">還沒有紀錄。</div>`}</div>
+  return endBookHTML()+kingsHTML()+blessHTML()+`<div class="card"><h3>吞噬圖鑑</h3>${S.eaten.length?S.eaten.map(e=>`<div class="row"><span class="k">第${e.day}天</span><span>${esc(e.what)}${e.got?"　→ "+esc(e.got):""}</span></div>`).join(""):`<div class="empty">還沒有紀錄。</div>`}</div>
     <div class="card"><h3>語言</h3><div>${esc((S.langs||["哥布林語"]).join("、"))}</div><div class="empty">吃下那一族的新鮮屍體可以學會他們的語言。</div></div>
     <div class="card"><h3>稱號</h3>${S.titles.length?S.titles.map(t=>`<div>${esc(t)}</div>`).join(""):`<div class="empty">還沒有。</div>`}</div>`;
 }
@@ -452,7 +456,7 @@ const GUIDE=[
  ["語言與同伴的新用法",`吃下新鮮的野豬人、狗頭人、諾姆、精靈、人類的屍體，就學會那一族的<b>語言</b>（哥布林語是母語）。不會的語言聽不懂，也沒辦法跟他們交易、招募。<br>判定卡上可以請同伴<b>代打</b>（一天共 2 次）：他的 HP 代價由他吃，等級夠高優勢更多。進化戰前可以請同伴<b>看對手弱點</b>，打那一隻多一層優勢。掠奪營地成功會直接搶到魔法物品。右下角有 ↑ 回頂部、↓ 跳到最新。`],
  ["結局簿與轉生",`<b>履歷</b>頁最上面是<b>結局簿</b>：每個結局的條件都寫在那裡，達成就解鎖，<b>好幾個結局可以同時解鎖</b>。退休類的結局解鎖後，可以選擇在那裡退休、結束這一局，也可以繼續玩。結局簿跨局保存，轉生不會清掉；也會抄進存檔，匯出存檔帶到別的裝置再匯入，結局簿會一起過去。<br>死了（或退休）之後可以<b>轉生</b>：二周目從<b>成體</b>開始、所有地區一開始就知道，最多帶 <b>3 個技能</b>過去（標成〔前世〕，不能整合、不會消失）。等級不帶。`],
  ["神兵、伴侶、契約、統治",`<b>神兵</b>：轉生時可以把前世的 3 個技能鑄成一把神兵（自己取名、描述），每項能力一天 3 次、永遠不會壞，判定卡「用哪個技能」選得到。<br><b>伴侶</b>：類人的同伴對你「追隨」、你在故事裡解開他的心結、雙方自願，就會成為伴侶（💍）：多一個心結技、一個種族技（最多 7 個技能），等級上限和你一樣，跟你同行時存在值和你拿一樣多；同行時判定卡可以用<b>合體技</b>（多兩層優勢，每位伴侶一天一次，進化戰不行）。伴侶 7 位以上、巢穴人口興盛＝哥布林家族。<br><b>契約</b>：有人提出交換條件時，畫面會出「契約提議」，按同意他就暫時跟你走；條件完成後他會道謝、回到原本的地方。<br><b>統治</b>：突襲敵對的聚落成功會讓他們「威懾」→「壓制」；壓制之後到那裡的「地點」頁，可以逼他們稱臣（每天上貢 2 份存糧）或消滅他們。`],
- ["八王與管理員",`巢穴到 A 級、或你到 B 級，第 6～8 章一起打開：八王（D&D 的八個陣營，你是絕對中立的第九王）都聞到你的異香了。<b>履歷</b>頁有<b>八王檔案</b>，每位六欄，一開始是「？？？」，可以「打聽」（8 小時，有斥候同伴 4 小時）一欄一欄揭開。<br>只有最弱的那位會主動找上門。其他的要你自己去他的領域（地點頁）：開戰（八王戰，7 場輸 4 場就死，可以捨身）、問他要通信記錄（付他想要的東西）、潛進去偷、或約好互不侵犯。打倒的王留下屍體，吃下去＝吞噬一位王。<br>每位王身上有一片<b>管理員的通信記錄</b>，湊齊 8/8 就能去找管理員。`],
+ ["八王與管理員",`巢穴到 A 級、或你到 B 級，第 6～8 章一起打開：八王（D&D 的八個陣營，你是絕對中立的第九王）都聞到你的異香了。<b>履歷</b>頁有<b>八王檔案</b>，每位六欄，一開始是「？？？」，可以「打聽」（8 小時，有斥候同伴 4 小時）一欄一欄揭開。<br>只有最弱的那位會主動找上門。其他的要你自己去他的領域（地點頁）：開戰（八王戰，7 場輸 4 場就死，可以捨身）、付他要的代價、潛進去偷、或約好互不侵犯。打倒的王留下屍體，吃下去＝吞噬一位王。<br><b>代價</b>：每位王有自己的三種代價（檔案的「他想要什麼」），每種只能付一次、付了回不來；每付一種，自己選換一樣：他的通信記錄、他的加護、或他的檔案全開。<br><b>結盟</b>：要先殺掉另一位王（他會告訴你是誰）。結盟的王可以來幫你打一場八王戰（每位一次，那一整場每階段多一層優勢）。<br>每位王身上有一片<b>管理員的通信記錄</b>，湊齊 8/8 就能去找管理員。`],
  ["遇到怪事",`AI 有時會寫錯或漏掉東西（地點、物品、同伴位置）。點頁面上的 <b>OOC</b> 跟「規則助手」說一聲，它會幫你更正。巢穴位置請用「搬家」，不要靠 OOC。<br>覺得這回合不滿意可以「重試」，做錯了可以「撤回」。換裝置前先到 ⚙ 匯出存檔。`]
 ];
 function guideHTML(){return GUIDE.map(([h,b])=>`<h4 style="margin:12px 0 4px">${h}</h4><div class="note" style="line-height:1.7">${b}</div>`).join("")}
