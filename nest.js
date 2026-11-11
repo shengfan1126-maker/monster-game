@@ -127,7 +127,7 @@ function capture(c,notes){
   if(!c||!c.name||c.name===S.name||S.party.some(p=>p.n===c.name))return;
   let x=S.npcs.find(y=>y.n===c.name);
   if(!x){x={n:c.name,role:c.kind||"人類",lv:c.lv||"F",want:"活下去",knack:c.knack||"",face:c.face||"",secret:"",inst:"",rel:"警戒",r:-1};S.npcs.push(x)}
-  x.where=NEST(); x.captive=true; x.contract=false; x.foe=false; if(relOf(x)>0){x.r=0;x.rel="無視"}
+  x.where=NEST(); x.captive=true; x.contract=false; x.foe=false; x.r=-2; x.rel="敵意";   // v0.46：俘虜一律從敵意開始
   x.cls=c.cls||classOf(c.name)||classOf(x.role)||null; x.since=S.day;
   S.gone=S.gone.filter(g=>g.n!==x.n);
   if(CIVIL_RACE.test(x.role+x.n))heatAdd(1,`有${raceOf(x.role)||"人"}失蹤了`,notes);
@@ -527,3 +527,87 @@ function reborn(sn){
   ng.rebirths=(old.rebirths||0)+1; ng.langs=["哥布林語"];
   S=ng; heal(); S.log.push({who:"gm",kind:"sys",alts:[{text:`${OPENING}${sk?`\n\n〈系統〉《大賢者》：「告。前世的記憶殘留了一項本領：${sk.n}（${sk.g||"F"}級）。」`:""}`,opts:OPEN_OPTS.slice()}],i:0}); S.opts=OPEN_OPTS.slice(); TAB="story"; save(); render();
 }
+
+/* ═════════ 結局簿與二周目（v0.46）═════════
+   結局簿跨局保存在 localStorage「mowu_meta」（不在存檔 S 裡），轉生、重玩都不清掉。
+   S.ends：這一局解鎖過的結局 {key: 第幾天}；S.sacN：捨身累計次數；S.ended：選擇退休的結局。
+   還沒做的系統（伴侶、統治軌道、八王、管理員、神器）的結局先列出來、標「之後的版本」。 */
+const META_KEY="mowu_meta";
+let META=null, RBP=[], RT="";
+function metaGet(){if(META)return META;let m=null;try{m=JSON.parse(ls.g(META_KEY)||"null")}catch(e){}
+  META=(m&&typeof m==="object")?m:{}; if(!META.ends||typeof META.ends!=="object")META.ends={}; return META}
+function metaSave(){ls.s(META_KEY,JSON.stringify(metaGet()))}
+/* 結局用的「聚落」：各族聚落＋固定的敵對據點，知道的、還在的、不是自己的巢穴 */
+const allSettles=()=>[...DEMI.map(x=>x.n),...SITE_FIXED].filter(n=>{const x=S.world[n];return x&&n!==NEST()&&x.kind!=="廢棄的巢穴"});   // 這個世界裡所有的聚落（含還沒找到的）
+const endSettles=()=>allSettles().filter(n=>S.world[n].known);
+function nearSettles(){                        // 巢穴附近：同一個地區、或跟巢穴直接相連的地方所在的地區
+  const nd=S.world[NEST()]||{}, R=new Set([nd.region||NEST()]);
+  Object.keys(nd.links||{}).forEach(k=>{const y=S.world[k];if(y)R.add(y.region||k)});
+  return endSettles().filter(n=>R.has(S.world[n].region)||(nd.links||{})[n]);
+}
+const ENDINGS=[
+ {k:"family",line:"退休",n:"哥布林家族",need:"有大房子，加上伴侶（數量不限）",soon:"伴侶、大房子"},
+ {k:"chief",line:"退休",n:"哥布林部落酋長",need:"當上巢穴之主，而且巢穴附近（同一個地區、或直接相連的地方）知道的聚落全部中立以上（至少 1 個）",retire:true,
+  chk:()=>{const a=nearSettles();return !!S.chief&&a.length>0&&a.every(n=>stOf(n)>=0)}},
+ {k:"overlord",line:"退休",n:"部族共主",need:"這一局當上酋長，再找到這個世界的所有聚落，全部中立以上（威懾、壓制、統治之後的版本加進來）",retire:true,
+  chk:()=>{const a=allSettles();return !!S.ends.chief&&a.length>0&&a.every(n=>S.world[n].known&&stOf(n)>=0)}},
+ {k:"conqueror",line:"退休",n:"哥布林征服者",need:"所有聚落都被消滅或稱臣",soon:"統治軌道（威懾→壓制→統治／消滅）"},
+ {k:"emperor",line:"退休",n:"哥布林皇帝",need:"殺死並吞噬八王之一，加上家族、酋長、共主、征服者全部",soon:"八王"},
+ {k:"k_dead",line:"八王",n:"敗給八王",need:"八王戰戰敗死亡",soon:"八王"},
+ {k:"k_mixed",line:"八王",n:"八王之間",need:"跟八王有贏有輸，也有不交戰的結盟或中立",soon:"八王"},
+ {k:"k_one",line:"八王",n:"吞噬一王",need:"打贏八王其一並吞噬",soon:"八王"},
+ {k:"k_all",line:"八王",n:"吞噬八王",need:"打贏八王全部並吞噬",soon:"八王"},
+ {k:"collected",line:"管理員",n:"收藏品",need:"捨身累計 3 次以上，然後死亡"},
+ {k:"servant",line:"管理員",n:"管理員的部下",need:"活著見到管理員，而且吞噬過八王之一",soon:"管理員、八王"},
+ {k:"admin",line:"管理員",n:"成為管理員",need:"湊齊管理員的手機 8/8，去找管理員並接手",soon:"管理員的手機、八王"},
+ {k:"home",line:"回到原本的世界",n:"回到原本的世界",need:"伴侶、見過管理員、挑戰過八王之一、問到三要素、9 組神器、S 級核心、精靈王的儀式",soon:"伴侶、八王、管理員、S 級地城、神器"}
+];
+function endCheck(notes){
+  if(!S||S.dead||!S.world)return; if(!S.ends)S.ends={}; const M=metaGet(); let ch=false;
+  ENDINGS.forEach(e=>{if(e.soon||!e.chk||S.ends[e.k])return; let ok=false; try{ok=e.chk()}catch(x){console.warn(x)} if(!ok)return;
+    S.ends[e.k]=S.day; if(!M.ends[e.k])M.ends[e.k]={day:S.day,run:(S.rebirths||0)+1}; ch=true;
+    notes&&notes.push(`〈系統〉結局解鎖：${e.n}。${e.retire?"（隨時可以到「履歷」頁選擇在這裡退休，也可以繼續玩）":""}`)});
+  if(ch)metaSave();
+}
+/* 死了：見到管理員；捨身 3 次以上＝收藏品。按轉生或重新開始時才記進結局簿（撤回的話不算） */
+function deathRecord(){
+  if(!S||!S.dead||S._dr)return; S._dr=1; if(S.ended)return;
+  const M=metaGet(); M.metAdmin=true;
+  if((S.sacN||0)>=3&&!M.ends.collected)M.ends.collected={day:S.day,run:(S.rebirths||0)+1};
+  metaSave();
+}
+function retireAt(k){
+  const e=ENDINGS.find(x=>x.k===k); if(!e||!e.retire||!S.ends||!S.ends[k]||S.dead||busy)return;
+  S.ended={k,day:S.day}; S.dead=true;           // 用「結束」擋住之後的行動；deathRecord 看到 ended 就不算死亡
+  S.log.push(sysEntry(`〈系統〉結局：${e.n}。你在第 ${S.day} 天選擇在這裡退休。`)); save(); TAB="story"; render();
+}
+function endBookHTML(){
+  const M=metaGet(), lines=[...new Set(ENDINGS.map(e=>e.line))];
+  return `<div class="card"><h3>結局簿</h3><div class="note" style="margin-bottom:6px">好幾個結局可以同時解鎖。結局簿跨局保存，轉生不會清掉。${M.metAdmin?"你見過管理員了。":""}捨身累計：${S.sacN||0} 次。</div>
+    ${lines.map(l=>`<div class="note" style="margin:8px 0 2px"><b>${esc(l)}</b></div>${ENDINGS.filter(e=>e.line===l).map(e=>{
+      const got=M.ends[e.k], now=S.ends&&S.ends[e.k];
+      return `<div class="row"><span class="k">${got?"✓":e.soon?"…":"○"} ${esc(e.n)}</span><span>${got?`第 ${got.run} 局第 ${got.day} 天解鎖`:esc(e.need)}${e.soon&&!got?`<br><span class="note">要等之後的版本（還沒做：${esc(e.soon)}）</span>`:""}
+        ${now&&e.retire&&!S.dead?`<br><button class="tl" data-rt="${e.k}">${RT===e.k?"確定在這裡退休？（這一局結束）":"在這裡退休"}</button>`:""}</span></div>`}).join("")}`).join("")}</div>`;
+}
+function endHTML(){
+  const ended=S.ended&&ENDINGS.find(e=>e.k===S.ended.k), col=!ended&&(S.sacN||0)>=3;
+  const sk=S.skills.filter(s=>!isUq(s)&&s.g).sort((a,b)=>gIdx(b.g)-gIdx(a.g));
+  return `<div class="dead"><b>${ended?`結局：${esc(ended.n)}`:"你死了。"}</b><br>${ended?"":`你見到了管理員。${col?`<br>你身上有 ${S.sacN} 處捨身的傷。結局：收藏品。`:""}<br>`}按上面的「撤回」回到上一步，或在齒輪裡重新開始。
+    <div class="note" style="margin-top:8px">轉生（二周目）：從成體開始、所有地區一開始就知道。最多選 3 個技能帶過去（標成〔前世〕，不能整合、不會消失）；等級不帶。神兵還沒做。</div>
+    <div class="tags">${sk.map(s=>`<button class="tag ut" data-rb="${esc(s.n)}" style="${RBP.includes(s.n)?"outline:2px solid currentColor":""}">${esc(s.n)}（${s.g}）</button>`).join("")}</div>
+    <div class="note">已選 ${RBP.length}／3</div><button class="tl" id="rbgo">轉生（帶 ${RBP.length} 個技能）</button></div>`;
+}
+function rebornWith(names){
+  if(!S||!S.dead)return; deathRecord();
+  const old=S, ng=newGame(old.name);
+  (names||[]).slice(0,3).map(n=>old.skills.find(s=>s.n===n&&!isUq(s))).filter(Boolean)
+    .forEach(s=>ng.skills.push({n:s.n,sys:s.sys,g:s.g||"F",box:"act",past:true,note:s.note||""}));
+  ng.rebirths=(old.rebirths||0)+1; ng.langs=["哥布林語"];
+  ng.stage="成體"; ng.hpMax=20; ng.hp=20; ng.tags=ng.tags.filter(t=>t!=="幼體"); ng.growth=3;
+  Object.values(ng.world).forEach(x=>{if(x.kind==="地區")x.known=true});
+  S=ng; RBP=[]; heal();
+  const keep=S.skills.filter(s=>s.past).map(s=>`${s.n}（${s.g}級）`);
+  S.log.push({who:"gm",kind:"sys",alts:[{text:`〈系統〉第 ${S.rebirths+1} 局。\n你吃了很多、長得很快。睜開眼的時候，你已經是成體了。${keep.length?`\n〈系統〉《大賢者》：「告。前世的記憶殘留了 ${keep.length} 項本領：${keep.join("、")}。」`:""}\n〈系統〉這一帶的地區你都記得。`,opts:REBORN_OPTS.slice()}],i:0});
+  S.opts=REBORN_OPTS.slice(); TAB="story"; save(); render();
+}
+const REBORN_OPTS=["看看這個窩現在的樣子","出去找吃的","看看自己帶回來的本領"];

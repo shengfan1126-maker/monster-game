@@ -100,6 +100,7 @@ function heal(){
   if(S.evo&&S.exist<existMax(S.lv))S.evo=null;
   if(!S.gone)S.gone=[];
   if(!Array.isArray(S.usedSk))S.usedSk=[];
+  if(S.sacN==null)S.sacN=0; if(!S.ends||typeof S.ends!=="object")S.ends={};   // v0.46：捨身累計、本局解鎖的結局
   skillsFix(S);
   S.skills.forEach(s=>{if(s.n==="異香"&&/Lv/.test(s.note||""))s.note="可用技能第一次滿格時覺醒。你越強，聞起來越香。"});   // 舊存檔的異香說明還寫 Lv3
   if(S.heat==null){S.heat=0;S.heatDay=S.day}
@@ -254,7 +255,7 @@ newg.onclick=()=>{
     snoteSet("目前的進度會被清掉。想留著就先按「匯出存檔」。",1);
     clearTimeout(newgTimer); newgTimer=setTimeout(disarmNewg,5000); return;
   }
-  disarmNewg(); ls.d(SAVE_KEY); ls.d("mowu_save_v1"); if(IDB.db)IDB.del(SAVE_KEY); SAVE_TXT=null; S=null; busy=false; EDIT=false; TOAST="";
+  disarmNewg(); deathRecord(); ls.d(SAVE_KEY); ls.d("mowu_save_v1"); if(IDB.db)IDB.del(SAVE_KEY); SAVE_TXT=null; S=null; busy=false; EDIT=false; TOAST="";
   sheet.classList.remove("open"); render();
 };
 

@@ -115,7 +115,7 @@ const cleanName=n=>String(n||"").replace(/的?屍體|（.*?）|\(.*?\)|\s*[x×]\
 const speciesOf=(name,kind)=>{const k=cleanName(kind).replace(/群$/,"");return !k||GENERIC.test(k)?cleanName(name):k};
 function poolKey(sp){if(POOLS[sp])return sp;return Object.keys(POOLS).filter(k=>String(sp).includes(k)).sort((a,b)=>b.length-a.length)[0]||null}
 /* 類人（照 D&D／Pathfinder 的 humanoid）：有類人技能池、職業，適用私下吃／當眾吃 */
-const HUMANOID=/人類|冒險者|精靈|矮人|半身人|哥布林|諾姆|狗頭人|半獸人|獸人|野豬人|牛頭人|蜥蜴人|食人魔/;
+const HUMANOID=/人類|冒險者|精靈|矮人|半身人|哥布林|諾姆|狗頭人|半獸人|獸人|野豬人|牛頭人|蜥蜴人|食人魔|鳥人|蛙人/;   // 類人的統一標準（v0.46 補鳥人、蛙人）
 const isHumanoid=c=>!c.small&&HUMANOID.test(`${c.sp||""}${c.name||""}${c.kind||""}`);
 const CLASSES={
  "戰士":{pool:[{n:"劍術",sys:"武技"},{n:"盾擊",sys:"武技"},{n:"堅守",sys:"意圖"}],gear:"戰士的鐵劍",act:"舉盾硬擋、找機會反擊"},
@@ -304,7 +304,9 @@ function chapCheck(notes){
   if(S.chap<2&&S.stage==="成體")S.chap=2;
   if(!S.chief&&S.nest&&S.nest.tags.some(t=>/新首領|巢穴之主/.test(t.t)))becomeChief(null);   // 故事裡已經接下巢穴（例如黑顎退位）
   if(S.chap<3&&S.stage==="成體"&&(S.chief||S.gone.some(x=>x.n==="黑顎")||(S.beaten||[]).includes("黑顎")))S.chap=3;
+  if(S.chap>=3&&S.chap<5&&((S.nest&&S.nest.lv&&gIdx(S.nest.lv)>=3)||(S.heat||0)>=HEAT[4].at||Object.values(S.world||{}).some(x=>x.known&&(x.st||0)>=3)))S.chap=5;   // v0.46：巢穴 C 級／注目度到討伐軍／第一次有聚落同盟，先到者
   if(S.chap!==before&&notes)notes.push(`〈系統〉《世界之聲》：「第${S.chap}章・${chapOf().name}」`);
+  endCheck(notes);
 }
 /* 主角成為巢穴之主：老首領退位（還在的話留下來，不再是對手） */
 function becomeChief(notes){

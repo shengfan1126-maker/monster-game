@@ -477,7 +477,7 @@ function pay(sel,sac){
 let MG=[], MGK="", SWI=[], SWO=[];   // SWI：要換進可用的（倉庫裡勾的）、SWO：要換出去的（可用裡勾的）
 function mergeGroups(){
   const m={};
-  realSk().forEach(s=>{const k=`${clsOf(s)}:${s.g}`;(m[k]=m[k]||[]).push(s)});
+  realSk().filter(s=>!s.past).forEach(s=>{const k=`${clsOf(s)}:${s.g}`;(m[k]=m[k]||[]).push(s)});   // 前世技能不能整合
   return Object.entries(m).filter(([,a])=>a.length>=5).map(([k,a])=>{const [fn,g]=k.split(":");
     return {k,fn,g,to:GRADES[gIdx(g)+1]||null,list:a,ok:gIdx(g)<=gIdx(S.lv)&&gIdx(g)<6}});
 }

@@ -9,7 +9,8 @@ function render(){
   if(TAB==="story") bindStory();
   if(TAB==="nest") bindNest();
   if(TAB==="map") bindMap();
-  if(TAB==="skill") document.querySelectorAll("[data-sd]").forEach(b=>b.onclick=()=>{const i=+b.dataset.sd;if(SD!==i){SD=i;render();return}SD=-1;const s=S.skills[i];if(s&&!isUq(s)&&!S.err){S.skills.splice(i,1);SWI=[];SWO=[];MG=[];MGK="";const n=[];fillAct(n);if(n.length)S.log.push(sysEntry(n.join("\n")))}save();render()});
+  if(TAB==="record") document.querySelectorAll("[data-rt]").forEach(b=>b.onclick=()=>{const k=b.dataset.rt;if(RT!==k){RT=k;render();return}RT="";retireAt(k)});
+  if(TAB==="skill") document.querySelectorAll("[data-sd]").forEach(b=>b.onclick=()=>{const i=+b.dataset.sd;if(SD!==i){SD=i;render();return}SD=-1;const s=S.skills[i];if(s&&!isUq(s)&&!s.past&&!S.err){S.skills.splice(i,1);SWI=[];SWO=[];MG=[];MGK="";const n=[];fillAct(n);if(n.length)S.log.push(sysEntry(n.join("\n")))}save();render()});
   if(TAB==="skill") document.querySelectorAll("[data-sw]").forEach(b=>b.onclick=()=>{const i=+b.dataset.sw;SWI=SWI.includes(i)?SWI.filter(x=>x!==i):[...SWI,i];render()});
   if(TAB==="skill") document.querySelectorAll("[data-sx]").forEach(b=>b.onclick=()=>{const i=+b.dataset.sx;SWO=SWO.includes(i)?SWO.filter(x=>x!==i):[...SWO,i];render()});
   if(TAB==="skill"&&$("swdo"))$("swdo").onclick=()=>swapSkills();
@@ -91,7 +92,7 @@ function checkHTML(ch){
     ...(allyDoOn(ch)?[`<span class="adv">＋ ${esc(allyDoOn(ch).n)}代打${allyDoBonus(ch)>1?"（等級夠，2 層）":""}</span>`]:[]),...(ch.war&&S.war&&S.war.foe&&S.war.foe.weak?[`<span class="adv">＋ 同伴指出的弱點：${esc(S.war.foe.weak)}</span>`]:[]),
     ...(ci.lvDiff?[`<span class="dis">－ 對方高你 ${ci.lvDiff} 級</span>`]:[])].join("");
   const war=ch.war&&S.war, raid=ch.raid&&S.raid;
-  const sacs=war||raid?[["","不舍身"],["hp","HP 上限 -5"],["maim","留下【殘缺】"],...S.skills.filter(x=>x.sys!=="Unique").map(x=>[`sk:${x.n}`,`失去技能「${x.n}」`])]:[];
+  const sacs=war||raid?[["","不舍身"],["hp","HP 上限 -5"],["maim","留下【殘缺】"],...S.skills.filter(x=>x.sys!=="Unique"&&!x.past).map(x=>[`sk:${x.n}`,`失去技能「${x.n}」`])]:[];
   const warBox=raid?`<div class="sacbox"><label>舍身（算兩項，傷殘是永久的）</label><select id="sacsel">${sacs.map(([v,t])=>`<option value="${esc(v)}">${esc(t)}</option>`).join("")}</select></div>
     <div class="note" style="margin-top:6px">已經守住 ${S.raid.wins}・失守 ${S.raid.fails}。失守 ${Math.floor(S.raid.of/2)+1} 次巢穴就完了；守住 ${Math.floor(S.raid.of/2)+1} 次${S.raid.of>=5?"（大成功算兩次）":""}就贏。</div>`:war?`<div class="sacbox"><label>舍身（算兩項，傷殘是永久的）</label><select id="sacsel">${sacs.map(([v,t])=>`<option value="${esc(v)}">${esc(t)}</option>`).join("")}</select></div>
     <div class="rtrow"><button class="tl" id="rtopen">${RETREAT?"不撤退了":"撤退…"}</button></div>
@@ -157,7 +158,7 @@ function storyHTML(){
   const nm=it=>matOf(it)?`✦${esc(it)}`:esc(it), mc=it=>matOf(it)?" mat":"";
   const bagItem=S.items.map((it,i)=>idle?`<button class="it${mc(it)}" data-bi="${i}">${BI===i?`吃掉 ${nm(it)}？${matOf(it)?"（能學技能）":""}`:nm(it)}</button>`:`<span class="it${mc(it)}">${nm(it)}</span>`);
   const bag=`<div class="bag"><span class="k">背包</span>${bagFood.length+bagItem.length?[...bagFood,...bagHv,...bagItem].join(""):`<span class="none">空的</span>`}</div>${idle&&(S.items.length||bagHv.length)?`<div class="bagnote">金色是食材，點一下就吃；✦ 是魔法原料或魔法物品，點兩下吃掉能學技能；其他東西點兩下也能硬吞，但學不到。</div>`:""}`;
-  if(S.dead) bottom=`<div class="dead"><b>你死了。</b><br>按上面的「撤回」回到上一步，或在齒輪裡重新開始。<br><div class="padd" style="margin-top:8px"><select id="rbsel"><option value="">不帶技能，重新來過</option>${S.skills.filter(s=>s.sys!=="Unique"&&s.g).sort((a,b)=>gIdx(b.g)-gIdx(a.g)).map(s=>`<option value="${esc(s.n)}">${esc(s.n)}（${s.g}級）</option>`).join("")}</select><button class="tl" id="rbgo">帶 1 個技能轉生</button></div></div>`;
+  if(S.dead) bottom=endHTML();
   else if(ch) bottom=checkHTML(ch)+`<div class="free" style="margin-top:10px">
         <textarea id="freein" rows="2" placeholder="或改做別的事、說句話…"></textarea>
         <button class="send" id="sendbtn">送出</button></div>`;
@@ -248,7 +249,8 @@ function bindStory(){
       upd()}); if(ss)ss.onchange=upd;
     pb.onclick=()=>pay(sel(),sac());
   }
-  {const rb=$("rbgo"); if(rb)rb.onclick=()=>reborn($("rbsel").value)}
+  {const rb=$("rbgo"); if(rb)rb.onclick=()=>rebornWith(RBP.slice())}
+  document.querySelectorAll("[data-rb]").forEach(b=>b.onclick=()=>{const n=b.dataset.rb;RBP=RBP.includes(n)?RBP.filter(x=>x!==n):RBP.length<3?[...RBP,n]:RBP;render()});
   on("retry",()=>retry()); on("regen",regen); on("undo",undo);
   on("prv",()=>flip(-1)); on("nxt",()=>flip(1));
   on("edit",()=>{EDIT=true;render()}); on("edcancel",()=>{EDIT=false;render()}); on("edsave",saveEdit);
@@ -257,9 +259,9 @@ function bindStory(){
 function skillHTML(){
   const row=s=>{const i=S.skills.indexOf(s), st=(s.box||"act")==="store";
     const used=!isUq(s)&&!st&&skUsed(s.n);
-    return `<div class="sk"${used?` style="opacity:.45"`:""}><span class="n">${esc(s.n)}${used?"（今天已用）":""}</span><span class="s">${esc(s.sys)}・${esc(fnOf(s))}</span><span class="lv">${esc(s.g||"")}</span>
+    return `<div class="sk"${used?` style="opacity:.45"`:""}><span class="n">${esc(s.n)}${s.past?"〔前世〕":""}${used?"（今天已用）":""}</span><span class="s">${esc(s.sys)}・${esc(fnOf(s))}</span><span class="lv">${esc(s.g||"")}</span>
       ${st?`<button class="tl" data-sw="${i}">${SWI.includes(i)?"取消換入":"換進可用"}</button>`:`<button class="tl" data-sx="${i}">${SWO.includes(i)?"取消換出":"換出到倉庫"}</button>`}
-      <button class="tl" data-sd="${i}">${SD===i?"確定放棄？":"放棄"}</button></div>`};
+      ${s.past?"":`<button class="tl" data-sd="${i}">${SD===i?"確定放棄？":"放棄"}</button>`}</div>`};
   const mg=mergeGroups().map(g=>`<div class="note" style="margin:8px 0 4px"><b>${esc(g.fn)}類・${g.g}級</b>：有 ${g.list.length} 個${g.ok&&g.to?`，選 5 個併成 1 個 ${g.to} 級`:g.to?`，要進化到 ${g.to} 級才能併成 ${g.to} 級`:""}</div>
     ${g.ok&&g.to?`<div class="tags">${g.list.map(s=>{const i=S.skills.indexOf(s);return `<button class="tag ut" data-mg="${esc(g.k)}|${i}" style="${MGK===g.k&&MG.includes(i)?"outline:2px solid currentColor":""}">${esc(s.n)}</button>`}).join("")}</div>
     ${MGK===g.k&&MG.length===5?`<button class="paybtn" id="mgdo" style="margin-top:6px">整合這 5 個（4 小時）</button>`:`<div class="note">已選 ${MGK===g.k?MG.length:0}／5</div>`}`:""}`).join("");
@@ -414,7 +416,7 @@ function nestHTML(){
     </div>`;
 }
 function recordHTML(){
-  return `<div class="card"><h3>吞噬圖鑑</h3>${S.eaten.length?S.eaten.map(e=>`<div class="row"><span class="k">第${e.day}天</span><span>${esc(e.what)}${e.got?"　→ "+esc(e.got):""}</span></div>`).join(""):`<div class="empty">還沒有紀錄。</div>`}</div>
+  return endBookHTML()+`<div class="card"><h3>吞噬圖鑑</h3>${S.eaten.length?S.eaten.map(e=>`<div class="row"><span class="k">第${e.day}天</span><span>${esc(e.what)}${e.got?"　→ "+esc(e.got):""}</span></div>`).join(""):`<div class="empty">還沒有紀錄。</div>`}</div>
     <div class="card"><h3>語言</h3><div>${esc((S.langs||["哥布林語"]).join("、"))}</div><div class="empty">吃下那一族的新鮮屍體可以學會他們的語言。</div></div>
     <div class="card"><h3>稱號</h3>${S.titles.length?S.titles.map(t=>`<div>${esc(t)}</div>`).join(""):`<div class="empty">還沒有。</div>`}</div>`;
 }
@@ -433,6 +435,7 @@ const GUIDE=[
  ["突襲與地圖",`找到敵對的營地或巢穴後，走到那裡，行動列會多一個<b>突襲</b>：成功會直接搶到魔法物品，也會讓那個勢力少一個人。地圖頁的已知地點現在按地區分組，可以收合。人多的巢穴狩獵成功會多一份獵物直接進存糧。亞人村落（矮人、精靈、半身人、人類、諾姆等）每局隨機抽，不一定每種都有。`],
  ["討伐戰的準備與俘虜",`討伐隊的組成會顯示在<b>巢穴頁</b>「外面的眼光」。你有對應職業的同伴（戰士壓斥候、斥候壓法師、法師壓戰士、祭司和工匠互剋）就多一層優勢。<br>回巢穴<b>備戰</b>（設陷阱、埋伏、備戰），每樣多一層優勢，三樣都做完這場只打一個階段。<br>第一次打贏如果贏得不漂亮，只是逼退，幾天後會帶更多人回來。漂亮贏了會抓到俘虜：可以<b>吃掉</b>（變成屍體）、<b>讓同伴單挑</b>練手、或<b>收為己用</b>。每 30 天（第 25 天起預告）還會有固定的大討伐。全滅時可以帶 1 個技能轉生。`],
  ["語言與同伴的新用法",`吃下新鮮的野豬人、狗頭人、諾姆、精靈、人類的屍體，就學會那一族的<b>語言</b>（哥布林語是母語）。不會的語言聽不懂，也沒辦法跟他們交易、招募。<br>判定卡上可以請同伴<b>代打</b>（一天共 2 次）：他的 HP 代價由他吃，等級夠高優勢更多。進化戰前可以請同伴<b>看對手弱點</b>，打那一隻多一層優勢。掠奪營地成功會直接搶到魔法物品。右下角有 ↑ 回頂部、↓ 跳到最新。`],
+ ["結局簿與轉生",`<b>履歷</b>頁最上面是<b>結局簿</b>：每個結局的條件都寫在那裡，達成就解鎖，<b>好幾個結局可以同時解鎖</b>。退休類的結局解鎖後，可以選擇在那裡退休、結束這一局，也可以繼續玩。結局簿跨局保存，轉生不會清掉。<br>死了（或退休）之後可以<b>轉生</b>：二周目從<b>成體</b>開始、所有地區一開始就知道，最多帶 <b>3 個技能</b>過去（標成〔前世〕，不能整合、不會消失）。等級不帶。`],
  ["遇到怪事",`AI 有時會寫錯或漏掉東西（地點、物品、同伴位置）。點頁面上的 <b>OOC</b> 跟「規則助手」說一聲，它會幫你更正。巢穴位置請用「搬家」，不要靠 OOC。<br>覺得這回合不滿意可以「重試」，做錯了可以「撤回」。換裝置前先到 ⚙ 匯出存檔。`]
 ];
 function guideHTML(){return GUIDE.map(([h,b])=>`<h4 style="margin:12px 0 4px">${h}</h4><div class="note" style="line-height:1.7">${b}</div>`).join("")}
