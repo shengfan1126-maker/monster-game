@@ -411,7 +411,7 @@ function pay(sel,sac){
   const pre=snap(), notes=[];
   const paidT=[...chosen.map(c=>c.t),...(sac?[`舍身：${sacLabel(sac)}`]:[])];
   if(ch.foe&&!ch.war&&!ch.raid&&!ch.local)S.lastFoe={name:ch.foe,lv:ch.foeLv||"F",cls:ch.multi&&ch.multi.cls||null};
-  S.log.push({who:"you",text:`${ch.useSk?`用「${ch.useSk}」，`:""}${paidT.length?`付出：${paidT.join("、")}（${tier}）`:`不付代價，硬上（${tier}）`}`,pre});
+  S.log.push({who:"you",text:`${comboOn(ch)?`和${ch.combo}用合體技，`:""}${ch.useSk?`用「${ch.useSk}」，`:""}${paidT.length?`付出：${paidT.join("、")}（${tier}）`:`不付代價，硬上（${tier}）`}`,pre});
   const skMp=skillMp(ch);
   if(ch.useSk&&!skUsed(ch.useSk)&&(!skMp||S.mp>=skMp)){S.usedSk=S.usedSk||[];S.usedSk.push(ch.useSk)}
   if(ch.useItem&&S.items.includes(ch.useItem)){S.items=S.items.filter(x=>x!==ch.useItem);notes.push(`用掉了 ${ch.useItem}（普通武器防具，一次性）：多一層優勢。`)}
@@ -419,6 +419,7 @@ function pay(sel,sac){
     S.items=S.items.filter(x=>x!==wn);delete S.mat[wn];S.party.forEach(p=>{if(p.gear===wn){p.gear=null;p.gearMat=null}});
     notes.push(`✦${wn}（${wl}級）撐不住 ${ch.foeLv} 級的對手，碎掉了，沒辦法修復。`)}
   if(skMp&&S.mp>=skMp){S.mp-=skMp;notes.push(`用「${ch.useSk}」：MP -${skMp}`)}
+  {const cp=comboOn(ch);if(cp){S.comboDay=S.comboDay||{};S.comboDay[cp.n]=S.day;notes.push(`合體技「${comboName(cp)}」：你和${cp.n}一起出手（多兩層優勢；今天和${cp.n}不能再用）。`)}}
   const dp=allyDoOn(ch);
   const ab=allyAbOn(ch), abP=ab&&S.party.find(x=>x.n===ch.allyAb);
   if(dp){S.allyUsed=allyUses()+1;notes.push(`${dp.n}替你上場（代打）：今天同伴能力還剩 ${Math.max(0,2-S.allyUsed)} 次。`)}

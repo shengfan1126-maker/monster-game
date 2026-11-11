@@ -84,9 +84,9 @@ async function bootSave(){
 function load(){try{const t=SAVE_TXT;if(!t)return null;return fixFac(migrate(JSON.parse(t)))}catch(e){return null}}
 /* 撤回、重寫只用得到最後幾段的快照；更早的快照拿掉，存檔才不會超過瀏覽器的 5MB 上限 */
 function prunePre(){if(!S||!S.log)return;const L=S.log,k=L.length-12;for(let i=0;i<k;i++)if(L[i].pre)delete L[i].pre}
-function save(){prunePre();
+function save(){prunePre();   // v0.48：存檔時把結局簿抄一份進 S.metaCopy，匯出／匯入時跟著走
   const fail=()=>{S.saveFail=true;TOAST="⚠ 存檔失敗（瀏覽器空間不夠）。請先到 ⚙ 匯出存檔備份。"};
-  let t; try{if(S){S._at=Date.now();S.saveFail=false}t=JSON.stringify(S)}catch(e){console.warn(e);fail();return}
+  let t; try{if(S){S._at=Date.now();S.saveFail=false;S.metaCopy=metaGet()}t=JSON.stringify(S)}catch(e){console.warn(e);fail();return}
   SAVE_TXT=t;
   let lsOK=true; try{localStorage.setItem(SAVE_KEY,t)}catch(e){lsOK=false}
   if(IDB.db)IDB.put(SAVE_KEY,t).then(ok=>{
@@ -100,6 +100,7 @@ function heal(){
   if(S.evo&&S.exist<existMax(S.lv))S.evo=null;
   if(!S.gone)S.gone=[];
   if(!Array.isArray(S.usedSk))S.usedSk=[];
+  if(S.metaCopy)metaMerge(S.metaCopy);
   if(S.sacN==null)S.sacN=0; if(!S.ends||typeof S.ends!=="object")S.ends={};   // v0.46：捨身累計、本局解鎖的結局
   skillsFix(S);
   S.skills.forEach(s=>{if(s.n==="異香"&&/Lv/.test(s.note||""))s.note="可用技能第一次滿格時覺醒。你越強，聞起來越香。"});   // 舊存檔的異香說明還寫 Lv3

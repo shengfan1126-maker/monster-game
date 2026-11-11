@@ -548,8 +548,8 @@ function nearSettles(){                        // 巢穴附近：同一個地區
   return endSettles().filter(n=>R.has(S.world[n].region)||(nd.links||{})[n]);
 }
 const ENDINGS=[
- {k:"family",line:"退休",n:"哥布林家族",need:"伴侶 3 位以上，而且巢穴人口到「興盛」（後代很多）",retire:true,
-  chk:()=>mates().length>=3&&S.nest.pop>=5},
+ {k:"family",line:"退休",n:"哥布林家族",need:"伴侶 7 位以上，而且巢穴人口到「興盛」（後代很多）",retire:true,
+  chk:()=>mates().length>=7&&S.nest.pop>=5},
  {k:"chief",line:"退休",n:"哥布林部落酋長",need:"當上巢穴之主，而且巢穴附近（同一個地區、或直接相連的地方）知道的聚落全部中立以上（至少 1 個）",retire:true,
   chk:()=>{const a=nearSettles();return !!S.chief&&a.length>0&&a.every(n=>stOf(n)>=0||domOf(n)===3)}},
  {k:"overlord",line:"退休",n:"部族共主",need:"這一局當上酋長，再找到這個世界的所有聚落，每一個都是中立以上、或被你威懾／壓制／統治",retire:true,
@@ -736,4 +736,26 @@ function domAct(kind,n){
 function domDay(notes){
   const ruled=Object.keys(S.world||{}).filter(n=>domOf(n)===3&&!S.world[n].razed); if(!ruled.length||!S.nest)return;
   S.nest.food=(S.nest.food||0)+2*ruled.length; notes.push(`〔稱臣〕${ruled.join("、")}上貢了 ${2*ruled.length} 份存糧`);
+}
+
+
+/* ═════════ v0.48：合體技、結局簿跟著存檔 ═════════ */
+/* 合體技：同行的伴侶，每位一天一次；多兩層優勢；進化戰（單挑）不能用。名字第一次用時固定 */
+const comboName=p=>{if(!p.combo)p.combo=`合・${(p.heartSk&&p.heartSk.n)||p.n}`;return p.combo};
+const comboReady=p=>p&&p.mate&&p.with&&!p.tags.includes("重傷")&&!((S.comboDay||{})[p.n]===S.day);
+function comboOn(ch){
+  if(!ch||!ch.combo||ch.war)return null;
+  const p=S.party.find(x=>x.n===ch.combo); return comboReady(p)?p:null;
+}
+function comboBox(ch){
+  if(!ch||ch.war)return "";
+  const ps=S.party.filter(p=>p.mate&&p.with); if(!ps.length)return "";
+  return `<div class="sacbox"><label>合體技（和同行的伴侶一起出手：多兩層優勢，每位伴侶一天一次）</label><select id="combosel"><option value="">不用</option>${ps.map(p=>`<option value="${esc(p.n)}"${ch.combo===p.n?" selected":""}${comboReady(p)?"":" disabled"}>${esc(p.n)}：${esc(comboName(p))}${comboReady(p)?"":"（今天用過了）"}</option>`).join("")}</select></div>`;
+}
+/* 存檔裡的結局簿抄本（S.metaCopy）讀進來時併進這台裝置的結局簿 */
+function metaMerge(m){
+  if(!m||typeof m!=="object")return; const M=metaGet(); let ch=false;
+  Object.entries(m.ends||{}).forEach(([k,v])=>{if(!M.ends[k]&&v){M.ends[k]=v;ch=true}});
+  if(m.metAdmin&&!M.metAdmin){M.metAdmin=true;ch=true}
+  if(ch)metaSave();
 }
