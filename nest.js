@@ -615,7 +615,7 @@ function endHTML(){
   const ended=S.ended&&ENDINGS.find(e=>e.k===S.ended.k), col=!ended&&(S.sacN||0)>=3;
   const sk=S.skills.filter(s=>!isUq(s)&&s.g).sort((a,b)=>gIdx(b.g)-gIdx(a.g));
   return `<div class="dead"><b>${ended?`結局：${esc(ended.n)}`:"你死了。"}</b><br>${ended?"":`你見到了管理員。${col?`<br>你身上有 ${S.sacN} 處捨身的傷。結局：收藏品。`:""}<br>`}按上面的「撤回」回到上一步，或在齒輪裡重新開始。
-    ${appleHTML()}${allOpenHTML()}<div class="note" style="margin-top:8px;padding:8px;border:1px solid currentColor;border-radius:6px"><b>先備份存檔！</b>遊戲沒有網路存檔，換手機、清瀏覽器資料就沒了。按下面的按鈕把存檔下載下來（結局簿也在裡面），之後可以在 ⚙「匯入存檔」讀回來。<br><button class="tl" id="endexp" style="margin-top:6px">匯出存檔（下載）</button></div>
+    ${allOpenHTML()}<div class="note" style="margin-top:8px;padding:8px;border:1px solid currentColor;border-radius:6px"><b>先備份存檔！</b>遊戲沒有網路存檔，換手機、清瀏覽器資料就沒了。按下面的按鈕把存檔下載下來（結局簿也在裡面），之後可以在 ⚙「匯入存檔」讀回來。<br><button class="tl" id="endexp" style="margin-top:6px">匯出存檔（下載）</button></div>
     <div class="note" style="margin-top:8px">轉生（二周目）：從成體開始、所有地區一開始就知道。最多選 3 個技能帶過去（標成〔前世〕，不能整合、不會消失）；等級不帶。</div>
     <div class="tags">${sk.map(s=>`<button class="tag ut" data-rb="${esc(s.n)}" style="${RBP.includes(s.n)?"outline:2px solid currentColor":""}">${esc(s.n)}（${s.g}）</button>`).join("")}</div>
     <div class="note">已選 ${RBP.length}／3</div>
@@ -1397,22 +1397,21 @@ function coreHTML(){
     ${ts.map(n=>`<div class="d">✦${esc(n)}：附帶「${esc(matOf(n).skill.n)}」。可以拿著用、交給巫妖王，或吸收（學會這個技能，秘寶消失）。<br><button class="tl" data-ab="${esc(n)}">吸收</button></div>`).join("")}</div>`;
 }
 function coreEat(){
-  if(busy||S.dead||!(S.cores>0)||S.coreCands)return; const pre=snap();
+  if(busy||S.dead||!(S.cores>0)||S.coreCands)return;
   const have=new Set(S.skills.map(s=>s.n)), pool=[...new Map(Object.values(POOLS).flat().filter(s=>!have.has(s.n)).map(s=>[s.n,s])).values()].sort(()=>Math.random()-0.5);
   S.cores--; S.coreCands=pool.slice(0,3).map(s=>({n:s.n,sys:s.sys}));
-  S.log.push({who:"you",text:"吃掉一顆 S 級核心",pre}); S.log.push(sysEntry(`你吃掉了一顆 S 級核心（還剩 ${S.cores} 顆）。到「技能」頁選一個學會。`)); save(); render();
+  S.log.push({who:"you",text:"吃掉一顆 S 級核心（不能撤回）"}); S.log.push(sysEntry(`你吃掉了一顆 S 級核心（還剩 ${S.cores} 顆）。到「技能」頁選一個學會。`)); save(); render();
 }
 function corePick(i){
-  const c=S.coreCands&&S.coreCands[i]; if(!c||busy)return; const pre=snap(), notes=[];
-  S.log.push({who:"you",text:`從核心學會：${c.n}`,pre}); const s=addSkill(c,"S"); S.coreCands=null;
+  const c=S.coreCands&&S.coreCands[i]; if(!c||busy)return; const notes=[];
+  S.log.push({who:"you",text:`從核心學會：${c.n}（不能撤回）`}); const s=addSkill(c,"S"); S.coreCands=null;
   notes.push(`〈系統〉《世界之聲》：「習得 ${c.n}（S級・${c.sys}）。」${s.box==="store"?"（可用的位置滿了，先放進倉庫）":""}`);
   S.log.push(sysEntry(notes.join("\n"))); save(); render();
 }
 function absorb(n){
-  const m=matOf(n); if(busy||S.dead||!m||m.sp!=="地城"||!m.skill||!S.items.includes(n))return; const pre=snap();
-  S.log.push({who:"you",text:`吸收 ✦${n}`,pre}); S.items.splice(S.items.indexOf(n),1); delete S.mat[n];
+  const m=matOf(n); if(busy||S.dead||!m||m.sp!=="地城"||!m.skill||!S.items.includes(n))return;
+  S.log.push({who:"you",text:`吸收 ✦${n}（不能撤回）`}); S.items.splice(S.items.indexOf(n),1); delete S.mat[n];
   const have=S.skills.some(s=>s.n===m.skill.n); if(!have)addSkill(m.skill,"S");
   S.log.push(sysEntry(have?`✦${n}化成光，鑽進你身體裡。「${m.skill.n}」你已經會了。`:`✦${n}化成光，鑽進你身體裡。〈系統〉《世界之聲》：「習得 ${m.skill.n}（S級・${m.skill.sys}）。」`)); save(); render();
 }
-/* 一個人回家的蘋果（彩蛋，按哪個都只是收尾） */
-const appleHTML=()=>S.ended&&S.ended.k==="home"&&!S.ended.apple?`<div class="padd" style="margin-top:8px"><span>是否要吞噬這個蘋果？</span><button class="tl" data-ap="是">是</button><button class="tl" data-ap="否">否</button></div>`:"";
+/* （v0.57：蘋果只顯示在結局文字裡，不給玩家按） */

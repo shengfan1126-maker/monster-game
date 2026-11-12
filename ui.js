@@ -15,9 +15,9 @@ function render(){
   if(TAB==="skill") document.querySelectorAll("[data-sw]").forEach(b=>b.onclick=()=>{const i=+b.dataset.sw;SWI=SWI.includes(i)?SWI.filter(x=>x!==i):[...SWI,i];render()});
   if(TAB==="skill") document.querySelectorAll("[data-sx]").forEach(b=>b.onclick=()=>{const i=+b.dataset.sx;SWO=SWO.includes(i)?SWO.filter(x=>x!==i):[...SWO,i];render()});
   if(TAB==="skill"&&$("swdo"))$("swdo").onclick=()=>swapSkills();
-  if(TAB==="skill"){const ce=$("coreeat");if(ce)ce.onclick=()=>{if(ce.dataset.ok!=="1"){ce.dataset.ok="1";ce.textContent="確定吃掉？（回家就少一顆）";return}coreEat()};   // v0.56
+  if(TAB==="skill"){const ce=$("coreeat");if(ce)ce.onclick=()=>{if(ce.dataset.ok!=="1"){ce.dataset.ok="1";ce.textContent="確定吃掉？吃了不能撤回，回家就少一顆核心";return}coreEat()};   // v0.56
     document.querySelectorAll("[data-cp]").forEach(b=>b.onclick=()=>corePick(+b.dataset.cp));
-    document.querySelectorAll("[data-ab]").forEach(b=>b.onclick=()=>{if(b.dataset.ok!=="1"){b.dataset.ok="1";b.textContent="確定吸收？（秘寶會消失）";return}absorb(b.dataset.ab)})}
+    document.querySelectorAll("[data-ab]").forEach(b=>b.onclick=()=>{if(b.dataset.ok!=="1"){b.dataset.ok="1";b.textContent="確定吸收？不能撤回，秘寶會消失";return}absorb(b.dataset.ab)})}
   if(TAB==="skill") document.querySelectorAll("[data-mg]").forEach(b=>b.onclick=()=>{const [k,i]=b.dataset.mg.split("|"),n=+i;if(MGK!==k){MGK=k;MG=[]}MG=MG.includes(n)?MG.filter(x=>x!==n):MG.length<5?[...MG,n]:MG;render()});
   if(TAB==="skill"&&$("mgdo"))$("mgdo").onclick=()=>mergeSkills();
   if(TAB==="skill") document.querySelectorAll("[data-di]").forEach(b=>b.onclick=()=>{const i=+b.dataset.di;if(DI!==i){DI=i;render();return}DI=-1;const it=S.items[i];if(it!=null){S.items.splice(i,1);delete S.mat[it]}save();render()});
@@ -263,7 +263,6 @@ function bindStory(){
   on("admgo",()=>adminMeet());
   on("dungo",dunEnter); on("homego",()=>{HOMEQ=1;render()}); on("homeyes",()=>{HOMEQ++;render()}); on("homestay",homeStay);   // v0.55
   on("homego2",()=>homeLeave([...document.querySelectorAll("[data-hm]")].filter(x=>x.checked).map(x=>x.dataset.hm)));
-  document.querySelectorAll("[data-ap]").forEach(b=>b.onclick=()=>{S.ended.apple=b.dataset.ap;save();render()});   // 蘋果：彩蛋，只是收尾
   on("allopen",()=>allOpen(true)); on("allno",()=>allOpen(false)); on("admyes",()=>adminMeet("yes")); on("admno",()=>adminMeet("no")); on("admsv",()=>adminMeet("sv"));
   document.querySelectorAll("[data-cg]").forEach(b=>b.onclick=()=>contractGive(+b.dataset.cg));
   document.querySelectorAll("[data-rb]").forEach(b=>b.onclick=()=>{const n=b.dataset.rb;RBP=RBP.includes(n)?RBP.filter(x=>x!==n):RBP.length<3?[...RBP,n]:RBP;render()});
