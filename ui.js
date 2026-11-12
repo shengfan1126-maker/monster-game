@@ -116,7 +116,7 @@ function checkHTML(ch){
     ${ch.multi?`<div class="note" style="margin-bottom:6px">${ch.multi.group?`對方有 ${ch.multi.group} 個，每贏一階段打倒或打跑一個。`:`帶職業的小頭目，打兩個階段。`}大成功＝直接打倒${ch.multi.group?"帶頭的，其餘潰散":"牠"}。失敗會挨一下，但還能繼續打。</div>`:""}
     ${lay?`<div class="lay">${lay}</div>`:""}
     <div class="need">付 <b>${ci.need}</b> 項成功・付 <b>${ci.big}</b> 項大成功${ci.need===0?"（不付也會成功）":""}<br><small>虛線框的通用代價一次只能選一項${ci.stalled?"；這場已經拖過一次，不能再拖":""}</small></div>
-    <div class="costs">${ci.costs.map((c,i)=>`<label class="cost${c.g?" gen":""}"><input type="checkbox" data-c="${i}"><span>${ch.blind?"？？？":`${esc(c.t)}${c.g?"":effOf(c)}`}</span></label>`).join("")}</div>
+    <div class="costs">${ci.costs.map((c,i)=>`<label class="cost${c.g?" gen":""}"${c.off?' style="opacity:.45"':""}><input type="checkbox" data-c="${i}"${c.off?" disabled":""}><span>${ch.blind?"？？？":`${esc(c.t)}${c.g?"":effOf(c)}${c.off?`（${c.off}，不能付）`:""}`}</span></label>`).join("")}</div>
     ${ch.noSk?`<div class="note">亞當關掉了你的技能：這一戰只能用物品和神兵。</div>`:""}${ch.blind?`<div class="note">亞當遮住了一切：代價和技能都看不見，付了什麼下一戰才知道。</div>`:""}${ch.lvF?`<div class="note">亞當把你的等級改回了 F。</div>`:""}
     ${skBox}${comboBox(ch)}${itBox}${abBox}${doBox}${warBox}${S.bless&&S.bless.worm?`<div class="sacbox"><label><input type="checkbox" id="wormb"> 紫蟲王的加護：你勾的第一項代價由他替你付（算數，但你不用付；只有一次）</label></div>`:""}
     <button class="paybtn" id="paybtn">付出 0 項：${tierOf(0,ci)}</button>

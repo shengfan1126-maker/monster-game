@@ -108,7 +108,8 @@ function checkInfo(ch){
   const gen=[{t:`HP -${d}（硬吃一下）`,hp:-d,g:1}];
   if(S.mp-skMp>=half)gen.push({t:`MP -${half}（拼盡全力）`,mp:-half,g:1});
   if(!ch.war&&!ch.raid&&!stalled&&!ch.costs.some(c=>c.time))gen.push({t:fight?"多花兩小時（拖久了，會出新麻煩）":"多花兩小時",time:2,g:1});
-  const costs=ch.costs.filter(c=>!(stalled&&c.time));            // 這場已經拖過一次：不能再拖
+  const mpLeft=S.mp-(skMp||0), costs=ch.costs.filter(c=>!(stalled&&c.time)).map(c=>{               /* 這場已經拖過一次：不能再拖 */
+    const off=c.mp&&mpLeft<Math.abs(c.mp)?"MP 不夠":c.tag&&hasTag(c.tag)?"已經有了":null; return off?{...c,off}:c});   // v0.59：付了等於沒付的代價不能勾
   return {lvDiff,net,need,big,costs:[...costs,...gen],stalled};
 }
 const tierOf=(n,ci)=>n<ci.need?"失敗":n>=ci.big?"大成功":"成功";

@@ -410,7 +410,7 @@ function pay(sel,sac,wb){
   const ch=e.alts[e.i].check; if(!ch)return;
   if(!ch.war&&!ch.raid||ch.noSac)sac=null;
   const ci=checkInfo(ch); let gUsed=false;
-  const chosen=sel.map(i=>ci.costs[i]).filter(c=>c&&(!c.g||!gUsed&&(gUsed=true))), tier=tierOf(chosen.length+(sac?2:0),ci);
+  const chosen=sel.map(i=>ci.costs[i]).filter(c=>c&&!c.off&&(!c.g||!gUsed&&(gUsed=true))), tier=tierOf(chosen.length+(sac?2:0),ci);
   const pre=snap(), notes=[];
   if(rwAdv(ch).some(x=>x.includes("幸運投石索"))){rwSpend("luck");notes.push(`✦幸運投石索：少付一項（今天還剩 ${rwLeft("luck")} 次）`)}   // v0.55
   const paidT=[...chosen.map(c=>c.t),...(sac?[`舍身：${sacLabel(sac)}`]:[])];

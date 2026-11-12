@@ -827,6 +827,7 @@ const kingField=(k,f)=>{const K=kingOf(k), x=S.kings[k];
 /* 每天：獸王的流程（斥候五連戰 → 半成品上門）。只有他會主動上門 */
 function kingDay(notes){
   if(!kingsOpen()||!S.kq||S.raid||S.dead)return; const q=S.kq;
+  if(S.kings.beast&&["neutral","ally"].includes(S.kings.beast.stance)&&q.phase!=="done"){S.kq={phase:"done"};return}   /* v0.59：跟獸王約好了，他就不會再上門 */
   if(q.phase==="scout"&&nowH()>=q.due){S.raid={name:"無名勢力的斥候",lv:GRADES[Math.min(6,gIdx(S.lv)+1)],size:"一波接一波的野獸斥候",king:"beast",kind:"scout",ofK:5,due:nowH(),seen:true,prep:[],comp:["狼","鷹","狐"]};
     q.phase="scoutOn"; notes.push("〈系統〉巢穴外面出現了一群沒有報名號的斥候。")}
   else if(q.phase==="half"&&nowH()>=q.due){const form=BEAST_FORMS[rint(0,BEAST_FORMS.length-1)];
@@ -882,7 +883,7 @@ function kingAct(kind,k,arg){
   if(kind==="steal"){if(x.frag||!x.know.hide||S.at!==K.lair)return; txt=`潛進去偷${K.t}的通信記錄`;
     advanceTime(4,notes); const d=Math.ceil(S.hp/2); S.hp-=d; checkDeath(notes); x.frag=true; x.stance="war";
     notes.push(`你從${x.hide}摸走了通信記錄（HP -${d}）。${K.t}發現了，從此把你當敵人。管理員的手機：${phoneN()}/8`)}
-  else if(kind==="neutral"){if(K.ins==="立刻吃"||S.at!==K.lair)return; x.stance="neutral"; txt=`和${K.t}約好互不侵犯`; notes.push(`${K.t}答應了：互不侵犯。`)}
+  else if(kind==="neutral"){if(S.at!==K.lair||x.stance||x.beaten)return; x.stance="neutral";   /* v0.59：八王都能溝通，本能不擋 */ txt=`和${K.t}約好互不侵犯`; notes.push(`${K.t}答應了：互不侵犯。`)}
   else if(kind==="lich"){if(k!=="lich"||S.at!==K.lair||(x.asks||0)>=3)return;
     const tg=arg&&arg.king, pay=arg&&arg.pay, T=S.kings[tg]; if(!T||tg==="lich"||!LICH_PAY[pay]||(x.paid||[]).includes(pay))return;
     if(pay==="life"){const p=S.party.find(z=>z.n===arg.who);if(!p)return;S.party=S.party.filter(z=>z!==p);npcGone(p.n,"被巫妖王收走了性命",notes,true);
@@ -946,7 +947,7 @@ function lairHTML(){
   const b=[];
   if(!x.ate&&!x.beaten)b.push(`${helpSel(k)}<button class="tl" data-kf="${k}">向他開戰（八王戰）</button>`);
   if(!x.frag&&x.know.hide)b.push(`<button class="tl" data-ka="steal|${k}">潛進去偷通信記錄（4 小時、HP 減半，他會變成敵人）</button>`);
-  if(K.ins!=="立刻吃"&&!x.stance)b.push(`<button class="tl" data-ka="neutral|${k}">約好互不侵犯</button>`);
+  if(!x.stance)b.push(`<button class="tl" data-ka="neutral|${k}">約好互不侵犯</button>`);
   if(k==="lich")b.push(lichHTML(x));
   b.push(kingPayHTML(k,x),allyHTML(k,x));
   return `<div class="card"><h3>${esc(K.t)}的領域</h3><div class="note">${esc(K.desc)}${k==="clown"?`<br>小丑王：「${CLOWN_LINE}」`:""}</div><div class="padd" style="flex-wrap:wrap">${b.join("")}</div></div>`;
