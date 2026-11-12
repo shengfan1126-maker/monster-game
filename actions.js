@@ -454,7 +454,7 @@ function pay(sel,sac,wb){
     else{if(ch.useSk)r.lastSk=ch.useSk; r.wins+=tier==="大成功"&&r.of>=5?2:1}   // v0.54 修正：用技能成功也算守住
     r.mom=tier==="大成功"?1:tier==="失敗"?-1:0; r.stage++;
     if(S.dead){S.raid=null;save();render();return}
-    const half=Math.floor(r.of/2)+1, end=r.fails>=half?"lose":(r.wins>=half||r.stage>r.of)?(r.wins>r.fails?"win":"lose"):null;
+    const half=Math.floor(r.of/2)+1, end=r.dun?(r.fails>0?"lose":r.stage>r.of?"win":null):r.fails>=half?"lose":(r.wins>=half||r.stage>r.of)?(r.wins>r.fails?"win":"lose"):null;   // v0.56：地城三階段都要贏
     if(r.admin&&!end&&r.stage===5&&!r.halved){r.halved=true;S.hp=Math.max(1,Math.floor(S.hp/2));S.log.push(sysEntry(`亞當拿走了你的身體：HP 減半（${S.hp}/${S.hpMax}）。`))}
     S.opts=[]; save();
     doJob({kind:"raid",ctx:{stage:r.stage,end,prev:{tier,paid:paidT,dmg,skill:ch.useSk||null}}},snap(),S.log.length); return;

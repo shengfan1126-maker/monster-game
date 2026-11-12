@@ -443,7 +443,7 @@ function raidLoot(c,notes){
   if(!c||c.tier==="失敗"||!c.foeLv||!RAID_RE.test(c.what||"")||!(RAID_FOE.test((c.foe||"")+(c.what||""))||isSettle(S.at)))return [];   // v0.55：人在聚落突襲也算（以前精靈村、矮人聚落這些對不上字）
   facHit({name:c.foe||"",kind:c.what||""},notes); if(c.tier==="大成功")facHit({name:c.foe||"",kind:c.what||""},notes);
   domHit(S.at,c.tier,notes);   // v0.47：突襲聚落成功 → 威懾／壓制
-  if(c.tier==="大成功"&&RW[S.at])rwGive(S.at,`突襲${S.at}大成功，你搶走了他們的神兵`,notes);   // v0.55
+  if(RW[S.at])rwGive(S.at,`你掠奪了${S.at}，搶走了他們的神兵`,notes);   // v0.55：掠奪就拿得到
   S.lootDay=S.lootDay||{}; const key=cleanName(c.foe||"營地"), again=S.lootDay[key]===S.day; S.lootDay[key]=S.day;
   const n=again?(Math.random()<0.3?1:0):(c.tier==="大成功"?2:1), got=[];
   const sp=cleanName(c.foe||"戰團").replace(/戰團|部落|巡邏隊|營地|巢穴|戰士/g,"")||"戰團";
@@ -579,7 +579,7 @@ const ENDINGS=[
  {k:"a_none",line:"管理員",n:"殺死管理員：沒有管理員",need:"知道管理員的真名，一個人打贏七連戰，選「沒有管理員」"},
  {k:"home",line:"回到原本的世界",n:"一個人回家",need:"神器 8 件、S 級核心、精靈王的儀式，一個人穿過傳送門"},
  {k:"home2",line:"回到原本的世界",n:"和伴侶們回家",need:"神器 8 件、S 級核心、精靈王的儀式，帶著伴侶穿過傳送門"},
- {k:"stay",line:"回到原本的世界",n:"留在這個世界",need:"回家的儀式都準備好了，在「你真的要離開了嗎」選「留下」"}
+ {k:"stay",line:"退休",n:"留在這個世界",need:"回家的儀式都準備好了，在「你真的要離開了嗎」選「留下」"}
 ];
 function endCheck(notes){
   if(!S||S.dead||!S.world)return; if(!S.ends)S.ends={}; const M=metaGet(); let ch=false;
@@ -615,7 +615,7 @@ function endHTML(){
   const ended=S.ended&&ENDINGS.find(e=>e.k===S.ended.k), col=!ended&&(S.sacN||0)>=3;
   const sk=S.skills.filter(s=>!isUq(s)&&s.g).sort((a,b)=>gIdx(b.g)-gIdx(a.g));
   return `<div class="dead"><b>${ended?`結局：${esc(ended.n)}`:"你死了。"}</b><br>${ended?"":`你見到了管理員。${col?`<br>你身上有 ${S.sacN} 處捨身的傷。結局：收藏品。`:""}<br>`}按上面的「撤回」回到上一步，或在齒輪裡重新開始。
-    ${allOpenHTML()}<div class="note" style="margin-top:8px;padding:8px;border:1px solid currentColor;border-radius:6px"><b>先備份存檔！</b>遊戲沒有網路存檔，換手機、清瀏覽器資料就沒了。按下面的按鈕把存檔下載下來（結局簿也在裡面），之後可以在 ⚙「匯入存檔」讀回來。<br><button class="tl" id="endexp" style="margin-top:6px">匯出存檔（下載）</button></div>
+    ${appleHTML()}${allOpenHTML()}<div class="note" style="margin-top:8px;padding:8px;border:1px solid currentColor;border-radius:6px"><b>先備份存檔！</b>遊戲沒有網路存檔，換手機、清瀏覽器資料就沒了。按下面的按鈕把存檔下載下來（結局簿也在裡面），之後可以在 ⚙「匯入存檔」讀回來。<br><button class="tl" id="endexp" style="margin-top:6px">匯出存檔（下載）</button></div>
     <div class="note" style="margin-top:8px">轉生（二周目）：從成體開始、所有地區一開始就知道。最多選 3 個技能帶過去（標成〔前世〕，不能整合、不會消失）；等級不帶。</div>
     <div class="tags">${sk.map(s=>`<button class="tag ut" data-rb="${esc(s.n)}" style="${RBP.includes(s.n)?"outline:2px solid currentColor":""}">${esc(s.n)}（${s.g}）</button>`).join("")}</div>
     <div class="note">已選 ${RBP.length}／3</div>
@@ -745,7 +745,7 @@ function domAct(kind,n){
   const pre=snap(), notes=[];
   S.log.push({who:"you",text:kind==="sub"?`逼${n}稱臣`:`消滅${n}`,pre});
   advanceTime(4,notes);
-  if(kind==="sub"){x.dom=3;notes.push(`〈系統〉${n}向你稱臣了。之後每天上貢 2 份存糧。`);heatAdd(1,`${n}向哥布林稱臣`,notes)}
+  if(kind==="sub"){x.dom=3;notes.push(`〈系統〉${n}向你稱臣了。之後每天上貢 2 份存糧。`);heatAdd(1,`${n}向哥布林稱臣`,notes);if(RW[n])rwGive(n,`${n}向你稱臣，獻上了他們的神兵`,notes)}
   else{x.razed=true;x.dom=0;x.kind="廢墟";x.note=`被你消滅的${n}，只剩廢墟。`;S.razed=[...(S.razed||[]),n];
     S.npcs.filter(y=>y.where===n&&!S.party.some(p=>p.n===y.n)).forEach(y=>npcGone(y.n,"聚落被消滅",notes));
     heatAdd(3,`${n}被哥布林消滅了`,notes);notes.push(`〈系統〉${n}被你消滅了。`);if(RW[n])rwGive(n,`你從${n}的廢墟裡搶走了他們的神兵`,notes)}
@@ -814,7 +814,7 @@ function kingsInit(notes){
   Object.keys(KINGS).forEach(k=>{const K=kingOf(k); if(!K.lair||S.world[K.lair])return;
     S.world[K.lair]={kind:"八王領域",region:K.lair,note:K.desc,links:{[K.link]:3},known:false,king:k};
     if(S.world[K.link]){S.world[K.link].links=S.world[K.link].links||{};S.world[K.link].links[K.lair]=3}});
-  S.kq={phase:"scout",due:nowH()+3*24}; dunInit();
+  S.kq={phase:"scout",due:nowH()+3*24}; dunInit(); notes&&notes.push(DUN_MSG);
   notes&&notes.push("〈系統〉《世界之聲》：「第九名吞噬者的異香，傳遍了八王的領域。」","〈系統〉八王都知道你了，但他們不急著出手。（「履歷」頁多了八王檔案）");
 }
 function kingReveal(k,f,notes){
@@ -1223,6 +1223,7 @@ function kingsFix(o){
     if(o.world[K.link]){o.world[K.link].links=o.world[K.link].links||{};o.world[K.link].links[K.lair]=3}}
   const g=o.kings.gold; if(g&&g.know&&g.know.lair&&!g.found)g.found=true;
   if(!o.dun){const s0=S;S=o;dunInit();S=s0}                    // v0.55：舊存檔補 S 級地城
+  dunShow(o);                                                 // v0.56：地城一開始就標在地圖上
 }
 
 /* ═════════ v0.54：殺死管理員（設計見專案《魔物篇_精靈王與殺死管理員_1112》）═════════
@@ -1275,7 +1276,7 @@ const RW={"人類城鎮":{n:"曙光長劍",d:"對「暗」屬性的對手多一�
   "蛙人村":{n:"殘影斗篷",d:"輸一階段不扣生命值（一天三次）"},"諾姆據點":{n:"齒輪盾",d:"在巢穴打的討伐戰每階段多一層"},
   "鳥人聚落":{n:"風羽之冠",d:"每場關鍵戰的最後一階段多一層"},"蜥蜴人營地":{n:"記仇之牙",d:"上一階段輸了，這一階段多一層"}};
 const rwOf=n=>Object.values(RW).find(z=>z.n===n);
-const rwHave=n=>S.items.includes(n)||S.party.some(p=>p.with&&p.gear===n);
+const rwHave=n=>S.items.includes(n);                               // 用戶：只能在主角身上
 const rwLeft=k=>{const u=S.rwUse&&S.rwUse.day===S.day?S.rwUse:{};return 3-(u[k]||0)};
 const rwSpend=k=>{if(!S.rwUse||S.rwUse.day!==S.day)S.rwUse={day:S.day};S.rwUse[k]=(S.rwUse[k]||0)+1};
 function rwGive(set,why,notes){
@@ -1299,7 +1300,8 @@ function rwAdv(ch){
 }
 function rwShade(){if(!rwHave("殘影斗篷")||rwLeft("shade")<=0)return false;rwSpend("shade");S.log.push(sysEntry(`✦殘影斗篷：這一下沒打中你（今天還剩 ${rwLeft("shade")} 次）`));return true}
 /* 每回合：同盟的聚落送你種族神兵 */
-function rwCheck(notes){Object.keys(RW).forEach(set=>{const x=S.world[set];if(x&&!x.razed&&stOf(set)>=3&&!(S.rwGot||{})[set])rwGive(set,`${set}跟你同盟，把他們的神兵交給了你`,notes)})}
+function rwCheck(notes){Object.keys(RW).forEach(set=>{const x=S.world[set];if(!x||x.razed||(S.rwGot||{})[set])return;
+  if(stOf(set)>=3)rwGive(set,`${set}跟你同盟，把他們的神兵交給了你`,notes); else if(domOf(set)===3)rwGive(set,`${set}向你稱臣，獻上了他們的神兵`,notes)})}
 
 /* S 級地城：6～8 章開了之後，8 個地城藏在 8 個地區，在那一帶探索才發現。三人（你＋兩位同行）才能進。
    三階段 S 級戰鬥（討伐戰引擎，S.raid.dun）；輸兩階段＝全員傳送回巢穴、沒人死、什麼都沒拿到，可以再來；生命值打到 0 也是傳送回去。
@@ -1311,14 +1313,17 @@ const artN=()=>ARTS.filter(a=>S.items.includes(a)).length;
 function dunInit(){
   if(S.dun)return; S.dun={}; const regs=[...SITE_REGIONS].sort(()=>Math.random()-0.5);
   DUNS.forEach(([n,art],i)=>{const region=regs[i%regs.length]; S.dun[n]={art,cleared:false};
-    if(!S.world[n])S.world[n]={kind:"S級地城",region,links:{},known:false,note:`S 級地城。最深處藏著神器「${art}」。`,dun:true};
-    (S.sites=S.sites||[]).push({n,region,need:rint(3,5),found:false})});
+    if(!S.world[n])S.world[n]={kind:"S級地城",region,links:{[region]:3},known:true,note:`S 級地城。最深處藏著神器「${art}」。`,dun:true};
+    if(S.world[region]){S.world[region].links=S.world[region].links||{};S.world[region].links[n]=3}});
 }
+const DUN_MSG="〈系統〉《世界之聲》：「這個世界出現了 8 個 S 級地城。」（地圖上都標出來了；要你＋兩位同行才能進）";
+function dunShow(o){Object.keys(o.dun||{}).forEach(n=>{const w=o.world[n];if(!w||w.known)return;w.known=true;w.links=w.links||{};w.links[w.region]=3;
+  if(o.world[w.region]){o.world[w.region].links=o.world[w.region].links||{};o.world[w.region].links[n]=3}; const s=(o.sites||[]).find(x=>x.n===n);if(s)s.found=true})}
 function dunHTML(){
   const n=S.at, d=S.dun&&S.dun[n]; if(!d||S.dead)return "";
   if(d.cleared)return `<div class="card"><h3>${esc(n)}（S 級地城）</h3><div class="note">已經空了。神器、核心、寶物都被你拿走，地城關閉了。</div></div>`;
   const w=S.party.filter(p=>p.with), ok=w.length>=2&&!S.alone&&!S.raid;
-  return `<div class="card"><h3>${esc(n)}（S 級地城）</h3><div class="note">最深處藏著神器「${esc(d.art)}」。三階段、對手 S 級、可以捨身。輸兩階段，全員被傳送回巢穴（沒人會死，但什麼都帶不回來，可以再來）。打贏就拿走神器、S 級核心和一件 S 級魔法物品，地城會關閉。</div>
+  return `<div class="card"><h3>${esc(n)}（S 級地城）</h3><div class="note">最深處藏著神器「${esc(d.art)}」。三階段都要贏、對手 S 級、可以捨身。輸一階段（或生命值打到 0），全員被傳送回巢穴（沒人會死，但什麼都帶不回來，可以再來）。打贏就拿走神器、S 級核心和一件 S 級魔法物品，地城會關閉。</div>
     ${ok?`<button class="tl" id="dungo">進入地城（你＋${esc(w.map(p=>p.n).join("、"))}）</button>`:`<div class="note">${S.alone?"你只有一個人，進不去（要三個人）。":`要三個人才能進：你＋兩位同行的同伴（現在同行 ${w.length} 位）。`}</div>`}</div>`;
 }
 function dunEnter(){
@@ -1329,7 +1334,7 @@ function dunEnter(){
 }
 function dunPrompt(r){
   return [`【S 級地城・${r.dun}】（現在 ${timeStr()}，${PERIOD(S.hour)}）`,
-    `主角帶著兩位同伴（${S.party.filter(p=>p.with).map(p=>p.n).join("、")}）走進 S 級地城「${r.dun}」，一共三層，最深處藏著神器「${S.dun[r.dun].art}」。對手都是 S 級。地城的規矩：撐不住的時候，所有人會被傳送回巢穴，沒有人會死在這裡。`];
+    `主角帶著兩位同伴（${S.party.filter(p=>p.with).map(p=>p.n).join("、")}）走進 S 級地城「${r.dun}」，一共三層，最深處藏著神器「${S.dun[r.dun].art}」。對手都是 S 級。地城的規矩：三層都要過，任何一層撐不住，所有人會被傳送回巢穴，沒有人會死在這裡。`];
 }
 function dunEnd(r,end,notes){
   const d=S.dun[r.dun]; S.raid=null;
@@ -1344,7 +1349,8 @@ function dunEnd(r,end,notes){
    一個人回去要一顆核心，每帶一位多一顆；核心不夠，就有人沒跟過來（精靈王不會告訴你要幾顆）。按「留下」＝結局「留在這個世界」。 */
 const HOME_TXT={portal:"傳送門出現了。",hug:"你的伴侶們衝了過來抱住你，希望你帶他們一起走。",
   mates:"然後你們穿越了傳送門後傳送門崩塌，回到了你的狹窄公寓。大家在客廳中央面面相覷。你變回原本的人類面貌。但你發現你竟然還有藍色面板。他們也都是原本世界的魔物樣子。但你發現你竟然可以幫他們調整面板。你跟伴侶們永遠在一起了。",
-  alone:"你出現在你住的狹窄公寓，什麼事情都像沒發生過，旁邊的手機傳來朋友約你聚餐的訊息，一切好像從未發生過，但又如此刻骨銘心。"};
+  alone:"你醒了，在病床上。你救了人，上了地方新聞。你只是不知道為什麼，只看得到一個藍色面板。而當你看向旁邊的蘋果時，上面寫著：是否要吞噬這個蘋果。",
+  apart:"你出現在你住的狹窄公寓，什麼事情都像沒發生過，旁邊的手機傳來朋友約你聚餐的訊息，一切好像從未發生過，但又如此刻骨銘心。"};   // apart：用戶 11-12 08:21 寫的，08:42 改用病床那段，先留著
 const homeReady=()=>!!S.ritual&&artN()>=8&&(S.cores||0)>=1;
 let HOMEQ=0;
 function homeHTML(){
@@ -1380,3 +1386,33 @@ function endRoomHTML(){
 }
 const allOpenHTML=()=>{const M=metaGet(); return S.ended&&!M.askedAll?`<div class="note" style="margin-top:8px;padding:8px;border:1px solid currentColor;border-radius:6px">結局很多。要不要把全部結局打開，直接在「履歷」頁的結局房間看劇情？<div class="padd" style="margin-top:6px"><button class="tl" id="allopen">全部打開</button><button class="tl" id="allno">不用</button></div></div>`:""};
 function allOpen(y){const M=metaGet(); M.askedAll=true; if(y)M.allOpen=true; metaSave(); render()}
+
+/* v0.56：S 級核心（吃不吃玩家決定：吃了就從三個 S 級強力技能裡選一個學，核心用掉，回家就少一顆）、地城秘寶（吸收＝學會它的技能、秘寶消失；或留著給巫妖王）、蘋果。 */
+const treasures=()=>S.items.filter(n=>{const m=matOf(n);return m&&m.sp==="地城"&&m.skill});
+function coreHTML(){
+  const ts=treasures(); if(!(S.cores||0)&&!ts.length&&!S.coreCands)return "";
+  return `<div class="card"><h3>S 級核心與秘寶</h3>
+    ${S.coreCands?`<div class="note">核心在你身體裡化開了。選一個學會（S 級）：</div><div class="padd" style="flex-wrap:wrap;margin-top:4px">${S.coreCands.map((c,i)=>`<button class="tl" data-cp="${i}">${esc(c.n)}（${esc(c.sys)}）</button>`).join("")}</div>`
+      :(S.cores||0)?`<div class="note">S 級核心：${S.cores} 顆。回家要用（自己一顆，每帶一位伴侶多一顆）；吃掉可以學一個 S 級的強力技能，但就少一顆。</div><button class="tl" id="coreeat">吃掉一顆核心</button>`:""}
+    ${ts.map(n=>`<div class="d">✦${esc(n)}：附帶「${esc(matOf(n).skill.n)}」。可以拿著用、交給巫妖王，或吸收（學會這個技能，秘寶消失）。<br><button class="tl" data-ab="${esc(n)}">吸收</button></div>`).join("")}</div>`;
+}
+function coreEat(){
+  if(busy||S.dead||!(S.cores>0)||S.coreCands)return; const pre=snap();
+  const have=new Set(S.skills.map(s=>s.n)), pool=[...new Map(Object.values(POOLS).flat().filter(s=>!have.has(s.n)).map(s=>[s.n,s])).values()].sort(()=>Math.random()-0.5);
+  S.cores--; S.coreCands=pool.slice(0,3).map(s=>({n:s.n,sys:s.sys}));
+  S.log.push({who:"you",text:"吃掉一顆 S 級核心",pre}); S.log.push(sysEntry(`你吃掉了一顆 S 級核心（還剩 ${S.cores} 顆）。到「技能」頁選一個學會。`)); save(); render();
+}
+function corePick(i){
+  const c=S.coreCands&&S.coreCands[i]; if(!c||busy)return; const pre=snap(), notes=[];
+  S.log.push({who:"you",text:`從核心學會：${c.n}`,pre}); const s=addSkill(c,"S"); S.coreCands=null;
+  notes.push(`〈系統〉《世界之聲》：「習得 ${c.n}（S級・${c.sys}）。」${s.box==="store"?"（可用的位置滿了，先放進倉庫）":""}`);
+  S.log.push(sysEntry(notes.join("\n"))); save(); render();
+}
+function absorb(n){
+  const m=matOf(n); if(busy||S.dead||!m||m.sp!=="地城"||!m.skill||!S.items.includes(n))return; const pre=snap();
+  S.log.push({who:"you",text:`吸收 ✦${n}`,pre}); S.items.splice(S.items.indexOf(n),1); delete S.mat[n];
+  const have=S.skills.some(s=>s.n===m.skill.n); if(!have)addSkill(m.skill,"S");
+  S.log.push(sysEntry(have?`✦${n}化成光，鑽進你身體裡。「${m.skill.n}」你已經會了。`:`✦${n}化成光，鑽進你身體裡。〈系統〉《世界之聲》：「習得 ${m.skill.n}（S級・${m.skill.sys}）。」`)); save(); render();
+}
+/* 一個人回家的蘋果（彩蛋，按哪個都只是收尾） */
+const appleHTML=()=>S.ended&&S.ended.k==="home"&&!S.ended.apple?`<div class="padd" style="margin-top:8px"><span>是否要吞噬這個蘋果？</span><button class="tl" data-ap="是">是</button><button class="tl" data-ap="否">否</button></div>`:"";

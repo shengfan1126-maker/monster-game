@@ -15,6 +15,9 @@ function render(){
   if(TAB==="skill") document.querySelectorAll("[data-sw]").forEach(b=>b.onclick=()=>{const i=+b.dataset.sw;SWI=SWI.includes(i)?SWI.filter(x=>x!==i):[...SWI,i];render()});
   if(TAB==="skill") document.querySelectorAll("[data-sx]").forEach(b=>b.onclick=()=>{const i=+b.dataset.sx;SWO=SWO.includes(i)?SWO.filter(x=>x!==i):[...SWO,i];render()});
   if(TAB==="skill"&&$("swdo"))$("swdo").onclick=()=>swapSkills();
+  if(TAB==="skill"){const ce=$("coreeat");if(ce)ce.onclick=()=>{if(ce.dataset.ok!=="1"){ce.dataset.ok="1";ce.textContent="確定吃掉？（回家就少一顆）";return}coreEat()};   // v0.56
+    document.querySelectorAll("[data-cp]").forEach(b=>b.onclick=()=>corePick(+b.dataset.cp));
+    document.querySelectorAll("[data-ab]").forEach(b=>b.onclick=()=>{if(b.dataset.ok!=="1"){b.dataset.ok="1";b.textContent="確定吸收？（秘寶會消失）";return}absorb(b.dataset.ab)})}
   if(TAB==="skill") document.querySelectorAll("[data-mg]").forEach(b=>b.onclick=()=>{const [k,i]=b.dataset.mg.split("|"),n=+i;if(MGK!==k){MGK=k;MG=[]}MG=MG.includes(n)?MG.filter(x=>x!==n):MG.length<5?[...MG,n]:MG;render()});
   if(TAB==="skill"&&$("mgdo"))$("mgdo").onclick=()=>mergeSkills();
   if(TAB==="skill") document.querySelectorAll("[data-di]").forEach(b=>b.onclick=()=>{const i=+b.dataset.di;if(DI!==i){DI=i;render();return}DI=-1;const it=S.items[i];if(it!=null){S.items.splice(i,1);delete S.mat[it]}save();render()});
@@ -61,7 +64,7 @@ function tabsHTML(){
   return `<nav class="tabs">${T.map(([k,n])=>`<button data-tab="${k}" class="${TAB===k?"on":""}">${n}</button>`).join("")}</nav>`;
 }
 function panelHTML(){
-  if(TAB==="skill") return divineHTML()+skillHTML();
+  if(TAB==="skill") return divineHTML()+coreHTML()+skillHTML();
   if(TAB==="nest") return nestHTML();
   if(TAB==="record") return recordHTML();
   if(TAB==="map") return mapHTML();
@@ -260,6 +263,7 @@ function bindStory(){
   on("admgo",()=>adminMeet());
   on("dungo",dunEnter); on("homego",()=>{HOMEQ=1;render()}); on("homeyes",()=>{HOMEQ++;render()}); on("homestay",homeStay);   // v0.55
   on("homego2",()=>homeLeave([...document.querySelectorAll("[data-hm]")].filter(x=>x.checked).map(x=>x.dataset.hm)));
+  document.querySelectorAll("[data-ap]").forEach(b=>b.onclick=()=>{S.ended.apple=b.dataset.ap;save();render()});   // 蘋果：彩蛋，只是收尾
   on("allopen",()=>allOpen(true)); on("allno",()=>allOpen(false)); on("admyes",()=>adminMeet("yes")); on("admno",()=>adminMeet("no")); on("admsv",()=>adminMeet("sv"));
   document.querySelectorAll("[data-cg]").forEach(b=>b.onclick=()=>contractGive(+b.dataset.cg));
   document.querySelectorAll("[data-rb]").forEach(b=>b.onclick=()=>{const n=b.dataset.rb;RBP=RBP.includes(n)?RBP.filter(x=>x!==n):RBP.length<3?[...RBP,n]:RBP;render()});
@@ -464,7 +468,7 @@ const GUIDE=[
  ["結局簿與轉生",`<b>履歷</b>頁最上面是<b>結局簿</b>：每個結局的條件都寫在那裡，達成就解鎖，<b>好幾個結局可以同時解鎖</b>。退休類的結局解鎖後，可以選擇在那裡退休、結束這一局，也可以繼續玩。結局簿跨局保存，轉生不會清掉；也會抄進存檔，匯出存檔帶到別的裝置再匯入，結局簿會一起過去。<br>死了（或退休）之後可以<b>轉生</b>：二周目從<b>成體</b>開始、所有地區一開始就知道，最多帶 <b>3 個技能</b>過去（標成〔前世〕，不能整合、不會消失）。等級不帶。`],
  ["神兵、伴侶、契約、統治",`<b>神兵</b>：轉生時可以把前世的 3 個技能鑄成一把神兵（自己取名、描述），每項能力一天 3 次、永遠不會壞，判定卡「用哪個技能」選得到。<br><b>伴侶</b>：類人的同伴對你「追隨」、你在故事裡解開他的心結、雙方自願，就會成為伴侶（💍）：多一個心結技、一個種族技（最多 7 個技能），等級上限和你一樣，跟你同行時存在值和你拿一樣多；同行時判定卡可以用<b>合體技</b>（多兩層優勢，每位伴侶一天一次，進化戰不行）。伴侶 7 位以上、巢穴人口興盛＝哥布林家族。<br><b>契約</b>：有人提出交換條件時，畫面會出「契約提議」，按同意他就暫時跟你走；條件完成後他會道謝、回到原本的地方。<br><b>統治</b>：突襲敵對的聚落成功會讓他們「威懾」→「壓制」；壓制之後到那裡的「地點」頁，可以逼他們稱臣（每天上貢 2 份存糧）或消滅他們。`],
  ["八王與管理員",`巢穴到 A 級、或你到 B 級，第 6～8 章一起打開：八王（D&D 的八個陣營，你是絕對中立的第九王）都聞到你的異香了。<b>履歷</b>頁有<b>八王檔案</b>，每位六欄，一開始是「？？？」，可以「打聽」（8 小時，有斥候同伴 4 小時）一欄一欄揭開。<br>只有最弱的那位會主動找上門。其他的要你自己去他的領域（地點頁）：開戰（八王戰，7 場輸 4 場就死，可以捨身）、付他要的代價、潛進去偷、或約好互不侵犯。打倒的王留下屍體，吃下去＝吞噬一位王。<br><b>精靈王、金龍王</b>一開始找不到：精靈村跟你同盟，他們會說精靈王的行蹤；人類城鎮跟你同盟，金龍教要你受洗（不再吃人類）才說金龍王在哪。到那裡探索三次，第三條線索找到他。精靈村、人類城鎮被消滅，那位王就不會出現。<br><b>代價</b>：每位王有自己的三種代價（檔案的「他想要什麼」），每種只能付一次、付了回不來；每付一種，自己選換一樣：他的通信記錄、他的加護、或他的檔案全開。<br><b>結盟</b>：要先殺掉另一位王（他會告訴你是誰）。結盟的王可以來幫你打一場八王戰（每位一次，那一整場每階段多一層優勢）。<br>每位王身上有一片<b>管理員的通信記錄</b>，湊齊 8/8 就能去找管理員。`],
- ["種族神兵、S 級地城、回家",`<b>種族神兵</b>：人類、精靈、矮人、半身人、蛙人、諾姆、鳥人、蜥蜴人各有一件。那個聚落跟你同盟就會送你；突襲大成功、或消滅他們，可以搶過來。帶在身上就會生效，只在關鍵戰（討伐戰、八王戰、進化戰、地城）有用。<br><b>S 級地城</b>：第 6～8 章之後，8 個地城藏在 8 個地區，在那一帶探索才找得到。要三個人（你＋兩位同行）才能進；輸了全員被傳送回巢穴，沒人會死。打贏拿到神器、S 級核心和一件 S 級魔法物品，地城就關了。<br><b>回家</b>：神器 8 件、S 級核心、精靈王的儀式都有了，故事頁下面會出現回家的儀式。`],
+ ["種族神兵、S 級地城、回家",`<b>種族神兵</b>：人類、精靈、矮人、半身人、蛙人、諾姆、鳥人、蜥蜴人各有一件。那個聚落跟你同盟、或向你稱臣，就會交給你；掠奪（突襲成功）或消滅他們，可以搶過來。只有帶在你自己身上才會生效，只在關鍵戰（討伐戰、八王戰、進化戰、地城）有用。<br><b>S 級地城</b>：第 6～8 章一開，8 個地城就標在地圖上。要三個人（你＋兩位同行）才能進；三階段都要贏，輸一階段全員被傳送回巢穴，沒人會死。打贏拿到神器、S 級核心和一件秘寶（S 級魔法物品），地城就關了。核心和秘寶在「技能」頁：吃核心學一個 S 級技能、吸收秘寶學它的技能，但核心回家要用。<br><b>回家</b>：神器 8 件、S 級核心、精靈王的儀式都有了，故事頁下面會出現回家的儀式。`],
  ["遇到怪事",`AI 有時會寫錯或漏掉東西（地點、物品、同伴位置）。點頁面上的 <b>OOC</b> 跟「規則助手」說一聲，它會幫你更正。巢穴位置請用「搬家」，不要靠 OOC。<br>覺得這回合不滿意可以「重試」，做錯了可以「撤回」。換裝置前先到 ⚙ 匯出存檔。`]
 ];
 function guideHTML(){return GUIDE.map(([h,b])=>`<h4 style="margin:12px 0 4px">${h}</h4><div class="note" style="line-height:1.7">${b}</div>`).join("")}
