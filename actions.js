@@ -453,7 +453,7 @@ function pay(sel,sac,wb){
       if((!r.at||r.at===NEST())&&!r.admin){if(n.pop>1){n.pop--;n2.push(`人口：${POP[n.pop-1]}`)} if(n.d>1){n.d--;n2.push(`戰力：${DEF[n.d-1]}`)}} checkDeath(n2);S.log.push(sysEntry(n2.join("　")))}
     else{if(ch.useSk)r.lastSk=ch.useSk; r.wins+=tier==="大成功"&&r.of>=5?2:1}   // v0.54 修正：用技能成功也算守住
     r.mom=tier==="大成功"?1:tier==="失敗"?-1:0; r.stage++;
-    if(S.dead){S.raid=null;save();render();return}
+    if(S.dead){if(r.king){S.deathKing=r.king;S.deathWhy=`敗給了${r.name}`}else if(r.admin)S.deathWhy=`敗給了${r.name}`;S.raid=null;save();render();return}   // v0.58：八王戰被打到沒血也算「敗給八王」
     const half=Math.floor(r.of/2)+1, end=r.dun?(r.fails>0?"lose":r.stage>r.of?"win":null):r.fails>=half?"lose":(r.wins>=half||r.stage>r.of)?(r.wins>r.fails?"win":"lose"):null;   // v0.56：地城三階段都要贏
     if(r.admin&&!end&&r.stage===5&&!r.halved){r.halved=true;S.hp=Math.max(1,Math.floor(S.hp/2));S.log.push(sysEntry(`亞當拿走了你的身體：HP 減半（${S.hp}/${S.hpMax}）。`))}
     S.opts=[]; save();
