@@ -261,7 +261,8 @@ function bindStory(){
   on("offok",()=>offerAccept()); on("offno",()=>offerReject()); on("endexp",()=>exp.onclick());
   [["admkill","確定動手？",adminKill],["admrule","確定？（這一局結束）",()=>adminFinal("rule")],["admnone","確定？（這一局結束）",()=>adminFinal("none")]].forEach(([id,t,f])=>{const b=$(id);if(b)b.onclick=()=>{if(b.dataset.ok!=="1"){b.dataset.ok="1";b.textContent=t;return}f()}});   // v0.54
   on("admgo",()=>adminMeet());
-  on("dungo",dunEnter); {const ng=$("ninego");if(ng)ng.onclick=()=>{if(ng.dataset.ok!=="1"){ng.dataset.ok="1";ng.textContent="確定？（這一局結束）";return}nineEnd()}}   // v0.60 on("homego",()=>{HOMEQ=1;render()}); on("homeyes",()=>{HOMEQ++;render()}); on("homestay",homeStay);   // v0.55
+  on("dungo",dunEnter); {const ng=$("ninego");if(ng)ng.onclick=()=>{if(ng.dataset.ok!=="1"){ng.dataset.ok="1";ng.textContent="確定？（這一局結束）";return}nineEnd()}}   /* v0.60 */
+  on("homego",()=>{HOMEQ=1;render()}); on("homeyes",()=>{HOMEQ++;render()}); on("homestay",homeStay);   // v0.55
   on("homego2",()=>homeLeave([...document.querySelectorAll("[data-hm]")].filter(x=>x.checked).map(x=>x.dataset.hm)));
   on("allopen",()=>allOpen(true)); on("allno",()=>allOpen(false)); on("admyes",()=>adminMeet("yes")); on("admno",()=>adminMeet("no")); on("admsv",()=>adminMeet("sv"));
   document.querySelectorAll("[data-cg]").forEach(b=>b.onclick=()=>contractGive(+b.dataset.cg));
