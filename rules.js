@@ -87,7 +87,7 @@ const weakSk=ch=>{const n=ch&&itemOfSk(ch.useSk),m=n&&matOf(n);return !!(m&&ch.f
 const skillMp=ch=>ch&&ch.useSk&&!/（.+）$/.test(ch.useSk)?1:0;
 /* 同伴幫忙算的優勢最多 1 條（同伴再多也一樣），其他優勢照算 */
 const isAllyAdv=x=>S.party.some(p=>p.n&&String(x).includes(p.n))||/同伴|夥伴|隊友|幫手|協助|聯手/.test(String(x));
-const advList=ch=>(ch.adv||[]).filter(x=>!isAllyAdv(x));   // v0.36：同伴的幫忙不再算優勢，改成在場減傷＋能力（見 actions.js「同伴成長」）
+const advList=ch=>[...(ch.adv||[]).filter(x=>!isAllyAdv(x)),...rwAdv(ch)];   // v0.55：種族神兵（關鍵戰自動生效）   // v0.36：同伴的幫忙不再算優勢，改成在場減傷＋能力（見 actions.js「同伴成長」）
 /* 程序加的劣勢（v0.34）：幼體空手一打一；同行的同伴空手（逼玩家替同伴裝備）。只在有對手的判定算 */
 const allyArmed=p=>!!p.gear||(p.hold||[]).some(h=>GEAR_RE.test(h));
 const meArmed=()=>S.items.some(n=>GEAR_RE.test(n)&&!POTION(n));

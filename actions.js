@@ -50,7 +50,7 @@ function menuSeed(k,arg){
     if(rg0&&S.sites){S.expl[rg0]=(S.expl[rg0]||0)+1;
       const sd=S.sites.find(x=>!x.found&&x.region===rg0&&S.expl[rg0]>=x.need);
       if(sd){sd.found=true;const nd=S.world[sd.n],h=rint(1,3);nd.links[from]=h;S.world[from].links[sd.n]=h;
-        return {label:`探索：${from}附近`,prompt:`【這段要發生的事（程序抽到的，照這個寫）】你在${rg0}一帶探索了很久，終於找到了黑顎提過、但誰也沒去過的地方：${sd.n}（${nd.kind}）。${nd.note?`那裡的情況：${nd.note}`:""}寫出第一次遠遠看到它的樣子（不要寫進去，也不要寫戰鬥；裡面的人怎麼看你，等玩家靠近再說）。loc 填「${sd.n}」。`,hours:Math.max(2,h),node:sd.n,from,reveal:true}}}
+        return {label:`探索：${from}附近`,prompt:`【這段要發生的事（程序抽到的，照這個寫）】你在${rg0}一帶探索了很久，終於找到了${nd.dun?"":"黑顎提過、但"}誰也沒去過的地方：${sd.n}（${nd.kind}）。${nd.note?`那裡的情況：${nd.note}`:""}寫出第一次遠遠看到它的樣子（不要寫進去，也不要寫戰鬥；裡面的人怎麼看你，等玩家靠近再說）。loc 填「${sd.n}」。`,hours:Math.max(2,h),node:sd.n,from,reveal:true}}}
     if(hid.length&&Math.random()<0.65){
       const to=rnd(hid), nd=S.world[to], h=nd.links[from]||2, rg=REGIONS.find(r=>r.n===nd.region)||reg;
       const good=Math.random()<0.6, what=good?rnd(rg.find):rnd(rg.danger);
@@ -412,6 +412,7 @@ function pay(sel,sac,wb){
   const ci=checkInfo(ch); let gUsed=false;
   const chosen=sel.map(i=>ci.costs[i]).filter(c=>c&&(!c.g||!gUsed&&(gUsed=true))), tier=tierOf(chosen.length+(sac?2:0),ci);
   const pre=snap(), notes=[];
+  if(rwAdv(ch).some(x=>x.includes("幸運投石索"))){rwSpend("luck");notes.push(`✦幸運投石索：少付一項（今天還剩 ${rwLeft("luck")} 次）`)}   // v0.55
   const paidT=[...chosen.map(c=>c.t),...(sac?[`舍身：${sacLabel(sac)}`]:[])];
   if(ch.foe&&!ch.war&&!ch.raid&&!ch.local)S.lastFoe={name:ch.foe,lv:ch.foeLv||"F",cls:ch.multi&&ch.multi.cls||null};
   const blind=!!(ch.blind&&ch.raid&&S.raid);              // v0.54：殺死管理員第 4 戰
@@ -448,7 +449,7 @@ function pay(sel,sac,wb){
   }
   if(ch.raid&&S.raid){
     const r=S.raid; let dmg=0;
-    if(tier==="失敗"){dmg=dmgOf(ch.foeLv);S.hp-=dmg;r.fails++;const n=S.nest,n2=[`${r.name}${r.at&&r.at!==NEST()?"佔了上風":"衝破了一段防線"}：HP -${dmg}`];
+    if(tier==="失敗"){dmg=rwShade()?0:dmgOf(ch.foeLv);S.hp-=dmg;r.fails++;if(r.dun&&S.hp<=0){S.hp=1;r.fails=99}const n=S.nest,n2=[`${r.name}${r.at&&r.at!==NEST()?"佔了上風":"衝破了一段防線"}：HP -${dmg}`];
       if((!r.at||r.at===NEST())&&!r.admin){if(n.pop>1){n.pop--;n2.push(`人口：${POP[n.pop-1]}`)} if(n.d>1){n.d--;n2.push(`戰力：${DEF[n.d-1]}`)}} checkDeath(n2);S.log.push(sysEntry(n2.join("　")))}
     else{if(ch.useSk)r.lastSk=ch.useSk; r.wins+=tier==="大成功"&&r.of>=5?2:1}   // v0.54 修正：用技能成功也算守住
     r.mom=tier==="大成功"?1:tier==="失敗"?-1:0; r.stage++;
@@ -460,7 +461,7 @@ function pay(sel,sac,wb){
   }
   if(ch.war&&S.war){
     let dmg=0;
-    if(tier==="失敗"){dmg=dmgOf(ch.foeLv)+1;S.hp-=dmg;const n2=[`${S.war.foe.name}佔了上風：HP -${dmg}`];checkDeath(n2);S.log.push(sysEntry(n2.join("\n")))}
+    if(tier==="失敗"){dmg=rwShade()?0:dmgOf(ch.foeLv)+1;S.hp-=dmg;const n2=[`${S.war.foe.name}佔了上風：HP -${dmg}`];checkDeath(n2);S.log.push(sysEntry(n2.join("\n")))}
     S.war.mom=tier==="大成功"?1:tier==="失敗"?-1:0; S.war.stage++;
     if(S.dead){save();render();return}
     S.opts=[]; save();

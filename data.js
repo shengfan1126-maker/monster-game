@@ -309,7 +309,7 @@ function chapCheck(notes){
   if(S.chap>=5&&!S.chapOpen&&((S.nest&&S.nest.lv&&gIdx(S.nest.lv)>=5)||gIdx(S.lv)>=4)){S.chapOpen=[6,7,8];S.chap=6;kingsInit(notes)}   // v0.50：巢穴 A 級或主角 B 級，6～8 章一起開
   if(S.chap>=3&&S.chap<5&&((S.nest&&S.nest.lv&&gIdx(S.nest.lv)>=3)||(S.heat||0)>=HEAT[4].at||Object.values(S.world||{}).some(x=>x.known&&(x.st||0)>=3)))S.chap=5;   // v0.46：巢穴 C 級／注目度到討伐軍／第一次有聚落同盟，先到者
   if(S.chap!==before&&notes)notes.push(`〈系統〉《世界之聲》：「第${S.chapOpen&&S.chap===6?"6～8":S.chap}章・${chapOf().name}」`);
-  if(notes)clueCheck(notes);                                  // v0.53：精靈王、金龍王的行蹤
+  if(notes){clueCheck(notes);rwCheck(notes)}                  // v0.53 行蹤；v0.55 同盟送種族神兵                                  // v0.53：精靈王、金龍王的行蹤
   endCheck(notes);
 }
 /* 主角成為巢穴之主：老首領退位（還在的話留下來，不再是對手） */
