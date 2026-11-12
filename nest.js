@@ -549,15 +549,20 @@ function metaSave(){ls.s(META_KEY,JSON.stringify(metaGet()))}
 /* 結局用的「聚落」：各族聚落＋固定的敵對據點，知道的、還在的、不是自己的巢穴 */
 const allSettles=()=>[...DEMI.map(x=>x.n),...SITE_FIXED].filter(n=>{const x=S.world[n];return x&&n!==NEST()&&x.kind!=="廢棄的巢穴"&&!x.razed});   // 這個世界裡所有的聚落（含還沒找到的）
 const endSettles=()=>allSettles().filter(n=>S.world[n].known);
-function nearSettles(){                        // 巢穴附近：同一個地區、或跟巢穴直接相連的地方所在的地區
-  const nd=S.world[NEST()]||{}, R=new Set([nd.region||NEST()]);
-  Object.keys(nd.links||{}).forEach(k=>{const y=S.world[k];if(y)R.add(y.region||k)});
-  return endSettles().filter(n=>R.has(S.world[n].region)||(nd.links||{})[n]);
+function nearSettles(){                        // 巢穴附近：同一個地區、或跟巢穴直接相連的地方所在的地區；v0.62：那裡一個聚落都沒有，就往外一圈一圈找，到找得到為止
+  const nd=S.world[NEST()]||{}, all=allSettles();   /* 用全部聚落（含還沒找到的）決定是哪一圈，回傳那一圈裡已經找到的 */
+  let R=new Set([nd.region||NEST()]); Object.keys(nd.links||{}).forEach(k=>{const y=S.world[k];if(y)R.add(y.region||k)});
+  for(let ring=0;ring<6;ring++){
+    const out=all.filter(n=>R.has(S.world[n].region)||(nd.links||{})[n]); if(out.length)return out.filter(n=>S.world[n].known);
+    const R2=new Set(R); R.forEach(r=>{const rn=S.world[r];Object.keys((rn&&rn.links)||{}).forEach(k=>{const y=S.world[k];if(y)R2.add(y.region||k)})});
+    if(R2.size===R.size)break; R=R2;
+  }
+  return [];
 }
 const ENDINGS=[
  {k:"family",line:"退休",n:"哥布林家族",need:"伴侶 7 位以上，而且巢穴人口到「興盛」（後代很多）",retire:true,
   chk:()=>mates().length>=7&&S.nest.pop>=5},
- {k:"chief",line:"退休",n:"哥布林部落酋長",need:"當上巢穴之主，而且巢穴附近（同一個地區、或直接相連的地方）知道的聚落全部中立以上（至少 1 個）",retire:true,
+ {k:"chief",line:"退休",n:"哥布林部落酋長",need:"當上巢穴之主，而且巢穴附近（同一個地區、或直接相連的地方；那裡沒有聚落的話，算最近的一圈）的聚落全部中立以上（至少 1 個）",retire:true,
   chk:()=>{const a=nearSettles();return !!S.chief&&!S.abdicated&&a.length>0&&a.every(n=>stOf(n)>=0||domOf(n)===3)}},
  {k:"overlord",line:"退休",n:"部族共主",need:"這一局當上酋長，再找到這個世界的所有聚落，每一個都是中立以上、或被你威懾／壓制／統治",retire:true,
   chk:()=>{const a=allSettles();return !!S.ends.chief&&!S.abdicated&&a.length>0&&a.every(n=>S.world[n].known&&(stOf(n)>=0||domOf(n)>=1))}},
