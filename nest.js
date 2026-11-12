@@ -570,7 +570,7 @@ const ENDINGS=[
  {k:"k_one",line:"八王",n:"吞噬一王",need:"打贏八王其一並吞噬",chk:()=>!!S.kings&&Object.values(S.kings).some(x=>x.ate)},
  {k:"k_all",line:"八王",n:"吞噬八王",need:"打贏八王全部並吞噬（精靈王下落不明，找到他之前達不成）",chk:()=>!!S.kings&&Object.values(S.kings).every(x=>x.ate)},
  {k:"k_vassal",line:"八王",n:"八王的眷屬",need:"替一位王做事、成為他的部下",soon:"八王的任務"},
- {k:"k_nine",line:"八王",n:"九王並立",need:"一場都不打，八位王全部結盟或中立（精靈王下落不明，找到他之前達不成）",chk:()=>!!S.kings&&Object.values(S.kings).every(x=>(x.stance==="ally"||x.stance==="neutral")&&!x.beaten)},
+ {k:"k_nine",line:"八王",n:"九王並立",need:"到 S 級，八位王都認可你（各付一種代價；小丑王要看穿他的謊言），一位都沒殺、沒攻擊過，然後選「成為第九王」"},
  {k:"collected",line:"管理員",n:"收藏品",need:"捨身累計 3 次以上，然後死亡"},
  {k:"servant",line:"管理員",n:"管理員的部下",need:"管理員的手機 8/8 去找管理員，吞噬過八王之一，選「替他做事」"},
  {k:"admin",line:"管理員",n:"成為管理員",need:"管理員的手機 8/8 去找管理員，選「接受」"},
@@ -890,7 +890,7 @@ function kingAct(kind,k,arg){
       notes.push(`${p.n}的生命，被巫妖王收走了。${p.mate?"（你的伴侶）":""}`)}
     else{const it=arg.item;if(!it||!S.items.includes(it)||!LICH_PAY[pay].ok(it))return;S.items.splice(S.items.indexOf(it),1);delete S.mat[it];S.party.forEach(q=>{if(q.gear===it){q.gear=null;q.gearMat=null}});
       notes.push(`你交出了 ✦${it}。它不會再回來了。`)}
-    x.asks=(x.asks||0)+1; x.paid=[...(x.paid||[]),pay]; txt=`付出${LICH_PAY[pay].t}，向巫妖王打聽${kingOf(tg).t}`;
+    x.asks=(x.asks||0)+1; x.paid=[...(x.paid||[]),pay]; if(!x.stance){x.stance="neutral";notes.push("巫妖王認可了你：互不侵犯。")} txt=`付出${LICH_PAY[pay].t}，向巫妖王打聽${kingOf(tg).t}`;
     notes.push(`巫妖王說了${kingOf(tg).t}的事。（巫妖王的情報：${x.asks}/3）`);
     let n=0; K_FIELDS.forEach(f=>{if(n<3&&kingReveal(tg,f[0],notes))n++}); if(!n)notes.push("（這位王你都已經知道了）");
     if(x.asks>=3)notes.push("巫妖王：「三次了。再要，就要你的命來支付了。」")}
@@ -934,11 +934,11 @@ function adminHTML(){
 function kingsHTML(){
   if(!kingsOpen())return "";
   const rows=Object.keys(KINGS).map(k=>{const K=kingOf(k), x=S.kings[k], open=x.page||k==="beast";
-    const st=x.ate?"已吞噬":x.beaten?"打倒了":x.stance==="ally"?"結盟":x.stance==="neutral"?"中立":x.stance==="war"?"敵對":"";
+    const st=(kingOK(k)?"認可・":"")+(x.ate?"已吞噬":x.beaten?"打倒了":x.stance==="ally"?"結盟":x.stance==="neutral"?"中立":x.stance==="war"?"敵對":"");
     return `<div class="npc"><div class="h"><b>${esc(K.t)}</b><span>${esc(K.al)}${st?`・${st}`:""}${x.frag?"・📱已拿到通信記錄":""}</span></div>
       ${open?`<div class="d">${esc(K.desc||"")}</div>${K_FIELDS.map(([f,l])=>`<div class="d">${l}：${x.know[f]?`<b>${esc(kingField(k,f))}</b>`:"？？？"}</div>`).join("")}
       ${clueLine(k)}${K_FIELDS.some(([f])=>!x.know[f]&&!(f==="lair"&&lairHid(k)))&&!S.dead?`<button class="tl" data-kst="${k}">打聽（${S.party.some(p=>p.dir==="斥候")?4:8} 小時，揭開 1 欄）</button>`:""}`:`<div class="d">檔案還沒打開。</div>`}</div>`}).join("");
-  return `<div class="card"><h3>八王檔案</h3><div class="note">管理員的手機：${phoneN()}/8（每位王身上一片通信記錄：問、偷、或打倒他拿）。${metaGet().clownKill?`小丑王記得你上一次用「${esc(metaGet().clownKill)}」殺了他。`:""}</div>${rows}</div>`;
+  return `<div class="card"><h3>八王檔案</h3>${nineLine()}<div class="note">管理員的手機：${phoneN()}/8（每位王身上一片通信記錄：問、偷、或打倒他拿）。${metaGet().clownKill?`小丑王記得你上一次用「${esc(metaGet().clownKill)}」殺了他。`:""}</div>${rows}</div>`;
 }
 function lairHTML(){
   const n=S.at, nd=S.world[n]; if(!nd||!nd.king||!S.kings||S.dead)return "";
@@ -950,6 +950,7 @@ function lairHTML(){
   if(!x.stance)b.push(`<button class="tl" data-ka="neutral|${k}">約好互不侵犯</button>`);
   if(k==="lich")b.push(lichHTML(x));
   b.push(kingPayHTML(k,x),allyHTML(k,x));
+  if(k==="clown")b.push(riddleHTML(x));
   return `<div class="card"><h3>${esc(K.t)}的領域</h3><div class="note">${esc(K.desc)}${k==="clown"?`<br>小丑王：「${CLOWN_LINE}」`:""}</div><div class="padd" style="flex-wrap:wrap">${b.join("")}</div></div>`;
 }
 let KC="";
@@ -1057,6 +1058,7 @@ function kingPay(k,id,arg,rew){
   const pre=snap(), notes=[];
   S.log.push({who:"you",text:`向${K.t}付出：${c.t.replace(/（永久）$/,"")}${arg?`（${arg}）`:""}`,pre});
   c.do(arg,notes); x.paid=[...(x.paid||[]),id];
+  if(!x.stance){x.stance="neutral";notes.push(`${K.t}認可了你：互不侵犯。`)}   /* v0.60：付一種代價＝認可＋中立 */
   if(rew&&KREW(k).some(r=>r[0]===rew)&&!(x.got||[]).includes(rew)){x.got=[...(x.got||[]),rew];
     if(rew==="frag"){if(!x.frag){x.frag=true;notes.push(`${K.t}給了你他的管理員通信記錄。管理員的手機：${phoneN()}/8`)}else notes.push("（他的通信記錄你已經有了）")}
     else if(rew==="file"){let m=0;K_FIELDS.forEach(f=>{if(kingReveal(k,f[0],notes))m++});if(!m)notes.push("（他的檔案你都已經知道了）")}
@@ -1416,3 +1418,43 @@ function absorb(n){
   S.log.push(sysEntry(have?`✦${n}化成光，鑽進你身體裡。「${m.skill.n}」你已經會了。`:`✦${n}化成光，鑽進你身體裡。〈系統〉《世界之聲》：「習得 ${m.skill.n}（S級・${m.skill.sys}）。」`)); save(); render();
 }
 /* （v0.57：蘋果只顯示在結局文字裡，不給玩家按） */
+
+/* ═════════ v0.60：成王試煉 → 九王並立（設計見專案《魔物篇_九王並立_成王試煉_1112》）═════════
+   前提 S 級；八位王都認可（各付一種代價＝認可＋互不侵犯；小丑王要看穿謊言）、一位都沒殺、沒開戰過。
+   小丑王是謎語人：三件關於其他王的事，一件是謊言；猜錯扣 HP 10、MP 5（不會扣到死），再猜，一定猜得對。 */
+const kingOK=k=>{const x=S.kings&&S.kings[k]; if(!x||x.beaten||x.ate||x.stance==="war"||!x.stance)return false; return k==="clown"?!!x.riddleOK||(x.paid||[]).length>0:(x.paid||[]).length>0};
+const nineN=()=>Object.keys(KINGS).filter(kingOK).length;
+const nineReady=()=>!!S.kings&&S.lv==="S"&&nineN()===8;
+function riddleMake(){
+  const fs=[["attr","屬性"],["ins","本能"],["weak","弱點"],["lair","領域"]], ks=Object.keys(KINGS).filter(k=>k!=="clown"&&k!=="elf"||(k==="elf"&&S.kings.elf.found));
+  const pick=[...ks].sort(()=>Math.random()-0.5).slice(0,3), lie=Math.floor(Math.random()*3);
+  const lines=pick.map((k,i)=>{const [f,l]=fs[Math.floor(Math.random()*fs.length)], v=kingField(k,f);
+    if(i!==lie)return `${kingOf(k).t}的${l}是「${v}」`;
+    const others=ks.filter(z=>z!==k).map(z=>kingField(z,f)).filter(z=>z&&z!==v); return `${kingOf(k).t}的${l}是「${others[Math.floor(Math.random()*others.length)]||"沒有"}」`});
+  return {lines,lie,tried:[]};
+}
+function riddleHTML(x){
+  if(x.beaten||x.ate||x.stance==="war"||x.riddleOK)return x.riddleOK?`<div class="note" style="width:100%">你看穿了小丑王的謊言，他認可了你。</div>`:"";
+  if(!x.riddle)return `<button class="tl" data-rd="go">聽小丑王說三件事（其中一件是謊言）</button>`;
+  return `<div class="d" style="width:100%"><b>小丑王：「我說三件事，只有一件是假的。」</b>（猜錯：HP -10、MP -5）
+    ${x.riddle.lines.map((t,i)=>`<div class="padd" style="margin-top:4px"><span>${esc(t)}</span>${x.riddle.tried.includes(i)?`<span class="note">（不是這個）</span>`:`<button class="tl" data-rd="${i}">這是謊言</button>`}</div>`).join("")}</div>`;
+}
+function riddle(v){
+  const x=S.kings&&S.kings.clown; if(!x||busy||S.dead||S.at!==kingOf("clown").lair||x.beaten||x.stance==="war"||x.riddleOK)return;
+  const notes=[];
+  if(v==="go"){if(x.riddle)return; x.riddle=riddleMake(); S.log.push(sysEntry(`小丑王笑著說：「${CLOWN_LINE}」\n「我說三件事，只有一件是假的。猜猜看？」`)); save(); render(); return}
+  const i=+v; if(!x.riddle||x.riddle.tried.includes(i))return; const pre=snap();
+  S.log.push({who:"you",text:`「第 ${i+1} 件是謊言。」`,pre});
+  if(i===x.riddle.lie){x.riddleOK=true; if(!x.stance)x.stance="neutral"; notes.push("小丑王拍手大笑：「答對了。」","小丑王認可了你：互不侵犯。")}
+  else{x.riddle.tried.push(i); S.hp=Math.max(1,S.hp-10); S.mp=Math.max(0,S.mp-5); notes.push(`小丑王笑得更開心了：「錯了。」（HP -10、MP -5，現在 HP ${S.hp}）`)}
+  endCheck(notes); S.log.push(sysEntry(notes.join("\n"))); save(); render();
+}
+END_TXT.k_nine="你得到了八王的認可，你選了一條強者之路，這不是哥布林家族、酋長、皇帝之路，也不是管理員之路，更不是回家之路，而是你成為了第九王。\n管理員在你腦內打開一個全息投影：\n「恭喜你啦，你成為第九王了，不過我也沒什麼好給你的，只能給你看我的影像，其他八王腦子裡面也是這個影像，你以後漫長的生活會習慣的，我有事情會再聯絡你，沒事就不會跳出來提醒的，放心好了。」";
+const nineHTML=()=>nineReady()&&!S.dead&&!S.raid?`<div class="check"><h3>成王試煉</h3><div class="note">你到了 S 級，八位王都認可了你。</div><button class="tl" id="ninego">成為第九王</button></div>`:"";
+function nineEnd(){
+  if(!nineReady()||busy||S.dead)return; const pre=snap(), rg=(S.world[NEST()]||{}).region||NEST();
+  S.log.push({who:"you",text:"成為第九王",pre});
+  S.log.push(sysEntry(`〈系統〉《世界之聲》：「第九名吞噬者成為第九王。${rg}一帶，從此是第九王的領域。」`));
+  endSet("k_nine");
+}
+const nineLine=()=>kingsOpen()?`<div class="note">成王試煉：${S.lv==="S"?"✓":"○"} S 級、認可 ${nineN()}/8（每位王付一種代價；小丑王要看穿他的謊言；殺過、開戰過的王不會認可你）</div>`:"";
