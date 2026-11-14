@@ -317,7 +317,12 @@ const tagsOfName=(n,many)=>[...TAG_RE.filter(([,re])=>re.test(n||"")).map(([t])=
 function huntQuick(sp,grp,lv,cls,where,terr,actv,many){
   const d=dmgOf(lv), them=/群|兩隻/.test(grp||"")?"牠們":"牠";
   const adv=/睡覺|進食|受了傷|舔傷口/.test(actv)?[`${them}${actv}，沒注意到你`]:[];
-  const costs=[{t:`挨了${sp}一下`,hp:-d},...[{t:"被抓出傷口",tag:"流血"},{t:"追了很久才得手",time:1},{t:"拚到喘不過氣",mp:-2},{t:`${sp}的反撲`,hp:-Math.max(1,Math.ceil(d/2))}].sort(()=>Math.random()-0.5).slice(0,2)];
+  /* v0.73：代價要五花八門（用戶 22:44：不要變成好幾個扣血）。扣血交給卡上通用的「硬吃一下」，這裡給傷、同伴、東西、MP、時間 */
+  const w=S.party.filter(p=>p.with&&!p.tags.includes("重傷")), drop=S.items.filter(n=>!matOf(n)&&!POTION(n)&&n!=="逃跑粉"&&!worn(n));
+  const wp=w.length?rnd(w).n:null;
+  const pool=[...(wp?[{t:`${wp}替你擋了一下`,ally:wp}]:[]),...(drop.length?[{t:"混亂中弄丟了東西",item:rnd(drop)}]:[]),{t:"拚到喘不過氣",mp:-2},{t:"追了很久才得手",time:1}];
+  const hurt=rnd([["被抓出傷口","流血"],["腳被咬了一口","瘀傷"],["撲空撞上石頭","扭傷"]]);
+  const costs=[{t:hurt[0],tag:hurt[1]},...pool.sort(()=>Math.random()-0.5).slice(0,2)];
   return {hunt:1,loc:where,text:`在${where}的${terr}，你發現了${grpW(grp)}${sp}（${lv}級），${them}${actv}。${cls?`牠是帶職業的${cls}，比一般的難纏。`:""}`,
     check:{what:`獵殺${sp}`,foe:sp,foeLv:lv,foeEl:elOfName(sp),foeTags:tagsOfName(sp,many),group:many?rint(2,4):1,adv,dis:[],costs}};
 }
