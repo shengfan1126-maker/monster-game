@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>權能進化・魔物篇</title>
-<link rel="stylesheet" href="style.css?v=0.66">
+<link rel="stylesheet" href="style.css?v=0.67">
 </head>
 <body>
 <div class="app">
   <div class="hd">
-    <h1>權能進化・魔物篇</h1><span class="sub">v0.66</span>
+    <h1>權能進化・魔物篇</h1><span class="sub">v0.67</span>
     <button class="gear" id="help" aria-label="新手教學" style="margin-left:auto;font-size:17px;font-weight:700">？</button>
     <button class="gear" id="gear" aria-label="設定" style="margin-left:10px">⚙</button>
   </div>
@@ -20,6 +20,7 @@
 
 <div class="sheet" id="gsheet">
   <div class="sbox">
+    <div class="sxtop"><button class="close2" id="gx0">✕ 關閉</button></div>
     <h3>新手教學</h3>
     <div id="gbody"></div>
     <button class="close" id="gdone">知道了</button>
@@ -29,6 +30,7 @@
 <button class="totop tobot" id="tobot" hidden aria-label="跳到最新">↓</button>
 <div class="sheet" id="sheet">
   <div class="sbox">
+    <div class="sxtop"><button class="close2" id="sx0">✕ 完成</button></div>
     <h3>設定</h3>
     <div class="note">金鑰只留在這台裝置的瀏覽器裡。純前端網頁藏不住金鑰，填好的檔案別傳給別人。</div>
     <label>用哪一家</label>
@@ -36,6 +38,7 @@
     <div id="gembox">
       <label>Gemini API Key</label>
       <input type="password" id="gkey" placeholder="AIza…" autocomplete="off">
+      <div class="note">欄位空著按完成，不會蓋掉已經存的金鑰；要清掉金鑰，在欄位打「清除」。</div>
       <div class="note" id="geminfo"></div>
       <button class="pick" id="regem">重新抓 Gemini 模型名單</button>
     </div>
@@ -70,15 +73,15 @@
   </div>
 </div>
 
-<script src="data.js?v=0.66"></script>
-<script src="sys_prompt.js?v=0.66"></script>
-<script src="ai.js?v=0.66"></script>
-<script src="rules.js?v=0.66"></script>
-<script src="nest.js?v=0.66"></script>
-<script src="turn.js?v=0.66"></script>
-<script src="actions.js?v=0.66"></script>
-<script src="gear.js?v=0.66"></script>
-<script src="ui.js?v=0.66"></script>
-<script src="save.js?v=0.66"></script>
+<script src="data.js?v=0.67"></script>
+<script src="sys_prompt.js?v=0.67"></script>
+<script src="ai.js?v=0.67"></script>
+<script src="rules.js?v=0.67"></script>
+<script src="nest.js?v=0.67"></script>
+<script src="turn.js?v=0.67"></script>
+<script src="actions.js?v=0.67"></script>
+<script src="gear.js?v=0.67"></script>
+<script src="ui.js?v=0.67"></script>
+<script src="save.js?v=0.67"></script>
 </body>
 </html>

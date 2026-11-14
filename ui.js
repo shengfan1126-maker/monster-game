@@ -482,6 +482,6 @@ const GUIDE=[
  ["遇到怪事",`AI 有時會寫錯或漏掉東西（地點、物品、同伴位置）。點頁面上的 <b>OOC</b> 跟「規則助手」說一聲，它會幫你更正。巢穴位置請用「搬家」，不要靠 OOC。<br>覺得這回合不滿意可以「重試」，做錯了可以「撤回」。換裝置前先到 ⚙ 匯出存檔。`]
 ];
 function guideHTML(){return GUIDE.map(([h,b])=>`<h4 style="margin:12px 0 4px">${h}</h4><div class="note" style="line-height:1.7">${b}</div>`).join("")}
-function openGuide(){gbody.innerHTML=guideHTML();gsheet.classList.add("open")}
-function closeGuide(){gsheet.classList.remove("open");ls.s("guide_seen","1")}
-help.onclick=openGuide; gdone.onclick=closeGuide; gsheet.onclick=e=>{if(e.target===gsheet)closeGuide()};
+function openGuide(){gbody.innerHTML=guideHTML();gsheet.classList.add("open");if(typeof sheetHist==="function")sheetHist()}
+function closeGuide(pop){const was=gsheet.classList.contains("open");gsheet.classList.remove("open");ls.s("guide_seen","1");if(was&&pop!==true&&typeof dropHist==="function")dropHist()}   /* v0.67：pop＝按了返回鍵，不用再退一步 */
+help.onclick=openGuide; gdone.onclick=()=>closeGuide(); gx0.onclick=()=>closeGuide(); gsheet.onclick=e=>{if(e.target===gsheet)closeGuide()};

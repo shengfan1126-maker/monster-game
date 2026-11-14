@@ -177,7 +177,7 @@ function provUI(){
 }
 pseg.querySelectorAll("button").forEach(b=>b.onclick=()=>{PROV=b.dataset.p;ls.s("mowu_prov",PROV);provUI()});
 regem.onclick=async()=>{
-  ls.s("gm_key",gkey.value.trim());
+  keySave("gm_key",gkey);
   regem.disabled=true;regem.textContent="抓取中…";
   try{await gemModels(true)}catch(e){snoteSet("抓不到："+(e.message||e),1)}
   regem.disabled=false;regem.textContent="重新抓 Gemini 模型名單";provUI();
@@ -187,9 +187,16 @@ refree.onclick=async()=>{
   try{await cachedList("free",true);ls.s("mowu_bad","{}")}catch(e){snoteSet("抓不到："+(e.message||e),1)}
   refree.disabled=false;refree.textContent="重新抓免費模型名單";modeUI();
 };
-gear.onclick=()=>{modeUI();provUI();snoteSet("");sheet.classList.add("open")};
-function closeSheet(){disarmNewg();ls.s("or_key",key.value.trim());ls.s("gm_key",gkey.value.trim());ls.s("or_model",model.value.trim());sheet.classList.remove("open");if(!S)render()}
-done.onclick=closeSheet;
+/* v0.67：金鑰欄位空著不蓋掉已存的金鑰；打「清除」才清掉 */
+function keySave(k,el){const v=el.value.trim(); if(v==="清除"){ls.s(k,"");el.value="";return} if(v)ls.s(k,v); else el.value=ls.g(k)||""}
+/* v0.67：手機的返回鍵、返回手勢只關掉彈出頁（設定、新手教學），不離開遊戲 */
+let SH_PUSH=false;   /* 自己推過一步歷史、還沒退回去 */
+function sheetHist(){try{if(!SH_PUSH){history.pushState({sh:1},"");SH_PUSH=true}}catch(e){}}
+function dropHist(){try{if(SH_PUSH){SH_PUSH=false;history.back()}}catch(e){}}
+gear.onclick=()=>{modeUI();provUI();snoteSet("");sheet.classList.add("open");sheetHist()};
+function closeSheet(pop){disarmNewg();keySave("or_key",key);keySave("gm_key",gkey);ls.s("or_model",model.value.trim());sheet.classList.remove("open");if(pop!==true)dropHist();if(!S)render()}
+done.onclick=closeSheet; sx0.onclick=closeSheet;
+window.addEventListener("popstate",()=>{SH_PUSH=false;if(sheet.classList.contains("open"))closeSheet(true);if(gsheet.classList.contains("open"))closeGuide(true)});
 sheet.onclick=e=>{if(e.target===sheet)closeSheet()};
 pick.onclick=async()=>{
   pick.disabled=true;pick.textContent="查詢中…";
