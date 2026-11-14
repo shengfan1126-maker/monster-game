@@ -78,7 +78,7 @@ function normCheck(c){
   const sug=typeof c.skill==="string"?skn.find(n=>c.skill.includes(n)||n===c.skill.trim()):null;
   const group=Math.max(1,Math.min(8,parseInt(c.group,10)||1));
   return {group,what:String(c.what||"這件事").slice(0,40),foe:c.foe?String(c.foe).slice(0,20):null,
-    foeLv:GRADES.includes(c.foeLv)?c.foeLv:null,useSk:sug||null,adv:arr(c.adv).filter(noSk),dis:arr(c.dis).filter(x=>!/技能.*(低|不足|不夠)|等級.*(低|差)/.test(x)),costs};
+    foeLv:GRADES.includes(c.foeLv)?c.foeLv:null,foeEl:ELEMS.includes(c.foeEl)?c.foeEl:null,foeTags:(Array.isArray(c.foeTags)?c.foeTags:[]).filter(t=>MON_TAGS.includes(t)).slice(0,4),useSk:sug||null,adv:arr(c.adv).filter(noSk),dis:arr(c.dis).filter(x=>!/技能.*(低|不足|不夠)|等級.*(低|差)/.test(x)),costs};
 }
 /* 用技能扣 MP：自己的技能 1 點；魔法物品附帶的技能不用 */
 /* 魔法物品的技能：物品等級低於對手 → 自己選了用照樣有效（算優勢），打完會壞、不能修（v0.63，用戶 11-14 08:18） */
@@ -87,7 +87,7 @@ const weakSk=ch=>{const n=ch&&itemOfSk(ch.useSk),m=n&&matOf(n);return !!(m&&ch.f
 const skillMp=ch=>ch&&ch.useSk&&!/（.+）$/.test(ch.useSk)?1:0;
 /* 同伴幫忙算的優勢最多 1 條（同伴再多也一樣），其他優勢照算 */
 const isAllyAdv=x=>S.party.some(p=>p.n&&String(x).includes(p.n))||/同伴|夥伴|隊友|幫手|協助|聯手/.test(String(x));
-const advList=ch=>[...(ch.adv||[]).filter(x=>!isAllyAdv(x)),...rwAdv(ch),...gearAdv(ch),...fxAdv(ch)];   /* v0.63：逃跑時鞋子、盾 */   // v0.55：種族神兵（關鍵戰自動生效）   // v0.36：同伴的幫忙不再算優勢，改成在場減傷＋能力（見 actions.js「同伴成長」）
+const advList=ch=>[...(ch.adv||[]).filter(x=>!isAllyAdv(x)),...rwAdv(ch),...gearAdv(ch),...fxAdv(ch),...elAdv(ch)];   /* v0.63：逃跑時鞋子、盾 */   // v0.55：種族神兵（關鍵戰自動生效）   // v0.36：同伴的幫忙不再算優勢，改成在場減傷＋能力（見 actions.js「同伴成長」）
 /* 程序加的劣勢（v0.34）：幼體空手一打一；同行的同伴空手（逼玩家替同伴裝備）。只在有對手的判定算 */
 const allyArmed=p=>!!p.gear||(p.hold||[]).some(h=>GEAR_RE.test(h));
 const meArmed=()=>!!(S.eq&&S.eq.武器);   /* v0.63：武器欄有東西才算 */

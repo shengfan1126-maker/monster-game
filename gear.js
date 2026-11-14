@@ -206,3 +206,24 @@ function fxFor(wn,mn){
   for(const x of c){p-=x.w;if(p<0)return x.fx} return c[0].fx;
 }
 const fxItemName=(fx,wn)=>`${fxName(fx)}${wn}`.slice(0,16);
+
+/* ═════════ 元素相剋、魔物特性（v0.65）═════════
+   照孤獨異世界：水剋火、火剋木、木剋土、土剋風、風剋水，光暗互剋，剋到 +1。
+   你這邊：這次用的技能的系別（自己的、魔法物品附帶的、神兵的）＋穿著的 X紋。對手：模型在判定卡填 foeEl（沒填看名字、八王照王）。
+   魔物特性（敏捷、飛行、硬甲、巨大、群體、無眼、不呼吸、構裝）：判定卡顯示、模型照它加減優劣勢，程式不另外算（用戶：武器沒有每場 +1）。 */
+const MON_TAGS=["敏捷","飛行","硬甲","巨大","群體","無眼","不呼吸","構裝"];
+const EL_COUNTER={水:"火",火:"木",木:"土",土:"風",風:"水",光:"暗",暗:"光"};
+/* 這次用的技能的系別 */
+function skSysOf(ch){
+  const k=ch&&ch.useSk; if(!k)return null;
+  const own=S.skills.find(s=>s.n===k); if(own)return own.sys;
+  const it=itemOfSk(k); if(it){const m=matOf(it); return m&&m.skill?m.skill.sys:null}
+  if(S.divine){const a=S.divine.abs.find(x=>divKey(x.n)===k); if(a)return a.sys}
+  return null;
+}
+function myEls(ch){const e=[skSysOf(ch),...fxOn("elem",ch).map(x=>x.fx.v)].filter(x=>ELEMS.includes(x)); return [...new Set(e)]}
+function elAdv(ch){
+  if(!ch||!ch.foe)return [];
+  const fe=foeElOf(ch); if(!fe)return [];
+  const a=myEls(ch).find(x=>EL_COUNTER[x]===fe); return a?[`相剋：${a}剋${fe}`]:[];
+}
