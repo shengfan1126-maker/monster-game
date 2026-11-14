@@ -1081,8 +1081,8 @@ function kingBless(k,notes){
 }
 /* 獨角獸王的加護：治好一處捨身的傷。S.sacHurt 記每一次捨身（v0.52 起才記；舊存檔只認得【殘缺】） */
 function sacHurtList(){
-  const l=(S.sacHurt||[]).map((h,i)=>[String(i),h.k==="hp"?"HP 上限 -5":h.k==="maim"?"【殘缺】":`失去的技能「${h.sk&&h.sk.n}」`]);
-  if(!l.some(z=>/殘缺/.test(z[1]))&&hasTag("殘缺"))l.push(["tag","【殘缺】"]);
+  const l=(S.sacHurt||[]).map((h,i)=>[String(i),h.k==="hp"?"HP 上限 -5":h.k==="maim"?"【殘缺】":SAC_PART[h.k]?`【殘缺（${SAC_PART[h.k]}）】${h.n?`（${h.k==="body"?"HP":"MP"} 上限 -${h.n}）`:""}`:`失去的技能「${h.sk&&h.sk.n}」`]);
+  if(!l.some(z=>z[1]==="【殘缺】")&&hasTag("殘缺"))l.push(["tag","【殘缺】"]);
   return l;
 }
 function uniHeal(v){
@@ -1091,6 +1091,9 @@ function uniHeal(v){
   else{const h=(S.sacHurt||[])[+v];if(!h)return;S.sacHurt.splice(+v,1);
     if(h.k==="hp"){S.hpMax+=5;notes.push(`獨角獸王的角碰了你一下。HP 上限 +5（${S.hpMax}）。`)}
     else if(h.k==="maim"){if(!S.sacHurt.some(z=>z.k==="maim"))S.tags=S.tags.filter(t=>t!=="殘缺");notes.push("獨角獸王的角碰了你一下。【殘缺】好了。")}
+    else if(SAC_PART[h.k]){const t=`殘缺（${SAC_PART[h.k]}）`;if(!S.sacHurt.some(z=>z.k===h.k))S.tags=S.tags.filter(x=>x!==t);
+      if(h.k==="body"&&h.n)S.hpMax+=h.n; if(h.k==="mind"&&h.n)S.mpMax+=h.n;
+      notes.push(`獨角獸王的角碰了你一下。${SAC_PART[h.k]}的傷好了${h.k==="body"&&h.n?`，HP 上限 +${h.n}（${S.hpMax}）`:h.k==="mind"&&h.n?`，MP 上限 +${h.n}（${S.mpMax}）`:""}。`)}   /* v0.66 */
     else if(h.sk){if(!S.skills.some(s=>s.n===h.sk.n))S.skills.push(h.sk);notes.push(`獨角獸王的角碰了你一下。你想起了「${h.sk.n}」。`)}}
   S.bless.uni=0; S.log.push({who:"you",text:"請獨角獸王治傷",pre}); S.log.push(sysEntry(notes.join("\n"))); save(); render();
 }

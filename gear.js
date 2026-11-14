@@ -26,6 +26,7 @@ const wornList=()=>S&&S.eq?SLOTS.map(k=>S.eq[k]).filter(Boolean):[];
 /* 能不能穿：回傳 true 或原因 */
 function canWear(n){
   const k=slotOf(n); if(!k)return "這不是裝備";
+  if(typeof scarOn==="function"&&scarOn("hand")&&(k==="副手"||(k==="武器"&&isTwoW(n))))return "單手的傷：不能用雙手武器和盾";   /* v0.66 */
   if(k==="副手"&&!oneMelee(S.eq&&S.eq.武器))return "盾只能配單手近戰武器（或空手）";
   return true;
 }
@@ -35,6 +36,7 @@ function gearSync(){
   S.eq=S.eq||{}; const lost=[];
   SLOTS.forEach(k=>{const n=S.eq[k]; if(n==null)S.eq[k]=null; else if(!S.items.includes(n)||slotOf(n)!==k){S.eq[k]=null;lost.push(k)}});
   if(S.eq.副手&&!oneMelee(S.eq.武器))S.eq.副手=null;
+  SLOTS.forEach(k=>{if(S.eq[k]&&canWear(S.eq[k])!==true){S.eq[k]=null;lost.push(k)}});   /* v0.66：單手的傷，穿著的雙手武器、盾卸下 */
   lost.forEach(k=>{const n=S.items.find(x=>slotOf(x)===k&&!worn(x)&&canWear(x)===true); if(n)S.eq[k]=n});   /* 用掉、壞掉、給人了：背包裡有同一欄的就換上 */
   const seen=new Set(S.eqSeen||[]);
   S.items.forEach(n=>{if(seen.has(n))return; seen.add(n); const k=slotOf(n); if(k&&!S.eq[k]&&!worn(n)&&canWear(n)===true)S.eq[k]=n});
@@ -181,8 +183,8 @@ function fxSync(){
   if(wm!==(S.fxMp||0)){S.mpMax=bm+wm;S.fxMp=wm;S.mp=Math.min(S.mp,S.mpMax)}
 }
 /* 時間：輕身移動減半；豐收採集、搜刮減半 */
-const travelH=h=>fxAny("move")?Math.max(1,Math.ceil(h/2)):h;
-const menuH=(k,h)=>(k==="forage"||k==="scav")&&fxAny("gather")?Math.max(1,Math.ceil(h/2)):h;
+const travelH=h=>{let x=fxAny("move")?Math.max(1,Math.ceil(h/2)):h; if(typeof scarOn==="function"&&scarOn("leg"))x*=2; return x};   /* v0.66：腿的傷加倍 */
+const menuH=(k,h)=>{let x=(k==="forage"||k==="scav")&&fxAny("gather")?Math.max(1,Math.ceil(h/2)):h; if(k==="explore"&&typeof scarOn==="function"&&scarOn("eye"))x*=2; return x};   /* v0.66：眼睛的傷探索加倍 */
 /* 歸巢：一天一次瞬間回巢穴 */
 function teleHome(){
   if(busy||S.dead||!fxAny("tele")||S.teleDay===S.day||inNest()||(S.raid&&S.raid.on)||S.war)return;

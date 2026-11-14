@@ -140,11 +140,21 @@ function contWar(){
   if(busy||!S.war)return;
   doJob({kind:"war",ctx:{stage:S.war.stage}},snap(),S.log.length);
 }
-const SAC={hp:"HP 上限 -5",maim:"留下【殘缺】"};
+const SAC={eye:"眼睛（探索時間加倍）",hand:"單手（不能用雙手武器和盾）",leg:"腿（移動時間加倍）",body:"身體（HP 上限 -20%）",mind:"心靈（MP 上限 -20%）",hp:"HP 上限 -5",maim:"留下【殘缺】"};
+/* v0.66：捨身選部位（照孤獨異世界）。眼睛、單手、腿留下【殘缺（部位）】；身體、心靈扣上限（記在 S.sacHurt，獨角獸王治得回來）。hp、maim 是舊的，舊存檔、舊測試用 */
+const SAC_PART={eye:"眼睛",hand:"單手",leg:"腿",body:"身體",mind:"心靈"};
+const SAC_NEW=["eye","hand","leg","body","mind"];
+const scarOn=k=>hasTag(`殘缺（${SAC_PART[k]}）`);
 function sacDo(v,notes){
   if(v)S.sacN=(S.sacN||0)+1;   // v0.46：捨身累計次數（收藏品結局用）
   if(v==="hp"){S.hpMax-=5;S.hp=Math.min(S.hp,S.hpMax);notes.push(`舍身：HP 上限永久 -5（${S.hpMax}）`);(S.sacHurt=S.sacHurt||[]).push({k:"hp"})}
   else if(v==="maim"){addTag("殘缺");notes.push("舍身：留下永久的【殘缺】");(S.sacHurt=S.sacHurt||[]).push({k:"maim"})}
+  else if(SAC_PART[v]){const t=`殘缺（${SAC_PART[v]}）`, h={k:v};
+    if(v==="body"){h.n=Math.max(1,Math.ceil((S.hpMax-(S.fxHp||0))*.2));S.hpMax-=h.n;S.hp=Math.min(S.hp,S.hpMax)}
+    if(v==="mind"){h.n=Math.max(1,Math.ceil((S.mpMax-(S.fxMp||0))*.2));S.mpMax-=h.n;S.mp=Math.min(S.mp,S.mpMax)}
+    addTag(t);(S.sacHurt=S.sacHurt||[]).push(h);
+    notes.push(`舍身：${SAC_PART[v]}留下永久的傷【${t}】——${{eye:"探索時間加倍",hand:"不能用雙手武器和盾",leg:"移動時間加倍",body:`HP 上限 -${h.n}（${S.hpMax}）`,mind:`MP 上限 -${h.n}（${S.mpMax}）`}[v]}`);
+    if(v==="hand"&&typeof gearSync==="function")gearSync();}
   else if(v&&v.startsWith("sk:")){const n=v.slice(3), s=S.skills.find(x=>x.n===n);S.skills=S.skills.filter(x=>x.n!==n);notes.push(`舍身：永遠失去了技能「${n}」`);if(s)(S.sacHurt=S.sacHurt||[]).push({k:"sk",sk:JSON.parse(JSON.stringify(s))})}
 }
 const sacLabel=v=>v&&v.startsWith("sk:")?`失去技能「${v.slice(3)}」`:SAC[v]||"";
