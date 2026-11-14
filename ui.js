@@ -165,10 +165,11 @@ function storyHTML(){
   const pf=!busy&&!S.err&&!S.dead&&pendingFoe();
   const idle=!busy&&!S.err&&!S.dead&&!ch&&!cs&&!pf&&!pendingSubs()&&!S.war&&!(S.evo&&S.evo.forced!=null);
   const bagFood=S.corpses.map((c,i)=>idle?(EA===i?`<button class="it food" data-ecp="${i}|private">私下吃 ${esc(c.name)}<small>+1 小時</small></button><button class="it food" data-ecp="${i}|public">當眾吃<small>${esc(witnesses(c).join("、"))}會看到</small></button>`:`<button class="it food" data-ec="${i}">吃 ${esc(c.name)}<small>${isFresh(c)?"新鮮":"不新鮮"}</small></button>`):`<span class="it food">${esc(c.name)}<small>${isFresh(c)?"新鮮":"不新鮮"}</small></span>`);
-  const bagHv=idle?escCraftBtn():[];   /* v0.68：拿掉「拆原料」，打倒就掉東西；v0.69：學會配方後可以做逃跑粉 */
+  const bagHv=[];   /* v0.68：拿掉「拆原料」；v0.71：做逃跑粉只放在「背包」頁（字太長佔空間） */
   const nm=it=>matOf(it)?`✦${esc(it)}`:esc(it), mc=it=>matOf(it)?" mat":"";
-  const bagItem=S.items.map((it,i)=>idle?`<button class="it${mc(it)}" data-bi="${i}">${BI===i?`吃掉 ${nm(it)}？${matOf(it)?"（能學技能）":""}`:nm(it)}</button>`:`<span class="it${mc(it)}">${nm(it)}</span>`);
-  const bag=`<div class="bag"><span class="k">背包</span>${bagFood.length+bagItem.length?[...bagFood,...bagHv,...bagItem].join(""):`<span class="none">空的</span>`}</div>${idle&&(S.items.length||bagHv.length)?`<div class="bagnote">金色是食材，點一下就吃；✦ 是魔法原料或魔法物品，點兩下吃掉能學技能；其他東西點兩下也能硬吞，但學不到。</div>`:""}`;
+  const cnt=it=>{const n=S.items.filter(x=>x===it).length;return n>1?` ×${n}`:""};   /* v0.71：同名的東西合成一顆（逃跑粉 ×3） */
+  const bagItem=S.items.map((it,i)=>S.items.indexOf(it)!==i?"":idle&&POTION(it)?`<button class="it${mc(it)}" data-dp="${i}">喝 ${nm(it)}${cnt(it)}</button>`:idle?`<button class="it${mc(it)}" data-bi="${i}">${BI===i?`吃掉 ${nm(it)}？${matOf(it)?"（能學技能）":""}`:nm(it)+cnt(it)}</button>`:`<span class="it${mc(it)}">${nm(it)}${cnt(it)}</span>`).filter(Boolean);
+  const bag=`<div class="bag"><span class="k">背包</span>${bagFood.length+bagItem.length?[...bagFood,...bagHv,...bagItem].join(""):`<span class="none">空的</span>`}</div>${idle&&(S.items.length||bagHv.length)?`<div class="bagnote">金色是食材，點一下就吃；藥水點一下就喝；✦ 是魔法原料或魔法物品，點兩下吃掉能學技能；其他東西點兩下也能硬吞，但學不到。</div>`:""}`;
   if(S.dead) bottom=endHTML();
   else if(ch) bottom=checkHTML(ch)+`<div class="free" style="margin-top:10px">
         <textarea id="freein" rows="2" placeholder="或改做別的事、說句話…"></textarea>
