@@ -5,10 +5,11 @@ function render(){
   const M=$("main");
   if(!S){ M.innerHTML=startHTML(); bindStart(); return; }
   gearSync();   /* v0.63：裝備欄 */
+  if(BAGOPEN){bbody.innerHTML=bagCardHTML();bsheet.classList.add("open")}   /* v0.70：故事頁的背包彈出頁跟著更新 */
   M.innerHTML=statusHTML()+tabsHTML()+`<div class="panel">${panelHTML()}</div>`;
   M.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{TAB=b.dataset.tab;render()});
   if(TAB==="story") bindStory();
-  if(TAB==="skill") bindBag();   /* v0.63 */
+  if(TAB==="skill"||(BAGOPEN&&TAB!=="story")) bindBag();   /* v0.63；v0.70 背包彈出頁 */
   if(TAB==="nest") bindNest();
   if(TAB==="map") bindMap();
   if(TAB==="record"){document.querySelectorAll("[data-kst]").forEach(b=>b.onclick=()=>kingAct("study",b.dataset.kst));const u=$("uhgo");if(u)u.onclick=()=>uniHeal(($("uhsel")||{}).value)}
@@ -22,8 +23,8 @@ function render(){
     document.querySelectorAll("[data-ab]").forEach(b=>b.onclick=()=>{if(b.dataset.ok!=="1"){b.dataset.ok="1";b.textContent="確定吸收？不能撤回，秘寶會消失";return}absorb(b.dataset.ab)})}
   if(TAB==="skill") document.querySelectorAll("[data-mg]").forEach(b=>b.onclick=()=>{const [k,i]=b.dataset.mg.split("|"),n=+i;if(MGK!==k){MGK=k;MG=[]}MG=MG.includes(n)?MG.filter(x=>x!==n):MG.length<5?[...MG,n]:MG;render()});
   if(TAB==="skill"&&$("mgdo"))$("mgdo").onclick=()=>mergeSkills();
-  if(TAB==="skill") document.querySelectorAll("[data-di]").forEach(b=>b.onclick=()=>{const i=+b.dataset.di;if(DI!==i){DI=i;render();return}DI=-1;const it=S.items[i];if(it!=null){S.items.splice(i,1);delete S.mat[it]}save();render()});
-  if(TAB==="skill") document.querySelectorAll("[data-cd]").forEach(b=>b.onclick=()=>{const i=+b.dataset.cd;if(CD!==i){CD=i;render();return}CD=-1;S.corpses.splice(i,1);save();render()});
+  if(TAB==="skill"||BAGOPEN) document.querySelectorAll("[data-di]").forEach(b=>b.onclick=()=>{const i=+b.dataset.di;if(DI!==i){DI=i;render();return}DI=-1;const it=S.items[i];if(it!=null){S.items.splice(i,1);delete S.mat[it]}save();render()});
+  if(TAB==="skill"||BAGOPEN) document.querySelectorAll("[data-cd]").forEach(b=>b.onclick=()=>{const i=+b.dataset.cd;if(CD!==i){CD=i;render();return}CD=-1;S.corpses.splice(i,1);save();render()});
   if(TAB==="skill") document.querySelectorAll("[data-ut]").forEach(b=>b.onclick=()=>{const i=+b.dataset.ut;
     if(UT!==i){UT=i;render();return} S.tags.splice(i,1);UT=-1;save();render()});
 }
@@ -123,7 +124,7 @@ function checkHTML(ch){
     ${ch.noSk?`<div class="note">亞當關掉了你的技能：這一戰只能用物品和神兵。</div>`:""}${ch.blind?`<div class="note">亞當遮住了一切：代價和技能都看不見，付了什麼下一戰才知道。</div>`:""}${ch.lvF?`<div class="note">亞當把你的等級改回了 F。</div>`:""}
     ${skBox}${comboBox(ch)}${itBox}${abBox}${doBox}${warBox}${S.bless&&S.bless.worm?`<div class="sacbox"><label><input type="checkbox" id="wormb"> 紫蟲王的加護：你勾的第一項代價由他替你付（算數，但你不用付；只有一次）</label></div>`:""}
     ${ci.lvDiff>=2&&!war&&!raid?`<div class="note" style="color:var(--bad)">對手比你高 ${ci.lvDiff} 級：看起來打不贏。</div>`:""}
-    <button class="paybtn" id="paybtn">付出 0 項：${tierOf(0,ci)}</button>${escOk(ch)?`<button class="tl" id="escbtn" style="margin-top:6px">逃跑粉 ×${escN()}</button>`:""}
+    <button class="paybtn" id="paybtn">付出 0 項：${tierOf(0,ci)}</button>${escOk(ch)?`<button class="tl" id="escbtn" style="margin-top:6px">逃跑粉 ×${escN()}</button>`:""}${ch.hunt?`<button class="tl" id="letgo" style="margin-top:6px">放過牠</button>`:""}
   </div>`;
 }
 const effOf=c=>{const x=[];if(c.ally)x.push(`${c.ally}【負傷】`);if(c.hp)x.push(`HP ${c.hp}${c.arm?`（裝備擋掉 ${-c.arm}）`:""}`);if(c.mp)x.push(`MP ${c.mp}`);if(c.time)x.push(`+${c.time} 小時`);if(c.tag)x.push(`【${c.tag}】`);if(c.item)x.push(`失去 ${c.item}`);
@@ -199,7 +200,8 @@ function storyHTML(){
       ${S.evo.cands.map((f,i)=>`<div class="foe"><div><b>${esc(f.name)}</b><span>${esc(f.kind)}・${f.lv}級・${esc(f.where)}</span><div class="d">${esc(f.note)}${f.weak?`<br><b>弱點：</b>${esc(f.weak)}（多一層優勢）`:""}</div></div>${!f.weak&&S.party.some(allyElig)?`<button class="tl" data-wk="${i}"${allyUses()>=2?" disabled":""}>請同伴看弱點</button>`:""}<button class="tl" data-war="${i}">挑戰</button></div>`).join("")}</div>`:"";
     bottom=`${evoCard}${opts}
       ${S.stage==="幼體"?`<div class="note" style="margin:6px 0">你還是幼體：身體太弱，只能待在洞裡找吃的。現在出巢穴，會被疤臉或別的什麼打死。長成成體（連著吃到新鮮的肉、過幾天）才能出去。幼體沒有武器的時候，一打一連同級的對手也吃虧，要靠同伴或武器。</div>`:""}
-      <div class="menu">${menu}</div>
+      <div class="narr">敘述：${NARR_OPTS.map(([k,t])=>`<button class="tl${NARR===k?" on":""}" data-nr="${k}">${t}</button>`).join("")}</div>
+      <div class="menu">${menu}<button class="mb" id="bagbtn">背包</button></div>
       ${TRAVEL?`<div class="exits"><div class="k">從${esc(S.at)}可以去：</div>${exitsOf(S.at).map(([n,h])=>`<button class="tl" data-go="${esc(n)}">${S.world[n].kind==="地區"?"":"📍"}${esc(n)}・${h}h</button>`).join("")}${hiddenOf(S.at).length?`<div class="note">這裡還有 ${hiddenOf(S.at).length} 個方向沒探索過。</div>`:""}</div>`:""}
       <div class="free">
         <textarea id="freein" rows="2" placeholder="或寫下你想做的事…（開頭打 ooc 可以問系統問題）"></textarea>
@@ -223,6 +225,9 @@ function bindStory(){
   const on=(id,f)=>{const b=$(id);if(b)b.onclick=f};
   document.querySelectorAll("[data-o]").forEach(b=>b.onclick=()=>act(S.opts[+b.dataset.o]));
   document.querySelectorAll("[data-mn]").forEach(b=>b.onclick=()=>doMenu(b.dataset.mn));
+  document.querySelectorAll("[data-nr]").forEach(b=>b.onclick=()=>{NARR=b.dataset.nr;ls.s("mowu_narr",NARR);render()});   /* v0.70：敘述完整／精簡／不用 */
+  {const bb=$("bagbtn");if(bb)bb.onclick=bagOpen;}
+  {const lv=$("letgo");if(lv)lv.onclick=letGo;}
   document.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>doMenu("travel",b.dataset.go));
   document.querySelectorAll("[data-ec]").forEach(b=>b.onclick=()=>{const i=+b.dataset.ec, c=S.corpses[i];
     if(c&&isHumanoid(c)&&witnesses(c).length){EA=EA===i?-1:i;render();return} eatCorpse(i)});
@@ -303,8 +308,7 @@ function skillHTML(){
     <div class="card"><h3>狀態</h3>${S.tags.length?`<div class="tags">${S.tags.map((t,i)=>/幼體|飢餓|瀕死/.test(t)?`<span class="tag">${esc(t)}</span>`:`<button class="tag ut" data-ut="${i}">${esc(t)}${UT===i?"　再點一次拿掉":"　×"}</button>`).join("")}</div>`:`<div class="empty">沒有。</div>`}
       <div class="note" style="margin-top:6px">狀態在故事裡解決了就會自動拿掉；程序沒拿掉的，可以點兩下手動拿掉。</div>
       <div class="note" style="margin-top:8px">${hasTag("飢餓")?"正餓著。":`飽足還能撐 ${S.full} 小時。`}${S.stage}餓著的時候，每 ${hungerOf().every} 小時 HP -1。</div></div>
-    ${gearHTML()}<div class="card"><h3>背包</h3>${S.corpses.length+S.items.length?`${S.corpses.map((c,i)=>`<div class="crow">🍖 ${esc(c.name)}（${c.lv}級・${c.harvested?"原料已拆・":""}${isFresh(c)?`新鮮，還有 ${24-ageOf(c)} 小時`:`不新鮮了，${Math.max(0,72-ageOf(c))} 小時後爛掉`}）${c.evo?"":`<button class="tl" data-cd="${i}">${CD===i?"確定拿掉？":"已經給人／丟掉"}</button>`}</div>`).join("")}${S.items.map((it,i)=>{const m=matOf(it);return `<div class="crow">${m?`✦ ${esc(it)}（${m.skill?`魔法物品，附帶「${esc(m.skill.n)}」`:m.fx?`魔法物品，${esc(fxDesc(m.fx))}`:m.unique?"種族神兵":"魔法原料"}・${m.lv}級）`:esc(it)}${gearBtn(it,i)}${POTION(it)?`<button class="tl" data-dp="${i}">喝掉</button>${S.npcs.map((x,n)=>({x,n})).filter(o=>o.x.where===S.at&&!S.party.some(p=>p.n===o.x.n)&&relOf(o.x)<2).map(o=>`<button class="tl" data-pn="${i}|${o.n}">給 ${esc(o.x.n)}</button>`).join("")}${POTION(it)!=="藍"?S.party.filter(p=>p.tags.includes("負傷")||p.tags.includes("重傷")).map(p=>`<button class="tl" data-pa="${i}|${S.party.indexOf(p)}">給 ${esc(p.n)}</button>`).join(""):""}`:""}<button class="tl" data-di="${i}">${DI===i?"確定拿掉？":"已經給人／丟掉"}</button></div>`}).join("")}`:`<div class="empty">什麼都沒有。</div>`}
-      ${escCraftBtn().join("")}${forgeHTML()}<div class="note" style="margin-top:6px">🍖 是食材：新鮮的吃了能學技能。✦ 是魔法原料或魔法物品：不會壞，吃了能學技能；魔法物品帶在身上時，它的技能可以在判定時拿來用。打倒對手就會掉魔法原料、白字裝備或藥，屍體照樣能吃。其他物品吃了只是硬吞。</div></div>
+    ${bagCardHTML()}
     <div class="note">用技能：判定卡上選一個技能來用，攻擊、輔助、強化都一樣，用了就多一層優勢（少付一項）。一次一個，沒有組合技，不花 MP。<br>技能沒有 Lv，只有等級字母（學到時你的等級）。可用的位置滿了，新技能自動放進倉庫；已經會的技能不會再出現在吸收選單裡。只有新鮮的東西（死去 24 小時內的屍體、活捉的小生物、蛋、新鮮植物）能學到技能。同級保底 1 個，每高一級多 1 個，大成功再 +1。</div>
     <div class="note" style="margin-top:6px">恢復：醒著沒餓，每 3 小時 HP +1（有「再生」就 +再生等級）、MP +1。夜裡睡到天亮：沒餓 HP 回一半、MP 回滿，疲勞和小傷一起消掉；餓著 HP 不回、MP 回一半。白天小睡 3 小時：HP、MP 各回四分之一，消掉【疲憊】。吃東西 HP +1~2。</div>
     ${S.sub?`<div class="card" style="margin-top:12px"><h3>種族：${esc(S.sub.name)}</h3><div>${esc(S.sub.essence)}</div><div class="note">${esc(S.sub.look||"")}</div></div>`:""}`;
@@ -469,7 +473,7 @@ const GUIDE=[
  ["你是誰、一開始怎麼辦",`你是一隻轉生成哥布林的幼體，會〈吞噬〉：吃下<b>新鮮</b>的肉或死去一天內的屍體，就能從中學到技能。<br>幼體身體太弱，<b>只能待在洞裡</b>找吃的；現在出巢穴會被疤臉或別的什麼打死。連著吃到新鮮的肉、過幾天就會長成成體，之後才能出去狩獵、探索、採集。<br>幼體沒武器時，一打一連同級的對手也吃虧——要靠同伴或武器。`],
  ["每回合怎麼玩",`點選項、或在下面打字說你要做什麼。遇到危險會出<b>判定卡</b>：<br>・優勢（用技能、魔法武器、有同伴幫忙、對方弱點）越多，越不用付代價；劣勢（對方更強、空手、受傷）越多，要付越多。<br>・代價是自己選的：HP、MP、時間、物品…付夠了就成功，多付一項就是大成功。<br>・同伴的優勢最多算 1 條。技能和魔法物品附帶技能<b>一天各用一次</b>，午夜恢復。`],
  ["吃、技能、整合",`吃下新鮮屍體會列出幾個可能學到的技能，自己挑一個（也可以給同伴）。<br>技能只有等級字母（F～S），分<b>可用</b>和<b>倉庫</b>（F 級可用 6、倉庫 15）。<br>倉庫快滿時：5 個<b>同大類同等級</b>（戰鬥／機動／生存）的技能可以<b>整合</b>成 1 個高一級的，花 4 小時；也可以放棄。<br>技能不會自己跟著升級，只有整合能越級。`],
- ["物品、武器、藥水",`打倒對手就會掉東西：魔法原料（認得出是哪隻的）、白字裝備或藥（成功 1 件、大成功 2 件），屍體照樣能吃；白字武器防具（帽子、鞋子、項鍊、戒指也行）＋魔法原料可以在背包<b>鍛造</b>成魔法物品（有工匠比較快），<b>附帶技能或效果二選一</b>：效果照原料那隻魔物抽（屬性紋、避某屬性、剋某類、擋災、一閃、餘震、生息、厚命、輕身、浮空、歸巢、尋路……），鍛造前就看得到，穿著才生效，物品等級比對手低時戰鬥效果不生效。<br>魔法物品等級低於對手：自己選了用照樣有效，打完會壞、不能修。白字武器防具也能「用掉一件」換一層優勢。<br><b>捨身</b>（進化戰、討伐戰、八王戰）：選一個部位留下永久的傷——眼睛（探索時間加倍）、單手（不能用雙手武器和盾）、腿（移動時間加倍）、身體（HP 上限 -20%）、心靈（MP 上限 -20%），或失去一個技能。獨角獸王的加護可以治好一處。<br><b>相剋</b>：水剋火、火剋木、木剋土、土剋風、風剋水，光暗互剋。用的技能是剋對手屬性的系別、或穿著剋它的「紋」，多一層優勢。判定卡會寫對手的屬性和特性（敏捷、飛行、硬甲……），特性影響優劣勢。<br><b>裝備欄</b>（技能頁）：頭、項鍊、戒指、武器、副手、衣服、鞋子。拿到時欄位空著自動穿上，背包按「穿上」換。盾、衣服各減傷 20%、頭 10%；逃跑時鞋子、盾各多一層；種族神兵要穿上才生效；盾只能配單手近戰武器。<br>紅藥水回 HP、藍藥水回 MP、紫藥水兩者、草藥膏回 HP 25%；也能餵給受傷的同伴，或給 NPC／想收服的魔物增加好感。`],
+ ["物品、武器、藥水",`打倒對手就會掉東西：魔法原料（認得出是哪隻的）、白字裝備或藥（成功 1 件、大成功 2 件），屍體照樣能吃；白字武器防具（帽子、鞋子、項鍊、戒指也行）＋魔法原料可以在背包<b>鍛造</b>成魔法物品（有工匠比較快），<b>附帶技能或效果二選一</b>：效果照原料那隻魔物抽（屬性紋、避某屬性、剋某類、擋災、一閃、餘震、生息、厚命、輕身、浮空、歸巢、尋路……），鍛造前就看得到，穿著才生效，物品等級比對手低時戰鬥效果不生效。<br>魔法物品等級低於對手：自己選了用照樣有效，打完會壞、不能修。白字武器防具也能「用掉一件」換一層優勢。<br><b>敘述：完整／精簡／不用</b>（故事頁選單上面）：精簡（預設）時，移動、回巢穴、採集、探索、狩獵由程式直接結算，AI 只補一兩句；不用＝只有程式的一行，下次叫 AI 時它會帶過；完整＝每一步都讓 AI 寫。判定結果、自己打字、關鍵戰一律完整。狩獵會直接出判定卡，不想打可以按「放過牠」。選單的<b>背包</b>可以直接換裝備、喝藥、鍛造。<br><b>捨身</b>（進化戰、討伐戰、八王戰）：選一個部位留下永久的傷——眼睛（探索時間加倍）、單手（不能用雙手武器和盾）、腿（移動時間加倍）、身體（HP 上限 -20%）、心靈（MP 上限 -20%），或失去一個技能。獨角獸王的加護可以治好一處。<br><b>相剋</b>：水剋火、火剋木、木剋土、土剋風、風剋水，光暗互剋。用的技能是剋對手屬性的系別、或穿著剋它的「紋」，多一層優勢。判定卡會寫對手的屬性和特性（敏捷、飛行、硬甲……），特性影響優劣勢。<br><b>裝備欄</b>（技能頁）：頭、項鍊、戒指、武器、副手、衣服、鞋子。拿到時欄位空著自動穿上，背包按「穿上」換。盾、衣服各減傷 20%、頭 10%；逃跑時鞋子、盾各多一層；種族神兵要穿上才生效；盾只能配單手近戰武器。<br>紅藥水回 HP、藍藥水回 MP、紫藥水兩者、草藥膏回 HP 25%；也能餵給受傷的同伴，或給 NPC／想收服的魔物增加好感。`],
  ["同伴",`對你有「追隨」的角色會成為同伴，最多兩名同行。<b>同伴不再算優勢，改成在場減傷。同伴空手會讓判定多一項劣勢</b>，把武器交給他（隊伍頁）。留在巢穴的同伴可以派工。<br>同伴也有技能（F～A 字母，最多 5 個）；在隊伍頁可以讓他忘掉一個。<br><b>同伴成長</b>：留在巢穴打獵每天 +1、跟你出門協助一次 +2，存在值滿 20 就能進化（取名、選職業：戰士、斥候、法師、祭司、工匠），進化後歸零。同伴最高等級是你的等級 −1；等級夠的同伴在場，你受到的傷害永久 −1（兩個 −2）；太弱的上不了戰場。職業能力一天全隊 2 次：戰士替你擋代價、法師增傷、祭司治療。`],
  ["巢穴",`存糧要夠：每天吃「人口格數」份，吃光人口會掉。當上巢穴之主後巢穴有等級（E 起），把用不到的東西<b>捐給巢穴</b>換物資點數，點數夠了升級；每次升級都會引來一次討伐，並從 3 個隨機設施裡選 1 個（農田、獵場、鍛冶台、宿舍、陷阱、治療所）。<br>設施要有人手；對口的同伴留在巢穴就會自動去顧，但顧設施的同伴不能同行。`],
  ["注目度與討伐",`殺人類、當眾吃人、抓人、進化、巢穴變大，都會讓人類注意到你：風聲 → 偵察 → 討伐隊 → 討伐軍。派一個同伴<b>巡邏</b>，就會提早知道他們什麼時候來、來多少。<br>討伐戰在巢穴迎戰，守不住巢穴就完了（可以撤回）。搬家可以讓討伐撲空，但新巢穴從 F 級重來。`],
@@ -487,3 +491,7 @@ function guideHTML(){return GUIDE.map(([h,b])=>`<h4 style="margin:12px 0 4px">${
 function openGuide(){gbody.innerHTML=guideHTML();gsheet.classList.add("open");if(typeof sheetHist==="function")sheetHist()}
 function closeGuide(pop){const was=gsheet.classList.contains("open");gsheet.classList.remove("open");ls.s("guide_seen","1");if(was&&pop!==true&&typeof dropHist==="function")dropHist()}   /* v0.67：pop＝按了返回鍵，不用再退一步 */
 help.onclick=openGuide; gdone.onclick=()=>closeGuide(); gx0.onclick=()=>closeGuide(); gsheet.onclick=e=>{if(e.target===gsheet)closeGuide()};
+
+/* v0.70：背包卡（技能頁和故事頁的「背包」彈出頁共用） */
+function bagCardHTML(){return `${gearHTML()}<div class="card"><h3>背包</h3>${S.corpses.length+S.items.length?`${S.corpses.map((c,i)=>`<div class="crow">🍖 ${esc(c.name)}（${c.lv}級・${c.harvested?"原料已拆・":""}${isFresh(c)?`新鮮，還有 ${24-ageOf(c)} 小時`:`不新鮮了，${Math.max(0,72-ageOf(c))} 小時後爛掉`}）${c.evo?"":`<button class="tl" data-cd="${i}">${CD===i?"確定拿掉？":"已經給人／丟掉"}</button>`}</div>`).join("")}${S.items.map((it,i)=>{const m=matOf(it);return `<div class="crow">${m?`✦ ${esc(it)}（${m.skill?`魔法物品，附帶「${esc(m.skill.n)}」`:m.fx?`魔法物品，${esc(fxDesc(m.fx))}`:m.unique?"種族神兵":"魔法原料"}・${m.lv}級）`:esc(it)}${gearBtn(it,i)}${POTION(it)?`<button class="tl" data-dp="${i}">喝掉</button>${S.npcs.map((x,n)=>({x,n})).filter(o=>o.x.where===S.at&&!S.party.some(p=>p.n===o.x.n)&&relOf(o.x)<2).map(o=>`<button class="tl" data-pn="${i}|${o.n}">給 ${esc(o.x.n)}</button>`).join("")}${POTION(it)!=="藍"?S.party.filter(p=>p.tags.includes("負傷")||p.tags.includes("重傷")).map(p=>`<button class="tl" data-pa="${i}|${S.party.indexOf(p)}">給 ${esc(p.n)}</button>`).join(""):""}`:""}<button class="tl" data-di="${i}">${DI===i?"確定拿掉？":"已經給人／丟掉"}</button></div>`}).join("")}`:`<div class="empty">什麼都沒有。</div>`}
+      ${escCraftBtn().join("")}${forgeHTML()}<div class="note" style="margin-top:6px">🍖 是食材：新鮮的吃了能學技能。✦ 是魔法原料或魔法物品：不會壞，吃了能學技能；魔法物品帶在身上時，它的技能可以在判定時拿來用。打倒對手就會掉魔法原料、白字裝備或藥，屍體照樣能吃。其他物品吃了只是硬吞。</div></div>`}

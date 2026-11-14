@@ -289,3 +289,42 @@ function escCraft(){
   S.items.push(ESC); notes.push(`你把${p.plant.n}和${p.bone.n}搗碎、拌在一起，做出一包逃跑粉（現在 ${escN()} 包）。`);
   advanceTime(1,notes); S.log.push(sysEntry(notes.join("\n"))); save(); render();
 }
+
+/* ═════════ 敘述模式、程式直接結算的選單、背包彈出頁（v0.70）═════════
+   用戶 11-14 20:52～21:22：做一些按鈕節省 AI 時間。敘述切換：完整／精簡（預設）／不用，每台裝置記自己的（localStorage mowu_narr）。
+   移動、回巢穴、採集、搜刮、探索（找到據點、找到新地方而且沒危險）、狩獵遭遇：程式直接結算（menuSeed 的 quick）。
+   精簡＝再請 AI 用很短的提示補一兩句；不用＝只有程式的一行，記在 S.pendNarr，下次叫 AI 時一起交給它帶過。
+   狩獵：程式直接出判定卡；付完代價，結果照舊完整交給 AI。判定、自己打字、選項、關鍵戰一律完整。 */
+let NARR=ls.g("mowu_narr")||"brief";
+const NARR_OPTS=[["full","完整"],["brief","精簡"],["none","不用"]];
+const BRIEF_SYS=`你是一個哥布林轉生故事的敘事者。用繁體中文、第二人稱「你」、白話短句，寫 1～2 句（60 字以內），只描寫畫面和感覺。不要新增事件、人物、對話，不要寫戰鬥結果，不要寫選項。嚴格禁止武俠、修仙詞彙。只輸出 JSON：{"narration":"…"}`;
+function briefMsgs(q){
+  return [{role:"system",content:BRIEF_SYS},{role:"user",content:`主角：${S.name}，${S.sub?S.sub.name:"哥布林"}（${S.stage}・${S.lv}級）。時間：${timeStr()}（${PERIOD(S.hour)}）。同行：${S.party.filter(p=>p.with).map(p=>p.n).join("、")||"沒有"}。\n要寫的事（程式已經決定，照這個寫，不要改結果）：${q.text}${q.check?"\n停在要不要動手的那一刻。":""}`}];
+}
+async function quickRun(q){
+  const o={narration:q.text,options:[],loc:q.loc||null,time:0,check:q.check?JSON.parse(JSON.stringify(q.check)):null};
+  let used="程式";
+  if(q.brief){try{const r=await callModel(briefMsgs(q),400,validateTurn,showLive);const t=String(r.val.narration||"").trim();if(t){o.narration=t;used=r.used}}catch(e){}}
+  return {val:o,txt:JSON.stringify(o),used,fellBack:[],loose:false};
+}
+/* 狩獵：程式直接出判定卡 */
+const TAG_RE=[["飛行",/鳥|鴉|鷹|蝠|雀|蜂|蛾|飛/],["硬甲",/蟹|殼|甲蟲|龜|岩|石像|魔像/],["敏捷",/兔|狐|豹|貓|鼠|猴|蜥/],["巨大",/熊|巨|象|牛|龍|食人魔/],
+  ["構裝",/魔像|石像|機關/],["不呼吸",/骷髏|殭屍|幽靈|魔像|石像/],["無眼",/蚯蚓|蛆|盲/]];
+const tagsOfName=(n,many)=>[...TAG_RE.filter(([,re])=>re.test(n||"")).map(([t])=>t),...(many?["群體"]:[])].slice(0,3);
+function huntQuick(sp,grp,lv,cls,where,terr,actv,many){
+  const d=dmgOf(lv), them=/群|兩隻/.test(grp||"")?"牠們":"牠";
+  const adv=/睡覺|進食|受了傷|舔傷口/.test(actv)?[`${them}${actv}，沒注意到你`]:[];
+  const costs=[{t:`挨了${sp}一下`,hp:-d},...[{t:"被抓出傷口",tag:"流血"},{t:"追了很久才得手",time:1},{t:"拚到喘不過氣",mp:-2},{t:`${sp}的反撲`,hp:-Math.max(1,Math.ceil(d/2))}].sort(()=>Math.random()-0.5).slice(0,2)];
+  return {hunt:1,loc:where,text:`在${where}的${terr}，你發現了${grpW(grp)}${sp}（${lv}級），${them}${actv}。${cls?`牠是帶職業的${cls}，比一般的難纏。`:""}`,
+    check:{what:`獵殺${sp}`,foe:sp,foeLv:lv,foeEl:elOfName(sp),foeTags:tagsOfName(sp,many),group:many?rint(2,4):1,adv,dis:[],costs}};
+}
+/* 放過牠：程式直接退開，不叫 AI */
+function letGo(){
+  const e=S.log[S.log.length-1], ch=e&&e.alts&&e.alts[e.i]&&e.alts[e.i].check; if(busy||S.dead||!ch||!ch.hunt)return;
+  const pre=snap(); S.log.push({who:"you",text:"放過牠",pre}); S.log.push(sysEntry(`你沒有對${ch.foe}出手，悄悄退開了。`)); S.opts=[]; S.fightDelay=null; save(); render();
+}
+/* 背包彈出頁（故事頁選單的「背包」） */
+let BAGOPEN=false;
+function bagOpen(){BAGOPEN=true;render();if(typeof sheetHist==="function")sheetHist()}
+function bagClose(pop){if(!BAGOPEN)return;BAGOPEN=false;bsheet.classList.remove("open");if(pop!==true&&typeof dropHist==="function")dropHist();render()}
+bx0.onclick=()=>bagClose(); bdone.onclick=()=>bagClose(); bsheet.onclick=e=>{if(e.target===bsheet)bagClose()};

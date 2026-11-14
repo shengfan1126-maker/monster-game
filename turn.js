@@ -78,11 +78,13 @@ function baseAlt(o,res){
 }
 async function runJob(job,ctx){
   if(job.kind==="turn"){
-    const res=await callModel(buildMessages(`【玩家這回合】（現在 ${timeStr()}，${PERIOD(S.hour)}）\n${job.prompt}`,ctx),3000,validateTurn,showLive);
+    if(!job.quick&&job.pend==null)job.pend=(S.pendNarr||[]).slice();   /* v0.70：「不用」模式記下的事，這次一起交給模型 */
+    const res=job.quick?await quickRun(job.quick):await callModel(buildMessages(`【玩家這回合】（現在 ${timeStr()}，${PERIOD(S.hour)}）\n${job.pend&&job.pend.length?`【上次叫你之後，程式直接處理了這些（玩家選了不用敘述）：${job.pend.join("／")}。這回合開頭用一兩句自然帶過，不要重演】\n`:""}${job.prompt}`,ctx),3000,validateTurn,showLive);
     const o=res.val, a=baseAlt(o,res);
     const t=parseInt(o.time,10); a.time=isNaN(t)?0:Math.max(0,Math.min(3,t));
     a.ate=normAte(o.ate);
     a.check=job.noCheck?null:normCheck(o.check);   /* v0.69：逃跑粉脫身，這回合不准再出判定 */
+    if(a.check&&job.quick&&job.quick.hunt)a.check.hunt=1;   /* v0.70：程式出的狩獵判定，可以「放過牠」 */
     if(job.noCheck&&!a.opts.length)a.opts=["回巢穴","找個地方喘口氣","四處看看"];
     if(a.check)setMulti(a.check);
     getGains(o,a);
@@ -423,6 +425,7 @@ async function doJob(job,pre,ctxEnd){
     if(S!==mine)return;
     const e={who:"gm",kind:job.kind,job,pre,alts:[alt],i:0};
     S.log.push(e); applyAlt(e);
+    if(job.kind==="turn"){if(job.quick&&!job.quick.brief)(S.pendNarr=S.pendNarr||[]).push(job.quick.text.slice(0,60));else if(!job.quick&&job.pend&&job.pend.length)S.pendNarr=[]}   /* v0.70 */
     if(alt.ate&&alt.ate.length){busy=false;save();await autoEat(alt.ate);return}
   }catch(err){
     if(S!==mine)return;

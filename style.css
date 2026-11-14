@@ -205,3 +205,7 @@ button.tag.ut{cursor:pointer;font:inherit}
 footer{margin-top:26px;font-size:11px;color:var(--mute);text-align:center;line-height:1.7}
 
 .tobot{bottom:calc(70px + env(safe-area-inset-bottom))}
+
+/* v0.70：敘述切換 */
+.narr{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--mute);margin:8px 0 4px}
+.narr .tl.on{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}

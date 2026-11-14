@@ -197,7 +197,7 @@ function dropHist(){try{if(SH_PUSH){SH_PUSH=false;history.back()}}catch(e){}}
 gear.onclick=()=>{modeUI();provUI();snoteSet("");sheet.classList.add("open");sheetHist()};
 function closeSheet(pop){disarmNewg();keySave("or_key",key);keySave("gm_key",gkey);ls.s("or_model",model.value.trim());sheet.classList.remove("open");if(pop!==true)dropHist();if(!S)render()}
 done.onclick=closeSheet; sx0.onclick=closeSheet;
-window.addEventListener("popstate",()=>{SH_PUSH=false;if(sheet.classList.contains("open"))closeSheet(true);if(gsheet.classList.contains("open"))closeGuide(true)});
+window.addEventListener("popstate",()=>{SH_PUSH=false;if(sheet.classList.contains("open"))closeSheet(true);if(gsheet.classList.contains("open"))closeGuide(true);if(BAGOPEN)bagClose(true)});
 sheet.onclick=e=>{if(e.target===sheet)closeSheet()};
 pick.onclick=async()=>{
   pick.disabled=true;pick.textContent="查詢中…";

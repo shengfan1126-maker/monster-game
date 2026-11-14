@@ -41,7 +41,8 @@ function menuSeed(k,arg){
   if(k==="hunt"){
     const {sp,grp,lv,cls}=pickPrey(reg), many=/群|兩|一隊|一群|幾/.test(grp||"");
     const spot=S.at&&S.world[S.at]&&S.world[S.at].kind!=="地區"?S.at:null, where=spot||reg.n;
-    return {label:`在${where}狩獵`,prompt:`【這段要發生的事（程序抽到的，照這個寫）】你在${where}${spot?"附近":"一帶"}狩獵${spot?`（這裡屬於${reg.n}，就在這個地點附近，不要跑到別的地方）`:""}。在${spot?`${spot}附近的`:""}${rnd(reg.terr)}，你發現了${grpW(grp)}${sp}（${lv}級），${/群|兩隻/.test(grp)?"牠們":"牠"}${rnd(ACTIVITY)}。${cls?`牠是帶職業的${cls}，是個小頭目，比一般的${sp.replace(cls,"")}難纏（${CLASSES[cls].act}）。`:""}寫出發現牠的過程，停在要不要動手的那一刻。玩家選擇動手、或牠先撲上來時，給 check（foe 填「${sp}」，foeLv 填「${lv}」${many?"，group 填牠們的數量":""}）。loc 填「${where}」開頭的地名。`};
+    const terr=rnd(reg.terr), actv=rnd(ACTIVITY);
+    return {quick:huntQuick(sp,grp,lv,cls,where,terr,actv,many),label:`在${where}狩獵`,prompt:`【這段要發生的事（程序抽到的，照這個寫）】你在${where}${spot?"附近":"一帶"}狩獵${spot?`（這裡屬於${reg.n}，就在這個地點附近，不要跑到別的地方）`:""}。在${spot?`${spot}附近的`:""}${terr}，你發現了${grpW(grp)}${sp}（${lv}級），${/群|兩隻/.test(grp)?"牠們":"牠"}${actv}。${cls?`牠是帶職業的${cls}，是個小頭目，比一般的${sp.replace(cls,"")}難纏（${CLASSES[cls].act}）。`:""}寫出發現牠的過程，停在要不要動手的那一刻。玩家選擇動手、或牠先撲上來時，給 check（foe 填「${sp}」，foeLv 填「${lv}」${many?"，group 填牠們的數量":""}）。loc 填「${where}」開頭的地名。`};
   }
   if(k==="explore"){
     const cl=clueSeed(); if(cl)return cl;                                    // v0.53：精靈王、金龍王的線索
@@ -50,36 +51,36 @@ function menuSeed(k,arg){
     if(rg0&&S.sites){S.expl[rg0]=(S.expl[rg0]||0)+(fxAny("path")?2:1);   /* v0.64：尋路 */
       const sd=S.sites.find(x=>!x.found&&x.region===rg0&&S.expl[rg0]>=x.need);
       if(sd){sd.found=true;const nd=S.world[sd.n],h=rint(1,3);nd.links[from]=h;S.world[from].links[sd.n]=h;
-        return {label:`探索：${from}附近`,prompt:`【這段要發生的事（程序抽到的，照這個寫）】你在${rg0}一帶探索了很久，終於找到了${nd.dun?"":"黑顎提過、但"}誰也沒去過的地方：${sd.n}（${nd.kind}）。${nd.note?`那裡的情況：${nd.note}`:""}寫出第一次遠遠看到它的樣子（不要寫進去，也不要寫戰鬥；裡面的人怎麼看你，等玩家靠近再說）。loc 填「${sd.n}」。`,hours:Math.max(2,h),node:sd.n,from,reveal:true}}}
+        return {quick:{text:`你在${rg0}一帶探索了很久，終於找到了誰也沒去過的地方：${sd.n}（${nd.kind}）。${nd.note||""}`,loc:sd.n},label:`探索：${from}附近`,prompt:`【這段要發生的事（程序抽到的，照這個寫）】你在${rg0}一帶探索了很久，終於找到了${nd.dun?"":"黑顎提過、但"}誰也沒去過的地方：${sd.n}（${nd.kind}）。${nd.note?`那裡的情況：${nd.note}`:""}寫出第一次遠遠看到它的樣子（不要寫進去，也不要寫戰鬥；裡面的人怎麼看你，等玩家靠近再說）。loc 填「${sd.n}」。`,hours:Math.max(2,h),node:sd.n,from,reveal:true}}}
     if(hid.length&&Math.random()<0.65){
       const to=rnd(hid), nd=S.world[to], h=nd.links[from]||2, rg=REGIONS.find(r=>r.n===nd.region)||reg;
       const good=Math.random()<0.6, what=good?rnd(rg.find):rnd(rg.danger);
-      return {label:`探索：${from}附近`,prompt:`【這段要發生的事（程序抽到的，照這個寫）】你從${from}出發探索，走了 ${h} 個小時，找到了一個新地方：${to}（${nd.kind}）。${nd.note?`那裡的情況：${nd.note}`:""}${good?`路上還發現了：${what}。`:`路上遇到危險：${what}，停在玩家要怎麼應對的那一刻。`}寫出第一次看到${to}的樣子。loc 填「${to}」。`,hours:Math.max(2,h),node:to,from,reveal:true};
+      return {quick:good?{text:`你從${from}出發探索，走了 ${h} 個小時，找到了一個新地方：${to}（${nd.kind}）。路上還發現了：${what}。`,loc:to}:null,label:`探索：${from}附近`,prompt:`【這段要發生的事（程序抽到的，照這個寫）】你從${from}出發探索，走了 ${h} 個小時，找到了一個新地方：${to}（${nd.kind}）。${nd.note?`那裡的情況：${nd.note}`:""}${good?`路上還發現了：${what}。`:`路上遇到危險：${what}，停在玩家要怎麼應對的那一刻。`}寫出第一次看到${to}的樣子。loc 填「${to}」。`,hours:Math.max(2,h),node:to,from,reveal:true};
     }
     const good=Math.random()<0.6, what=good?rnd(reg.find):rnd(reg.danger);
     return {label:`探索：${from}附近`,prompt:`【這段要發生的事（程序抽到的，照這個寫）】你在${from}附近探索，找到一個還沒有記錄的地方。自己想一個符合${reg.n}這一帶的地方：可以冒險的地點（洞穴、遺跡、廢墟、怪物的巢）、特別的地形（瀑布、溫泉、斷崖、古樹、裂谷）或一個小聚落。${good?`那裡有：${what}。`:`那裡有危險：${what}，停在玩家要怎麼應對的那一刻。`}一定要填 place_new：{"name":"地名","kind":"冒險地點／地形／聚落","note":"一句話說明"}，loc 填那個地名。`,hours:3,explore:true,from};
   }
   if(k==="travel"){
     const h=travelH((S.world[S.at].links[arg])||pathHours(S.at,arg)||2), nd=S.world[arg]||{kind:"",note:""};   /* v0.64：輕身 */
-    return {label:`前往${arg}`,prompt:`【這段要發生的事（程序抽到的，照這個寫）】你從${S.at}走到${arg}（${nd.kind}），路上花了 ${h} 個小時。${nd.note?`那裡的情況：${nd.note}`:""}寫出路上和抵達時看到的樣子，不要安排戰鬥。loc 填「${arg}」。`,hours:h,node:arg,from:S.at};
+    return {quick:{text:`你從${S.at}走到${arg}${nd.kind&&nd.kind!=="地區"?`（${nd.kind}）`:""}，路上花了 ${h} 個小時。${nd.note||""}`,loc:arg},label:`前往${arg}`,prompt:`【這段要發生的事（程序抽到的，照這個寫）】你從${S.at}走到${arg}（${nd.kind}），路上花了 ${h} 個小時。${nd.note?`那裡的情況：${nd.note}`:""}寫出路上和抵達時看到的樣子，不要安排戰鬥。loc 填「${arg}」。`,hours:h,node:arg,from:S.at};
   }
   if(k==="forage"){
     const items=[rnd(FORAGE)]; if(Math.random()<0.5)items.push(rnd(FORAGE));
     let give={items:[...new Set(items)]}, extra="";
     if(Math.random()<0.3){const {sp}=pickPrey({F:reg.F.length?reg.F:[["雪雀",""]]});give.corpse={name:`凍死的${sp}`,sp,lv:"F",found:true};extra=`，還有一隻剛凍死的${sp}`}
     const spot2=S.at&&S.world[S.at]&&S.world[S.at].kind!=="地區"?S.at:reg.n;
-    return {label:`在${spot2}採集`,prompt:`【這段要發生的事（程序抽到的，照這個寫）】你在${spot2}附近採集。你找到了：${give.items.join("、")}${extra}（程序已經放進你的背包，不要再填 found）。寫出採集的過程，可以順帶一點這一帶的動靜。`,give};
+    return {quick:{text:`你在${spot2}附近採集，找到了：${give.items.join("、")}${extra}。`},label:`在${spot2}採集`,prompt:`【這段要發生的事（程序抽到的，照這個寫）】你在${spot2}附近採集。你找到了：${give.items.join("、")}${extra}（程序已經放進你的背包，不要再填 found）。寫出採集的過程，可以順帶一點這一帶的動靜。`,give};
   }
   if(k==="scav"){
     const give={items:[]}; let what=rnd(SCAV);
     if(Math.random()<0.35){give.corpse={name:"剛死的老鼠",sp:"老鼠",lv:"F"};what="一隻剛死的老鼠"}
     else if(what==="牆縫裡的蟲子"){give.corpse={name:"蟲子",sp:"蟲子",lv:"F"}}
     else give.items.push(what);
-    return {label:"在洞裡搜刮",prompt:`【這段要發生的事（程序抽到的，照這個寫）】你還是幼體，只能在洞裡翻找。你找到了：${what}（程序已經處理，不要再填 found）。寫出翻找的過程，巢穴裡的誰可能注意到你。`,give};
+    return {quick:{text:`你在洞裡翻找，找到了：${what}。`},label:"在洞裡搜刮",prompt:`【這段要發生的事（程序抽到的，照這個寫）】你還是幼體，只能在洞裡翻找。你找到了：${what}（程序已經處理，不要再填 found）。寫出翻找的過程，巢穴裡的誰可能注意到你。`,give};
   }
   if(k==="nest"&&!inNest()){
-    const h=travelH(pathHours(S.at,NEST())||2);
-    return {label:`回${NEST()}`,node:NEST(),from:S.at,hours:h,prompt:`【這段要發生的事（程序抽到的，照這個寫）】你從${S.at}走回${NEST()}，路上花了 ${h} 個小時。到洞口時正好碰上：${nestEvent()}。loc 填「${NEST()}」。`,hours:2,region:"${NEST()}周邊"};
+    const h=travelH(pathHours(S.at,NEST())||2), ev=nestEvent();
+    return {quick:{text:`你從${S.at}走回${NEST()}，路上花了 ${h} 個小時。到洞口時正好碰上：${ev}。`,loc:NEST()},label:`回${NEST()}`,node:NEST(),from:S.at,hours:h,prompt:`【這段要發生的事（程序抽到的，照這個寫）】你從${S.at}走回${NEST()}，路上花了 ${h} 個小時。到洞口時正好碰上：${ev}。loc 填「${NEST()}」。`,hours:2,region:"${NEST()}周邊"};
   }
   if(k==="nest"){
     return {label:"在巢穴裡走動",prompt:`【這段要發生的事（程序抽到的，照這個寫）】你在巢穴裡走動。正好碰上：${nestEvent()}。寫出這個場面，讓巢穴裡的人照他們的想要和本能行動。`};
@@ -93,7 +94,8 @@ function doMenu(k,arg){
   const sd=menuSeed(k,arg), pre=snap();
   S.log.push({who:"you",text:sd.label,prompt:sd.prompt,time:menuH(k,sd.hours||MENU_HOURS[k]||1),give:sd.give||null,node:sd.node||null,from:sd.from||null,reveal:!!sd.reveal,explore:!!sd.explore,pre});
   S.opts=[]; S.err=null; save();
-  doJob({kind:"turn",prompt:sd.prompt},pre,S.log.length-1);
+  const q=NARR!=="full"&&sd.quick?{...sd.quick,brief:NARR==="brief"}:null;   /* v0.70：精簡／不用：程式直接結算 */
+  doJob(q?{kind:"turn",prompt:sd.prompt,quick:q}:{kind:"turn",prompt:sd.prompt},pre,S.log.length-1);
 }
 function doRest(){
   const pre=snap(), notes=[], hungry=hasTag("飢餓"), night=S.hour>=18||S.hour<6;
