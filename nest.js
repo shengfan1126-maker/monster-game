@@ -314,6 +314,7 @@ function applyDefeat(d,notes,big,won){
     {const k=Math.min(3,(won||0)+(big&&/群|隊|團|們/.test(d.name+(d.kind||""))?2:0)), sp=speciesOf(d.name,d.kind);for(let j=0;j<k;j++)S.corpses.push({name:sp,sp,lv:d.lv,t:nowH()});if(k)notes.push(`前面打倒的 ${k} 隻${sp}也在地上。`)}
     npcGone(d.name,"被你殺死",null); facHit(d,notes); if(CIVIL_RACE.test(d.name+(d.kind||"")))heatAdd(2,`殺了${cleanName(d.name)}`,notes)}
   else{notes.push(`你打敗了${d.name}。牠還活著。`); gainExist(d.lv,notes,d.cls?1:0); facHit(d,notes)}
+  dropLoot(d,big,notes);   /* v0.68：打倒就掉東西 */
   S.lastFoe=null;
 }
 function gainExist(lv,notes,bonus,why){

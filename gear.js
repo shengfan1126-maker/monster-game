@@ -229,3 +229,27 @@ function elAdv(ch){
   const fe=foeElOf(ch); if(!fe)return [];
   const a=myEls(ch).find(x=>EL_COUNTER[x]===fe); return a?[`相剋：${a}剋${fe}`]:[];
 }
+
+/* ═════════ 掉落（v0.68）═════════
+   用戶 11-14 19:06：打贏全部魔物都會掉東西（白字裝備／魔法原料／耗材，隨機），有了這個就不用「拆原料」。
+   成功 1 件、大成功 2 件（種類不同）；小動物不掉。原料等級＝牠的等級，跟以前拆的一樣不受「最多比你高一級」限制（鍛造成品照舊受限）。
+   野獸、魔物：原料六成、牠的骨牙皮做的白字裝備三成、草藥膏一成；類人：白字裝備四成、原料三成、藥水三成。 */
+const SMALL_RE=/老鼠|鼠$|蟲子|蟲$|雀$|蟋蟀|蝸牛|蚯蚓|蛹|蛋/;
+const BEAST_GEAR=[["骨刀"],["皮甲"],["牙項鍊"],["皮帽"],["皮靴"]];
+function dropLoot(d,big,notes){
+  if(!d||!d.name)return; const sp=speciesOf(d.name,d.kind)||cleanName(d.name), lv=d.lv||"F";
+  if(SMALL_RE.test(sp)||(lv==="F"&&CREATURE.test(sp)&&!/狼|熊|豬|蛇|蜥|蛛/.test(sp)))return;
+  const hum=HUMANOID.test(`${d.name}${d.kind||""}`);
+  const table=hum?[["gear",.4],["mat",.3],["pot",.3]]:[["mat",.6],["gear",.3],["pot",.1]];
+  const got=[], kinds=[];
+  for(let n=0;n<(big?2:1);n++){
+    const left=table.filter(([k])=>!kinds.includes(k)), tot=left.reduce((a,[,w])=>a+w,0); let r=Math.random()*tot, k=left[0][0];
+    for(const [kk,w] of left){r-=w;if(r<0){k=kk;break}}
+    kinds.push(k);
+    if(k==="mat"){let nm=`${sp}的${partOf(sp)}`; while(S.items.includes(nm))nm+="・二"; S.items.push(nm); S.mat[nm]={lv,sp}; got.push(`✦${nm}（魔法原料・${lv}級）`)}
+    else if(k==="gear"){let nm=hum?`${sp}的${rnd(LOOT_GEAR)}`:`${sp}${rnd(BEAST_GEAR)[0]}`; while(S.items.includes(nm))nm+="・二"; S.items.push(nm); got.push(nm)}
+    else{const p=hum?rnd(["紅色藥水","藍色藥水","草藥膏"]):"草藥膏"; S.items.push(p); got.push(p)}
+  }
+  if(got.length)notes.push(`${cleanName(d.name)}掉下了：${got.join("、")}。`);
+  gearSync();
+}
