@@ -19,6 +19,8 @@ function act(text,free,ch){
     }
   }
   if(!ch&&(text===`回${NEST()}`||text==="回巢穴")&&!inNest())return doMenu("nest");   // 選項「回巢穴」照路程走
+  if(!ch&&text==="休息")return doRest();                                            /* v0.72：固定選項「休息」直接休息，不叫 AI */
+  if(!ch&&text==="在巢穴裡走動"&&inNest())return doMenu("nest");
   if(ch&&ch.war&&S.war){
     const pre=snap(); S.log.push({who:"you",text,pre,free:true}); S.opts=[]; save();
     doJob({kind:"war",ctx:{stage:S.war.stage,tactic:text}},snap(),S.log.length); return;

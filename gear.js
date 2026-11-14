@@ -297,14 +297,17 @@ function escCraft(){
    狩獵：程式直接出判定卡；付完代價，結果照舊完整交給 AI。判定、自己打字、選項、關鍵戰一律完整。 */
 let NARR=ls.g("mowu_narr")||"brief";
 const NARR_OPTS=[["full","完整"],["brief","精簡"],["none","不用"]];
-const BRIEF_SYS=`你是一個哥布林轉生故事的敘事者。用繁體中文、第二人稱「你」、白話短句，寫 1～2 句（60 字以內），只描寫畫面和感覺。不要新增事件、人物、對話，不要寫戰鬥結果，不要寫選項。嚴格禁止武俠、修仙詞彙。只輸出 JSON：{"narration":"…"}`;
+const BRIEF_SYS=`你是一個哥布林轉生故事的敘事者。用繁體中文、第二人稱「你」、白話短句，寫 1～2 句（60 字以內），只描寫畫面和感覺。不要新增事件、人物、對話，不要寫戰鬥結果。嚴格禁止武俠、修仙詞彙。另外給 3 個主角接下來可以做的事（每個 12 字以內，具體、貼合當下，不要寫結果）。只輸出 JSON：{"narration":"…","options":["…","…","…"]}`;
 function briefMsgs(q){
   return [{role:"system",content:BRIEF_SYS},{role:"user",content:`主角：${S.name}，${S.sub?S.sub.name:"哥布林"}（${S.stage}・${S.lv}級）。時間：${timeStr()}（${PERIOD(S.hour)}）。同行：${S.party.filter(p=>p.with).map(p=>p.n).join("、")||"沒有"}。\n要寫的事（程式已經決定，照這個寫，不要改結果）：${q.text}${q.check?"\n停在要不要動手的那一刻。":""}`}];
 }
+/* v0.72：程式給的固定選項（不用模式、精簡時 AI 沒給好選項） */
+const quickOpts=q=>q.check?[]:["四處看看",(q.loc?q.loc===NEST():inNest())?"在巢穴裡走動":"回巢穴","休息"];
 async function quickRun(q){
-  const o={narration:q.text,options:[],loc:q.loc||null,time:0,check:q.check?JSON.parse(JSON.stringify(q.check)):null};
+  const o={narration:q.text,options:quickOpts(q),loc:q.loc||null,time:0,check:q.check?JSON.parse(JSON.stringify(q.check)):null};
   let used="程式";
-  if(q.brief){try{const r=await callModel(briefMsgs(q),400,validateTurn,showLive);const t=String(r.val.narration||"").trim();if(t){o.narration=t;used=r.used}}catch(e){}}
+  if(q.brief){try{const r=await callModel(briefMsgs(q),500,validateTurn,showLive);const t=String(r.val.narration||"").trim();if(t){o.narration=t;used=r.used}
+    const op=(Array.isArray(r.val.options)?r.val.options:[]).filter(x=>typeof x==="string"&&x.trim()).map(x=>x.trim().slice(0,20));if(!q.check&&op.length>=2)o.options=op.slice(0,3)}catch(e){}}   /* v0.72：精簡時 AI 一起給選項 */
   return {val:o,txt:JSON.stringify(o),used,fellBack:[],loose:false};
 }
 /* 狩獵：程式直接出判定卡 */
