@@ -395,7 +395,7 @@ const ptsOfItem=n=>{const m=matOf(n);if(!m)return 1;const i=gIdx(m.lv);return i>
 const donatable=()=>S.items.map((n,i)=>({n,i,v:ptsOfItem(n)})).filter(x=>!shareOfItem(x.n));
 function donateItem(i){
   const n=S.nest, it=S.items[i]; if(busy||S.dead||it==null||!n.lv)return;
-  const v=ptsOfItem(it), pre=snap();
+  const v=Math.ceil(ptsOfItem(it)*(fxAny("devote")?1.5:1)), pre=snap();   /* v0.64：奉獻 */
   S.log.push({who:"you",text:`把${it}捐給巢穴`,pre});
   delete S.mat[it]; S.items.splice(i,1); n.pts=(n.pts||0)+v;
   S.log.push(sysEntry(`捐給巢穴：${it}，物資點數 +${v}（現在 ${n.pts} 點）`)); save(); render();
@@ -912,7 +912,7 @@ function kingAct(kind,k,arg){
 /* 巫妖王的代價（用戶 11-11 23:12）：三次情報，每次一種代價，每種只能付一次；第四次再要＝決戰 */
 const LICH_PAY={life:{t:"一條你看重的生命"},
   unique:{t:"一件獨特的聚落魔法物品",ok:n=>{const m=matOf(n);return !!(m&&m.unique)}},
-  sgrade:{t:"一件 S 級的魔法物品",ok:n=>{const m=matOf(n);return !!(m&&m.skill&&m.lv==="S")}}};
+  sgrade:{t:"一件 S 級的魔法物品",ok:n=>{const m=matOf(n);return !!(m&&(m.skill||m.fx)&&m.lv==="S")}}};
 function lichFinal(){
   const x=S.kings&&S.kings.lich; if(!x||(x.asks||0)<3||busy||S.raid)return;
   S.log.push(sysEntry("巫妖王：「要就要你的命來支付了。」")); kingFight("lich");

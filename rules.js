@@ -9,7 +9,7 @@ const inNest=()=>S.at?S.at===NEST():String(S.loc||"").includes(NEST());
 const TEMP=t=>!/殘缺|幼體|飢餓|瀕死|（/.test(t)&&/疲|累|傷|痛|麻|凍|挫|擦|瘀|腫|流血|中毒|喘|虛|眩|酸|僵/.test(t);
 const regenLv=()=>{const r=S.skills.find(x=>x.n==="再生");return r?Math.min(5,gIdx(r.g||S.lv)+1):0};   // 再生：F 回 1、E 回 2、D 回 3…最多 5
 function grow(notes){
-  S.stage="成體"; const old=S.hpMax; S.hpMax=20; S.hp=Math.min(S.hpMax,S.hp+10); delTag("幼體");
+  S.stage="成體"; const old=S.hpMax; S.hpMax=20; S.fxHp=0; S.hp=Math.min(S.hpMax,S.hp+10); delTag("幼體");
   notes.push(`〈系統〉《大賢者》：「告。個體成長完成。」`);
   notes.push(`你長大了：HP 上限 ${old}→${S.hpMax}。可以出巢狩獵、探索、採集了。`);
   chapCheck(notes);
@@ -46,7 +46,7 @@ function advanceTime(h,notes,sleep){
   if(bleed)notes.push(`【流血】：HP -${bleed}（包紮或睡一覺才會停）`);
   if(rhp||rmp)notes.push(`慢慢緩過來：${rhp?`HP +${rhp}`:""}${rhp&&rmp?"　":""}${rmp?`MP +${rmp}`:""}`);
 }
-function feed(h){delTag("飢餓");S.full=Math.max(S.full||0,h);S.starve=0}
+function feed(h){delTag("飢餓");S.full=Math.max(S.full||0,h*(fxAny("thrift")?2:1));S.starve=0}   /* v0.64：節食 */
 /* 把食材變成「屍體」清單裡的東西：可以吃、新鮮的能學技能 */
 function toCorpses(name,kind,lv,extra){
   const m=String(name).match(/\s*[x×＊*]\s*(\d+)\s*$/), q=Math.min(3,m?parseInt(m[1],10):1);
@@ -87,7 +87,7 @@ const weakSk=ch=>{const n=ch&&itemOfSk(ch.useSk),m=n&&matOf(n);return !!(m&&ch.f
 const skillMp=ch=>ch&&ch.useSk&&!/（.+）$/.test(ch.useSk)?1:0;
 /* 同伴幫忙算的優勢最多 1 條（同伴再多也一樣），其他優勢照算 */
 const isAllyAdv=x=>S.party.some(p=>p.n&&String(x).includes(p.n))||/同伴|夥伴|隊友|幫手|協助|聯手/.test(String(x));
-const advList=ch=>[...(ch.adv||[]).filter(x=>!isAllyAdv(x)),...rwAdv(ch),...gearAdv(ch)];   /* v0.63：逃跑時鞋子、盾 */   // v0.55：種族神兵（關鍵戰自動生效）   // v0.36：同伴的幫忙不再算優勢，改成在場減傷＋能力（見 actions.js「同伴成長」）
+const advList=ch=>[...(ch.adv||[]).filter(x=>!isAllyAdv(x)),...rwAdv(ch),...gearAdv(ch),...fxAdv(ch)];   /* v0.63：逃跑時鞋子、盾 */   // v0.55：種族神兵（關鍵戰自動生效）   // v0.36：同伴的幫忙不再算優勢，改成在場減傷＋能力（見 actions.js「同伴成長」）
 /* 程序加的劣勢（v0.34）：幼體空手一打一；同行的同伴空手（逼玩家替同伴裝備）。只在有對手的判定算 */
 const allyArmed=p=>!!p.gear||(p.hold||[]).some(h=>GEAR_RE.test(h));
 const meArmed=()=>!!(S.eq&&S.eq.武器);   /* v0.63：武器欄有東西才算 */
@@ -102,14 +102,14 @@ function checkInfo(ch){
   const lvDiff=ch.foeLv?Math.max(0,gIdx(ch.foeLv)-(ch.lvF?0:gIdx(S.lv))):0;   // v0.54：殺死管理員第 2 戰把你改回 F 級
   const crit=!!(ch.war||ch.raid);                          // 關鍵戰（進化戰、討伐戰）：至少要付 1 項代價、傷害 ×1.5
   const net0=advList(ch).length+(ch.useSk&&!skUsed(ch.useSk)&&!clownMem(ch)&&S.mp>=skillMp(ch)?1:0)+(ch.useItem&&S.items.includes(ch.useItem)?1:0)+(allyAbOn(ch)==="增傷"?1:0)+allyDoBonus(ch)+(comboOn(ch)?2:0)+(ch.war&&S.war&&S.war.foe&&S.war.foe.weak?1:0)-ch.dis.length-autoDis(ch).length-lvDiff, net=crit?Math.min(net0,0):net0;
-  const need=Math.max(0,1-net), big=need+1;
-  const d=armorCut(Math.ceil(dmgOf(ch.foeLv)*(crit?1.5:1))), fight=!!ch.foe, stalled=fight&&S.fightDelay&&S.fightDelay===ch.foe;
+  const need=Math.max(0,1-net), big=need+(keenOn(ch)?0:1);   /* v0.64：一閃 */
+  const d=hitCut(Math.ceil(dmgOf(ch.foeLv)*(crit&&!fortOn(ch)?1.5:1)),ch), fight=!!ch.foe,   /* v0.63～64：防具、擋災、避X、穩樁 */ stalled=fight&&S.fightDelay&&S.fightDelay===ch.foe;
   const half=Math.ceil(S.mpMax/2), skMp=skillMp(ch);
   const gen=[{t:`HP -${d}（硬吃一下）`,hp:-d,g:1}];
   if(S.mp-skMp>=half)gen.push({t:`MP -${half}（拼盡全力）`,mp:-half,g:1});
   if(!ch.war&&!ch.raid&&!stalled&&!ch.costs.some(c=>c.time))gen.push({t:fight?"多花兩小時（拖久了，會出新麻煩）":"多花兩小時",time:2,g:1});
   const mpLeft=S.mp-(skMp||0), costs=ch.costs.filter(c=>!(stalled&&c.time)).map(c=>{               /* 這場已經拖過一次：不能再拖 */
-    const off=c.mp&&mpLeft<Math.abs(c.mp)?"MP 不夠":c.tag&&hasTag(c.tag)?"已經有了":null; if(fight&&c.hp&&armorMult()<1){const h=-armorCut(-c.hp);if(h!==c.hp)c={...c,hp:h,arm:c.hp-h}} return off?{...c,off}:c});   /* v0.63：防具減傷 */   // v0.59：付了等於沒付的代價不能勾
+    const off=c.mp&&mpLeft<Math.abs(c.mp)?"MP 不夠":c.tag&&hasTag(c.tag)?"已經有了":null; if(fight&&c.hp){const h=-hitCut(-c.hp,ch);if(h!==c.hp)c={...c,hp:h,arm:c.hp-h}} return off?{...c,off}:c});   /* v0.63：防具減傷 */   // v0.59：付了等於沒付的代價不能勾
   return {lvDiff,net,need,big,costs:[...costs,...gen],stalled};
 }
 const tierOf=(n,ci)=>n<ci.need?"失敗":n>=ci.big?"大成功":"成功";

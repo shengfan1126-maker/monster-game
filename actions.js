@@ -47,7 +47,7 @@ function menuSeed(k,arg){
     const cl=clueSeed(); if(cl)return cl;                                    // v0.53：精靈王、金龍王的線索
     const hid=hiddenOf(S.at), from=S.at;
     const rg0=(S.world[from]||{}).region; S.expl=S.expl||{};
-    if(rg0&&S.sites){S.expl[rg0]=(S.expl[rg0]||0)+1;
+    if(rg0&&S.sites){S.expl[rg0]=(S.expl[rg0]||0)+(fxAny("path")?2:1);   /* v0.64：尋路 */
       const sd=S.sites.find(x=>!x.found&&x.region===rg0&&S.expl[rg0]>=x.need);
       if(sd){sd.found=true;const nd=S.world[sd.n],h=rint(1,3);nd.links[from]=h;S.world[from].links[sd.n]=h;
         return {label:`探索：${from}附近`,prompt:`【這段要發生的事（程序抽到的，照這個寫）】你在${rg0}一帶探索了很久，終於找到了${nd.dun?"":"黑顎提過、但"}誰也沒去過的地方：${sd.n}（${nd.kind}）。${nd.note?`那裡的情況：${nd.note}`:""}寫出第一次遠遠看到它的樣子（不要寫進去，也不要寫戰鬥；裡面的人怎麼看你，等玩家靠近再說）。loc 填「${sd.n}」。`,hours:Math.max(2,h),node:sd.n,from,reveal:true}}}
@@ -60,7 +60,7 @@ function menuSeed(k,arg){
     return {label:`探索：${from}附近`,prompt:`【這段要發生的事（程序抽到的，照這個寫）】你在${from}附近探索，找到一個還沒有記錄的地方。自己想一個符合${reg.n}這一帶的地方：可以冒險的地點（洞穴、遺跡、廢墟、怪物的巢）、特別的地形（瀑布、溫泉、斷崖、古樹、裂谷）或一個小聚落。${good?`那裡有：${what}。`:`那裡有危險：${what}，停在玩家要怎麼應對的那一刻。`}一定要填 place_new：{"name":"地名","kind":"冒險地點／地形／聚落","note":"一句話說明"}，loc 填那個地名。`,hours:3,explore:true,from};
   }
   if(k==="travel"){
-    const h=(S.world[S.at].links[arg])||pathHours(S.at,arg)||2, nd=S.world[arg]||{kind:"",note:""};
+    const h=travelH((S.world[S.at].links[arg])||pathHours(S.at,arg)||2), nd=S.world[arg]||{kind:"",note:""};   /* v0.64：輕身 */
     return {label:`前往${arg}`,prompt:`【這段要發生的事（程序抽到的，照這個寫）】你從${S.at}走到${arg}（${nd.kind}），路上花了 ${h} 個小時。${nd.note?`那裡的情況：${nd.note}`:""}寫出路上和抵達時看到的樣子，不要安排戰鬥。loc 填「${arg}」。`,hours:h,node:arg,from:S.at};
   }
   if(k==="forage"){
@@ -78,7 +78,7 @@ function menuSeed(k,arg){
     return {label:"在洞裡搜刮",prompt:`【這段要發生的事（程序抽到的，照這個寫）】你還是幼體，只能在洞裡翻找。你找到了：${what}（程序已經處理，不要再填 found）。寫出翻找的過程，巢穴裡的誰可能注意到你。`,give};
   }
   if(k==="nest"&&!inNest()){
-    const h=pathHours(S.at,NEST())||2;
+    const h=travelH(pathHours(S.at,NEST())||2);
     return {label:`回${NEST()}`,node:NEST(),from:S.at,hours:h,prompt:`【這段要發生的事（程序抽到的，照這個寫）】你從${S.at}走回${NEST()}，路上花了 ${h} 個小時。到洞口時正好碰上：${nestEvent()}。loc 填「${NEST()}」。`,hours:2,region:"${NEST()}周邊"};
   }
   if(k==="nest"){
@@ -91,7 +91,7 @@ function doMenu(k,arg){
   if(k==="go"){TRAVEL=!TRAVEL;render();return}
   TRAVEL=false;
   const sd=menuSeed(k,arg), pre=snap();
-  S.log.push({who:"you",text:sd.label,prompt:sd.prompt,time:sd.hours||MENU_HOURS[k]||1,give:sd.give||null,node:sd.node||null,from:sd.from||null,reveal:!!sd.reveal,explore:!!sd.explore,pre});
+  S.log.push({who:"you",text:sd.label,prompt:sd.prompt,time:menuH(k,sd.hours||MENU_HOURS[k]||1),give:sd.give||null,node:sd.node||null,from:sd.from||null,reveal:!!sd.reveal,explore:!!sd.explore,pre});
   S.opts=[]; S.err=null; save();
   doJob({kind:"turn",prompt:sd.prompt},pre,S.log.length-1);
 }
@@ -432,6 +432,7 @@ function pay(sel,sac,wb){
   const wc=wb&&S.bless&&S.bless.worm&&chosen.length?chosen[0]:null;   // v0.52：紫蟲王的加護替你付一項
   if(wc){S.bless.worm=0;notes.push(`紫蟲王替你付了：${wc.t}（加護用掉了）`)}
   chosen.forEach(c=>{if(c===wc)return;if(dp&&!(ab==="防禦"&&abP)&&c.hp){woundAlly(dp.n,notes);notes.push(`${dp.n}替你吃下這一下（HP 沒扣）。`);const c3={...c};delete c3.hp;applyCost(c3,notes)}else if(ab==="防禦"&&c.hp&&abP){woundAlly(abP.n,notes);notes.push(`${abP.n}替你擋下這一下（HP 沒扣）。`);const c2={...c};delete c2.hp;applyCost(c2,notes)}else applyCost(c,notes)}); if(sac)sacDo(sac,notes);
+  fxAfter(ch,tier,notes);   /* v0.64：血契、生息、成長、餘震 */
   if(!ch.local&&!ch.war&&ch.foe)S.party.filter(allyElig).forEach(p=>allyXp(p,2,notes));
   const stall=!!ch.foe&&!ch.war&&!ch.raid&&chosen.some(c=>c.time);
   if(stall)S.fightDelay=ch.foe;
@@ -449,7 +450,7 @@ function pay(sel,sac,wb){
   }
   if(ch.raid&&S.raid){
     const r=S.raid; let dmg=0;
-    if(tier==="失敗"){dmg=rwShade()?0:armorCut(dmgOf(ch.foeLv));S.hp-=dmg;r.fails++;if(r.dun&&S.hp<=0){S.hp=1;r.fails=99}const n=S.nest,n2=[`${r.name}${r.at&&r.at!==NEST()?"佔了上風":"衝破了一段防線"}：HP -${dmg}`];
+    if(tier==="失敗"){dmg=rwShade()?0:hitCut(dmgOf(ch.foeLv),ch);S.hp-=dmg;r.fails++;if(r.dun&&S.hp<=0){S.hp=1;r.fails=99}const n=S.nest,n2=[`${r.name}${r.at&&r.at!==NEST()?"佔了上風":"衝破了一段防線"}：HP -${dmg}`];
       if((!r.at||r.at===NEST())&&!r.admin){if(n.pop>1){n.pop--;n2.push(`人口：${POP[n.pop-1]}`)} if(n.d>1){n.d--;n2.push(`戰力：${DEF[n.d-1]}`)}} checkDeath(n2);S.log.push(sysEntry(n2.join("　")))}
     else{if(ch.useSk)r.lastSk=ch.useSk; r.wins+=tier==="大成功"&&r.of>=5?2:1}   // v0.54 修正：用技能成功也算守住
     r.mom=tier==="大成功"?1:tier==="失敗"?-1:0; r.stage++;
@@ -461,7 +462,7 @@ function pay(sel,sac,wb){
   }
   if(ch.war&&S.war){
     let dmg=0;
-    if(tier==="失敗"){dmg=rwShade()?0:armorCut(dmgOf(ch.foeLv)+1);S.hp-=dmg;const n2=[`${S.war.foe.name}佔了上風：HP -${dmg}`];checkDeath(n2);S.log.push(sysEntry(n2.join("\n")))}
+    if(tier==="失敗"){dmg=rwShade()?0:hitCut(dmgOf(ch.foeLv)+1,ch);S.hp-=dmg;const n2=[`${S.war.foe.name}佔了上風：HP -${dmg}`];checkDeath(n2);S.log.push(sysEntry(n2.join("\n")))}
     S.war.mom=tier==="大成功"?1:tier==="失敗"?-1:0; S.war.stage++;
     if(S.dead){save();render();return}
     S.opts=[]; save();
@@ -584,18 +585,18 @@ function drinkPotion(i){
    白字武器＋魔法原料 → 魔法武器（等級＝原料等級，受物品等級上限限制；附帶技能從原料來源的技能池抽一個）。
    魔法武器＋更高級的魔法原料 → 升到原料的等級（附帶技能不變）。
    有工匠（同伴或族人的本事／名字帶「匠、鍛、鐵、鑄」）時比較快：魔化 2 小時（自己 6）、升級 4 小時（自己 12）。 */
-let FGW=-1, FGM=-1;
+let FGW=-1, FGM=-1, FGK="sk";   /* v0.64：FGK＝要附帶技能（sk）還是效果（fx），二選一 */
 const hasSmith=()=>(S.nest&&S.nest.lv&&facOn("鍛冶台"))||S.party.some(p=>/匠|鍛|鐵|鑄/.test(`${p.n||""}${p.knack||""}${p.role||""}${p.kind||""}`))||(S.npcs||[]).some(x=>x.where==="巢穴"&&/匠|鍛|鐵|鑄/.test(`${x.n||""}${x.role||""}${x.knack||""}`));
-const forgeWeapons=()=>S.items.map((n,i)=>({n,i,m:matOf(n)})).filter(x=>(!x.m&&GEAR_RE.test(x.n)&&!POTION(x.n))||(x.m&&x.m.skill));
+const forgeWeapons=()=>S.items.map((n,i)=>({n,i,m:matOf(n)})).filter(x=>(!x.m&&(GEAR_RE.test(x.n)||slotOf(x.n))&&!POTION(x.n))||(x.m&&(x.m.skill||x.m.fx)&&!x.m.unique));   /* v0.64：帽子、鞋子、項鍊、戒指也能鍛；種族神兵不能 */
 const forgeMats=()=>S.items.map((n,i)=>({n,i,m:matOf(n)})).filter(x=>x.m);   // 魔法原料或魔法物品都可以當原料（魔法物品會被消耗）
 function forgePlan(wi,mi){
   const wn=S.items[wi], mn=S.items[mi];
   if(wn==null||mn==null)return {ok:false,text:"先選好裝備和原料，結果會顯示在這裡。"};
   if(wi===mi)return {ok:false,text:"裝備和原料不能是同一件。"};
   const wm=matOf(wn), mm=matOf(mn), tg=capItemLv(mm.lv), sm=hasSmith();
-  if(!wm)return {ok:true,hours:sm?2:6,tg,text:`「${wn}」＋「${mn}」→ 魔法武器 ${tg} 級，附帶技能從${cleanName(mm.sp)}的技能池抽一個。${sm?"有工匠幫忙，2 小時。":"沒有工匠，自己來要 6 小時。"}`};
+  if(!wm){const fx=fxFor(wn,mn);return {ok:true,hours:sm?2:6,tg,fx,text:`「${wn}」＋「${mn}」→ 魔法物品 ${tg} 級。${FGK==="fx"?`效果：${fxDesc(fx)}（穿著才生效）。`:`附帶技能從${cleanName(mm.sp)}的技能池抽一個（鍛好才知道）。`}${sm?"有工匠幫忙，2 小時。":"沒有工匠，自己來要 6 小時。"}`}}
   if(gIdx(tg)<=gIdx(wm.lv))return {ok:false,text:`原料（${mm.lv} 級${gIdx(tg)<gIdx(mm.lv)?`，受等級上限只能算 ${tg} 級`:""}）沒有比「${wn}」（${wm.lv} 級）高，升不了級。`};
-  return {ok:true,hours:sm?4:12,tg,text:`「${wn}」${wm.lv} 級＋「${mn}」→ ${tg} 級，附帶「${wm.skill.n}」不變。${sm?"有工匠幫忙，4 小時。":"沒有工匠，自己來要 12 小時。"}`};
+  return {ok:true,hours:sm?4:12,tg,text:`「${wn}」${wm.lv} 級＋「${mn}」→ ${tg} 級，${wm.skill?`附帶「${wm.skill.n}」`:`效果「${fxName(wm.fx)}」`}不變。${sm?"有工匠幫忙，4 小時。":"沒有工匠，自己來要 12 小時。"}`};
 }
 const forgeHTML=()=>{
   const ws=forgeWeapons(), ms=forgeMats();
@@ -603,9 +604,10 @@ const forgeHTML=()=>{
   const plan=forgePlan(FGW,FGM), ready=plan.ok&&FGW>=0&&FGM>=0;
   return `<div class="sacbox" style="margin:8px 0"><label>鍛造：三步——選裝備、選原料、確認組合</label>
     <div style="display:grid;grid-template-columns:1fr;gap:6px">
-    <div><div class="k" style="font-size:12px">① 裝備（白字武器防具，或要升級的魔法武器）</div><select id="fgw"><option value="">${ws.length?"選裝備…":"（沒有可用的裝備）"}</option>${ws.map(x=>`<option value="${x.i}"${x.i===FGW?" selected":""}>${esc(x.n)}${x.m?`（✦${x.m.lv}級${x.m.skill?"・"+esc(x.m.skill.n):""}）`:"（普通）"}</option>`).join("")}</select></div>
+    <div><div class="k" style="font-size:12px">① 裝備（白字武器防具，或要升級的魔法武器）</div><select id="fgw"><option value="">${ws.length?"選裝備…":"（沒有可用的裝備）"}</option>${ws.map(x=>`<option value="${x.i}"${x.i===FGW?" selected":""}>${esc(x.n)}${x.m?`（✦${x.m.lv}級${x.m.skill?"・"+esc(x.m.skill.n):x.m.fx?"・"+esc(fxName(x.m.fx)):""}）`:"（普通）"}</option>`).join("")}</select></div>
     <div><div class="k" style="font-size:12px">② 原料（魔法原料，或拿一件魔法物品來拆）</div><select id="fgm"><option value="">${ms.length?"選原料…":"（沒有魔法原料或魔法物品）"}</option>${ms.map(x=>`<option value="${x.i}"${x.i===FGM?" selected":""}>${esc(x.n)}（${x.m.lv}級${x.m.skill?"・"+esc(x.m.skill.n):""}）</option>`).join("")}</select></div>
-    <div><div class="k" style="font-size:12px">③ 結果</div><div class="note" style="margin:0">${esc(plan.text)}</div></div></div>
+    ${FGW>=0&&!matOf(S.items[FGW])?`<div><div class="k" style="font-size:12px">③ 要什麼（二選一）</div><label style="display:block"><input type="radio" name="fgk" value="sk"${FGK==="sk"?" checked":""}> 附帶技能（從原料那隻魔物的技能池抽，鍛好才知道）</label><label style="display:block"><input type="radio" name="fgk" value="fx"${FGK==="fx"?" checked":""}> 效果${FGM>=0&&FGM!==FGW?`：${esc(fxDesc(fxFor(S.items[FGW],S.items[FGM])))}`:"（選好原料就看得到）"}</label></div>`:""}
+    <div><div class="k" style="font-size:12px">${FGW>=0&&!matOf(S.items[FGW])?"④":"③"} 結果</div><div class="note" style="margin:0">${esc(plan.text)}</div></div></div>
     <button class="paybtn" id="fgdo"${ready?"":" disabled"}>${ready?`確認組合・開始鍛造（${plan.hours} 小時）`:"確認組合（先選好裝備和原料）"}</button></div>`;
 };
 async function forge(){
@@ -614,21 +616,25 @@ async function forge(){
   const wn=S.items[FGW], mn=S.items[FGM], mm=matOf(mn), wm=matOf(wn), pre=snap();
   S.log.push({who:"you",text:`鍛造：${wn}＋${mn}`,pre});
   busy=true; render();
-  let sk=wm?wm.skill:null;
-  if(!wm){
+  let sk=wm?wm.skill:null, fx=wm?wm.fx:null;
+  if(!wm&&FGK==="fx")fx=plan.fx;                                    /* v0.64：效果（照那隻魔物抽，鍛造前就看得到） */
+  else if(!wm){
     let pool=[]; try{pool=await poolFor({name:mn,sp:mm.sp,lv:mm.lv,mat:true})||[]}catch(e){}
     const c=pool.length?rnd(pool):null; sk=c?{n:c.n,sys:c.sys}:{n:"蠻力",sys:"天生"};
   }
-  let name=wm?wn:`${cleanName(mm.sp)}・${wn}`.slice(0,16);
+  let name=wm?wn:fx?fxItemName(fx,wn):`${cleanName(mm.sp)}・${wn}`.slice(0,16);
   if(!wm&&S.items.includes(name))name=(name+"改").slice(0,16);
+  const wasK=SLOTS.find(k=>S.eq&&S.eq[k]===wn);   /* v0.64：穿著的拿去鍛，鍛好照樣穿著 */
   S.items=S.items.filter(x=>x!==mn&&(wm?true:x!==wn));
   S.party.forEach(p=>{p.hold=(p.hold||[]).filter(x=>x!==mn&&(wm?true:x!==wn))});
   delete S.mat[mn]; if(!wm)delete S.mat[wn];
   if(!S.items.includes(name))S.items.push(name);
-  S.mat[name]={lv:plan.tg,sp:wm?wm.sp:mm.sp,skill:sk};
+  if(wasK&&!wm){S.eq[wasK]=null;(S.eqSeen=S.eqSeen||[]).push(name)}
+  S.mat[name]=fx?{lv:plan.tg,sp:wm?wm.sp:mm.sp,fx}:{lv:plan.tg,sp:wm?wm.sp:mm.sp,skill:sk};
   S.party.forEach(p=>{if(wm&&p.gear===wn)p.gearMat=S.mat[name]});
+  if(wasK&&!wm&&slotOf(name)===wasK)S.eq[wasK]=name; gearSync();
   FGW=-1; FGM=-1;
-  const notes=[`你把${mn}做進了${wn}裡，花了 ${plan.hours} 小時。`,`〈系統〉《大賢者》：「告。${wm?`${name} 升到 ${plan.tg} 級，附帶「${sk.n}」不變`:`得到魔法武器 ✦${name}（${plan.tg} 級），附帶「${sk.n}」`}。」`];
+  const notes=[`你把${mn}做進了${wn}裡，花了 ${plan.hours} 小時。`,`〈系統〉《大賢者》：「告。${wm?`${name} 升到 ${plan.tg} 級，${sk?`附帶「${sk.n}」`:`效果「${fxName(fx)}」`}不變`:fx?`得到魔法物品 ✦${name}（${plan.tg} 級），效果：${fxDesc(fx)}。穿著才生效`:`得到魔法武器 ✦${name}（${plan.tg} 級），附帶「${sk.n}」`}。」`];
   await fourHours("鍛造",notes,plan.hours);
   busy=false; S.log.push(sysEntry(notes.join("\n"))); save(); render();
 }

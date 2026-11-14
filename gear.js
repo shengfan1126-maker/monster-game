@@ -39,6 +39,7 @@ function gearSync(){
   const seen=new Set(S.eqSeen||[]);
   S.items.forEach(n=>{if(seen.has(n))return; seen.add(n); const k=slotOf(n); if(k&&!S.eq[k]&&!worn(n)&&canWear(n)===true)S.eq[k]=n});
   S.eqSeen=[...seen].filter(n=>S.items.includes(n));
+  if(typeof fxSync==="function")fxSync();   /* v0.64：厚命、深泉 */
 }
 function wear(i){
   const n=S.items[i]; if(n==null||busy||S.dead)return; const k=slotOf(n), ok=canWear(n); if(ok!==true)return;
@@ -71,8 +72,9 @@ function gearHTML(){
   gearSync();
   const am=armorMult(), idle=!busy&&!S.dead;
   const rows=SLOTS.map(k=>{const n=S.eq[k], m=n&&matOf(n);
-    return `<div class="crow"><b>${k}</b>：${n?`${m?"✦ ":""}${esc(n)}${k==="武器"?`（${wtWord(n)}）`:""}${m&&m.lv?`・${m.lv}級`:""}${idle?` <button class="tl" data-uw="${k}">卸下</button>`:""}`:`<span class="none">（空）</span>`}</div>`}).join("");
-  return `<div class="card"><h3>裝備</h3>${rows}
+    return `<div class="crow"><b>${k}</b>：${n?`${m?"✦ ":""}${esc(n)}${k==="武器"?`（${wtWord(n)}）`:""}${m&&m.lv?`・${m.lv}級`:""}${m&&m.fx?`・${esc(fxDesc(m.fx))}`:m&&m.skill?`・附帶「${esc(m.skill.n)}」`:m&&m.unique&&typeof rwOf==="function"&&rwOf(n)?`・${esc(rwOf(n).d)}`:""}${idle?` <button class="tl" data-uw="${k}">卸下</button>`:""}`:`<span class="none">（空）</span>`}</div>`}).join("");
+  const tele=fxAny("tele")?`<div class="crow">✦ 歸巢：${S.teleDay===S.day?"今天用過了":inNest()?"你就在巢穴":`<button class="tl" id="telego"${idle&&!(S.raid&&S.raid.on)&&!S.war?"":" disabled"}>瞬間回巢穴（一天一次）</button>`}</div>`:"";
+  return `<div class="card"><h3>裝備</h3>${rows}${tele}
     <div class="note" style="margin-top:6px">防具減傷：盾、衣服各 20%，頭 10%${am<1?`（現在被打只吃 ${Math.round(am*100)}%）`:""}。逃跑時鞋子、盾各多一層。種族神兵要穿上才生效。盾只能配單手近戰武器（或空手）。<br>拿到東西時那一欄空著會自動穿上；在下面背包按「穿上」換。白字武器防具照舊可以在判定時「用掉一件」換一層優勢（穿著的也行，用掉就卸下了）。</div></div>`;
 }
 /* 背包裡每一件後面的按鈕 */
@@ -85,4 +87,122 @@ function gearBtn(n,i){
 function gearBind(){
   document.querySelectorAll("[data-wr]").forEach(b=>b.onclick=()=>wear(+b.dataset.wr));
   document.querySelectorAll("[data-uw]").forEach(b=>b.onclick=()=>unwear(b.dataset.uw));
+  const tg=document.getElementById("telego"); if(tg)tg.onclick=teleHome;
 }
+
+/* ═════════ 魔法效果（v0.64）═════════
+   照孤獨異世界的效果表，挑魔物篇用得到的（巧手、靈光、安眠、清泉、商人、通曉、傳說級沒搬）。
+   用戶 11-14：鍛造時「附帶技能」或「效果」二選一；效果照原料那隻魔物抽（火系多半出燼紋、避火）。
+   效果要穿著才生效；戰鬥用的效果，物品等級比對手低就不生效（不會壞）。存法：S.mat[名字].fx={t,v}。 */
+const ELEMS=["火","水","土","風","木","光","暗"];
+const ELEM_NM={火:"燼",水:"澪",土:"磐",風:"嵐",木:"萌",光:"曦",暗:"蝕"};
+const FOE_CLS=["野獸","類人","蟲","不死","龍","構裝"];
+const FX=[
+ {t:"elem",w:0,d:"X紋：攻擊帶屬性，可以觸發相剋"},
+ {t:"burst",w:2,nm:"餘震",d:"有對手的判定大成功後，下一場多一層優勢"},
+ {t:"keen",w:2,nm:"一閃",d:"有對手的判定大成功少付一項（成功就是大成功）"},
+ {t:"bane",w:0,d:"剋X：對某一類對手多一層優勢"},
+ {t:"vicious",w:1,nm:"血契",d:"有對手的判定多一層優勢，但每次你也扣 HP 5%"},
+ {t:"defend",w:2,nm:"擋災",d:"被打少受 20% 傷"},
+ {t:"fort",w:1,nm:"穩樁",d:"關鍵戰（進化戰、討伐戰、八王戰）的傷害不再 ×1.5"},
+ {t:"resist",w:0,d:"避X：被這種屬性的對手打，傷害減半"},
+ {t:"regen",w:1,nm:"生息",d:"有對手的判定成功，HP 回 10%"},
+ {t:"hp",w:1,nm:"厚命",d:"HP 上限 +20%"},{t:"mp",w:1,nm:"深泉",d:"MP 上限 +20%"},
+ {t:"move",w:1,nm:"輕身",d:"移動時間減半"},{t:"fly",w:1,nm:"浮空",d:"逃跑多一層優勢"},
+ {t:"tele",w:1,nm:"歸巢",d:"一天一次，瞬間回到巢穴"},
+ {t:"gather",w:1,nm:"豐收",d:"採集、搜刮時間減半"},
+ {t:"path",w:1,nm:"尋路",d:"探索時找到隱藏據點的進度多算一次"},
+ {t:"thrift",w:1,nm:"節食",d:"吃飽能撐的時間加倍"},
+ {t:"growth",w:1,nm:"成長",d:"有對手的判定成功，存在值 +1"},
+ {t:"devote",w:1,nm:"奉獻",d:"捐給巢穴的物資點數 +50%"}];
+const fxDef=t=>FX.find(x=>x.t===t)||{};
+function fxName(fx){if(!fx)return "";if(fx.t==="elem")return `${ELEM_NM[fx.v]||""}紋`;if(fx.t==="resist")return `避${fx.v}`;if(fx.t==="bane")return `剋${fx.v}`;return fxDef(fx.t).nm||fx.t}
+function fxDesc(fx){if(!fx)return "";if(fx.t==="elem")return `${fxName(fx)}：攻擊帶「${fx.v}」，可以觸發相剋`;if(fx.t==="resist")return `${fxName(fx)}：被${fx.v}屬性的對手打，傷害減半`;
+  if(fx.t==="bane")return `${fxName(fx)}：對${fx.v}多一層優勢`;return `${fxName(fx)}：${fxDef(fx.t).d||""}`}
+
+/* 對手的屬性、類別（v0.65 起判定卡由模型填 foeEl；沒填就看名字猜） */
+const EL_RE=[["水",/冰|雪|霜|寒|凍|水|潮|澪|魚|蛙|蟹/],["火",/火|炎|熔|焰|燼|灼|赤/],["風",/風|雷|電|嵐|鳥|鷹|鴉|雀|翼/],["土",/岩|石|土|沙|泥|山|磐|地底|礦/],
+  ["木",/木|樹|藤|草|花|林|蕈|菇|萌/],["光",/光|聖|曦|金龍|獨角獸/],["暗",/暗|影|夜|毒|屍|骸|骨|幽|亡|巫妖|蝕|蟲王|小丑/]];
+const elOfName=n=>{const x=EL_RE.find(([,re])=>re.test(n||""));return x?x[0]:null};
+const KING_CLS={lich:"不死",gold:"龍",giant:"類人",uni:"野獸",worm:"蟲",beast:"野獸",elf:"類人",clown:null};
+const CLS_RE=[["不死",/骷髏|殭屍|屍鬼|幽靈|亡靈|巫妖|吸血鬼|骸骨|死靈|怨靈/],["龍",/龍|蛟|九頭蛇/],["構裝",/魔像|石像|機關|傀儡|構裝/],
+  ["蟲",/蟲|蛛|蟻|蜂|蜈蚣|蠍|蛾|蛹|蝗/],["類人",HUMANOID],["野獸",/狼|熊|豬|鹿|兔|鼠|豹|虎|獅|貓|犬|蝠|鴉|鷹|雀|蛇|蜥|狐|猴|牛|羊|鱷|獸|鳥|蛙|魚|蟹/]];
+function foeClsOf(ch){const r=ch&&ch.raid&&S.raid; if(r&&r.king)return KING_CLS[r.king]||null; const n=`${ch&&ch.foe||""}`; const x=CLS_RE.find(([,re])=>re.test(n)); return x?x[0]:null}
+function foeElOf(ch){
+  if(!ch)return null; if(ELEMS.includes(ch.foeEl))return ch.foeEl;
+  const r=ch.raid&&S.raid; if(r&&r.king){const a=rwFoeAttr(); return ELEMS.includes(a)?a:null}
+  return elOfName(ch.foe||"");
+}
+
+/* 身上有效的效果：穿著；有對手時物品等級不能比對手低 */
+function fxOn(t,ch){
+  const fl=ch&&ch.foeLv?gIdx(ch.foeLv):-1;
+  return wornList().filter(n=>{const m=matOf(n);return m&&m.fx&&m.fx.t===t&&(fl<0||gIdx(m.lv)>=fl)}).map(n=>({n,fx:matOf(n).fx,lv:matOf(n).lv}));
+}
+const fxAny=t=>wornList().some(n=>{const m=matOf(n);return m&&m.fx&&m.fx.t===t});
+/* 判定的優勢：剋X、血契、餘震、浮空（逃跑） */
+function fxAdv(ch){
+  const out=[]; if(!ch)return out;
+  if(ch.foe){
+    const cl=foeClsOf(ch); fxOn("bane",ch).forEach(x=>{if(cl&&x.fx.v===cl)out.push(`✦${x.n}：剋${cl}`)});
+    fxOn("vicious",ch).slice(0,1).forEach(x=>out.push(`✦${x.n}：血契（付的時候你也扣 HP 5%）`));
+    if(S.burst)out.push("✦餘震：上一場大成功的力道還在");
+  }
+  if(FLEE_RE.test(ch.what||""))fxOn("fly",ch).slice(0,1).forEach(x=>out.push(`✦${x.n}：浮空`));
+  return out;
+}
+/* 付完判定：血契扣血、生息回血、成長、餘震（pay 呼叫） */
+function fxAfter(ch,tier,notes){
+  if(!ch||!ch.foe)return;
+  if(fxAdv(ch).some(x=>x.includes("血契"))){const d=Math.max(1,Math.ceil(S.hpMax*.05));S.hp-=d;notes.push(`血契反噬：HP -${d}`)}
+  if(S.burst)S.burst=0;
+  if(tier==="大成功"&&fxOn("burst",ch).length){S.burst=1;notes.push("✦餘震：力道還在，下一場多一層。")}
+  if(tier!=="失敗"){
+    const rg=fxOn("regen",ch).length; if(rg&&S.hp>0){const h=Math.min(S.hpMax-S.hp,Math.ceil(S.hpMax*.1*rg)); if(h>0){S.hp+=h;notes.push(`✦生息：HP +${h}`)}}
+    if(fxOn("growth",ch).length&&S.exist<existMax(S.lv)){S.exist++;notes.push(`✦成長：存在值 +1（${S.exist}/${existMax(S.lv)}）`);if(S.exist>=existMax(S.lv)&&!S.evo&&!S.war){S.evo=newEvo();evoAnnounce(notes)}}
+  }
+}
+const keenOn=ch=>!!(ch&&ch.foe&&fxOn("keen",ch).length);
+const fortOn=ch=>!!(ch&&fxOn("fort",ch).length);
+/* 扣血：防具、擋災、避X */
+function hitCut(d,ch){
+  if(!(d>0))return d;
+  let m=armorMult()-.2*fxOn("defend",ch).length; m=Math.max(.3,m);
+  const el=foeElOf(ch); if(el&&fxOn("resist",ch).some(x=>x.fx.v===el))m*=.5;
+  return Math.max(1,Math.ceil(d*m-1e-9));
+}
+/* 厚命、深泉：照穿著的件數調整上限（S.fxHp、S.fxMp 記已經加上去的量） */
+function fxSync(){
+  if(!S||S.hpMax==null)return;
+  const nh=fxOn("hp").length, nm=fxOn("mp").length;
+  const bh=S.hpMax-(S.fxHp||0), bm=(S.mpMax||0)-(S.fxMp||0);
+  const wh=Math.round(bh*.2*nh), wm=Math.round(bm*.2*nm);
+  if(wh!==(S.fxHp||0)){S.hpMax=bh+wh;S.fxHp=wh;S.hp=Math.min(S.hp,S.hpMax)}
+  if(wm!==(S.fxMp||0)){S.mpMax=bm+wm;S.fxMp=wm;S.mp=Math.min(S.mp,S.mpMax)}
+}
+/* 時間：輕身移動減半；豐收採集、搜刮減半 */
+const travelH=h=>fxAny("move")?Math.max(1,Math.ceil(h/2)):h;
+const menuH=(k,h)=>(k==="forage"||k==="scav")&&fxAny("gather")?Math.max(1,Math.ceil(h/2)):h;
+/* 歸巢：一天一次瞬間回巢穴 */
+function teleHome(){
+  if(busy||S.dead||!fxAny("tele")||S.teleDay===S.day||inNest()||(S.raid&&S.raid.on)||S.war)return;
+  const pre=snap(); S.log.push({who:"you",text:"歸巢",pre}); S.teleDay=S.day; S.at=NEST(); S.loc=NEST();
+  S.log.push(sysEntry(`✦歸巢：眼前一花，你已經站在${NEST()}的洞口。（今天不能再用）`)); save(); render();
+}
+
+/* ═════════ 鍛造的效果：照那隻魔物抽（同一組裝備＋原料，抽到的一樣） ═════════ */
+function seedRand(s){let h=2166136261;for(const c of String(s)){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return ()=>{h=Math.imul(h^(h>>>15),2246822507);h=Math.imul(h^(h>>>13),3266489909);h^=h>>>16;return (h>>>0)/4294967296}}
+const FX_HINT=[[/飛|翼|滑翔|俯衝/,"fly"],[/再生|治癒|蛻皮|斷尾/,"regen"],[/鱗|殼|甲|硬|岩膚|皮厚/,"defend"],[/疾|快|奔|跳|竄/,"move"],[/嗅|追蹤|感知|夜視|洞察/,"path"],
+  [/蠻力|怪力|巨|撞|咬合/,"keen"],[/狂|嗜血|吸血/,"vicious"],[/紮根|穩|重/,"fort"],[/冬眠|耐餓|反芻/,"thrift"],[/挖|掘|採/,"gather"]];
+function fxFor(wn,mn){
+  const mm=matOf(mn)||{}, sp=cleanName(mm.sp||mn), pk=poolKey(sp), pool=(pk&&POOLS[pk])||[];
+  const els=[...new Set([...pool.map(s=>s.sys).filter(x=>ELEMS.includes(x)),elOfName(sp),elOfName(mn)].filter(Boolean))];   /* 原料名也算（毒囊＝暗） */
+  const cl=(CLS_RE.find(([,re])=>re.test(sp))||[])[0]||null;
+  const th=[], gen=FX.filter(x=>x.w).map(x=>({w:x.w,fx:{t:x.t}}));        /* 七成從「這隻魔物的」效果抽，三成從一般效果抽 */
+  els.forEach(v=>{th.push({w:3,fx:{t:"elem",v}});th.push({w:2,fx:{t:"resist",v}})});
+  if(cl)th.push({w:2,fx:{t:"bane",v:cl}});
+  FX_HINT.forEach(([re,t])=>{if(pool.some(s=>re.test(s.n))||re.test(sp)||re.test(mn))th.push({w:3,fx:{t}})});
+  const r=seedRand(`${wn}|${mn}`), c=th.length&&r()<.7?th:gen, tot=c.reduce((a,x)=>a+x.w,0); let p=r()*tot;
+  for(const x of c){p-=x.w;if(p<0)return x.fx} return c[0].fx;
+}
+const fxItemName=(fx,wn)=>`${fxName(fx)}${wn}`.slice(0,16);
