@@ -292,7 +292,8 @@ function gains(a,big,notes,guard){
   (a.found||[]).filter(x=>!S.items.includes(x)&&!eatenNames.includes(x)&&!S.corpses.some(c=>c.name===x)).forEach(x=>{
     let m=a.mats&&a.mats[x], fromCorpse=false;
     if(m&&!m.skill){const c=S.corpses.find(c=>!c.evo&&(x.includes(cleanName(c.name))||String(m.sp).includes(cleanName(c.name))));
-      if(c){notes.push(`（${x}：打倒對手掉的東西由程式給，這件不另外算）`);return}   /* v0.68：不拆原料了，掉落由 dropLoot 給 */
+      if(c&&c.part){notes.push(`（${x}：這具${cleanName(c.name)}已經拿過部位了）`);return}   /* v0.68：掉落由 dropLoot 給 */
+      if(c){c.part=true;const w=x.replace(/的/g,"");S.items.push(w);notes.push(`得到 ${w}（${cleanName(c.name)}的部位，可以在背包做成裝備）`);return}   /* v0.74：故事裡剝皮、拔角：這隻還沒掉過部位就給（白字部位） */
       else if(MUNDANE.test(x)||!PART_RE.test(x))m=null;     // 沒有來源屍體、名字又不像部位／魔核：普通東西，不是魔法原料
     }
     if(m&&MUNDANE.test(x))m=null;

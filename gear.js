@@ -91,6 +91,7 @@ function gearBind(){
   document.querySelectorAll("[data-uw]").forEach(b=>b.onclick=()=>unwear(b.dataset.uw));
   const tg=document.getElementById("telego"); if(tg)tg.onclick=teleHome;
   const ec=document.getElementById("esccraft"); if(ec)ec.onclick=escCraft;   /* v0.69 */
+  if(typeof craftBind==="function")craftBind();   /* v0.74 */
 }
 
 /* ═════════ 魔法效果（v0.64）═════════
@@ -241,13 +242,14 @@ function dropLoot(d,big,notes){
   if(!d||!d.name)return; const sp=speciesOf(d.name,d.kind)||cleanName(d.name), lv=d.lv||"F";
   if(SMALL_RE.test(sp)||(lv==="F"&&CREATURE.test(sp)&&!/狼|熊|豬|蛇|蜥|蛛/.test(sp)))return;
   const hum=HUMANOID.test(`${d.name}${d.kind||""}`);
-  const table=hum?[["gear",.4],["mat",.3],["pot",.3]]:[["mat",.6],["gear",.3],["pot",.1]];
+  const table=hum?[["gear",.4],["mat",.3],["pot",.3]]:[["mat",.5],["part",.4],["pot",.1]];   /* v0.74：野獸掉部位（皮、角、牙），不掉做好的裝備 */
   const got=[], kinds=[];
   for(let n=0;n<(big?2:1);n++){
     const left=table.filter(([k])=>!kinds.includes(k)), tot=left.reduce((a,[,w])=>a+w,0); let r=Math.random()*tot, k=left[0][0];
     for(const [kk,w] of left){r-=w;if(r<0){k=kk;break}}
     kinds.push(k);
     if(k==="mat"){let nm=`${sp}的${partOf(sp)}`; while(S.items.includes(nm))nm+="・二"; S.items.push(nm); S.mat[nm]={lv,sp}; got.push(`✦${nm}（魔法原料・${lv}級）`)}
+    else if(k==="part"){const nm=`${sp}${rnd(partsOf(sp))}`; S.items.push(nm); got.push(nm); const c=[...S.corpses].reverse().find(x=>sameSp(x,sp)); if(c)c.part=true}
     else if(k==="gear"){let nm=hum?`${sp}的${rnd(LOOT_GEAR)}`:`${sp}${rnd(BEAST_GEAR)[0]}`; while(S.items.includes(nm))nm+="・二"; S.items.push(nm); got.push(nm)}
     else{const p=hum?rnd(["紅色藥水","藍色藥水","草藥膏"]):"草藥膏"; S.items.push(p); got.push(p)}
   }
@@ -336,3 +338,62 @@ let BAGOPEN=false;
 function bagOpen(){BAGOPEN=true;render();if(typeof sheetHist==="function")sheetHist()}
 function bagClose(pop){if(!BAGOPEN)return;BAGOPEN=false;bsheet.classList.remove("open");if(pop!==true&&typeof dropHist==="function")dropHist();render()}
 bx0.onclick=()=>bagClose(); bdone.onclick=()=>bagClose(); bsheet.onclick=e=>{if(e.target===bsheet)bagClose()};
+
+/* ═════════ 做裝備（v0.74）═════════
+   用戶 11-14 22:45～22:49：殺鹿掉皮靴很怪 → 野獸掉部位（雪原鹿皮、雪原鹿角、灰狼牙），自己在背包做成裝備。
+   - 白字部位、撿到的石片木棍 → 白字裝備；紫色字（魔法原料：有魔力的獸皮、礦石……）也能直接做 → 魔法裝備（附帶技能或效果二選一，跟鍛造一樣；等級受物品上限）。
+   - 皮、毛、鱗、羽、殼 → 甲、帽、靴、盾；角、牙、骨、爪 → 匕首、短刀、矛、項鍊、戒指；石 → 刀、矛、戒指；木 → 棍、矛；其他魔法原料 → 項鍊、戒指。
+   - 2 小時；巢穴有鍛冶台或有工匠 1 小時。打字做（「用野豬角做匕首」）交給 AI，照舊。 */
+function partsOf(sp){
+  const T=[[/鹿|羊|牛|羚/,["皮","角","骨"]],[/狼|犬|狐/,["皮","牙","骨"]],[/熊/,["皮","爪","牙"]],[/豬/,["皮","獠牙","骨"]],[/蛇|蜥|鱷|龍/,["鱗","牙","骨"]],
+    [/鳥|鷹|鴉|雀/,["羽毛","爪","骨"]],[/蟹|甲蟲|蠍/,["殼","螯"]],[/蛛|蟲|蟻|蜂/,["殼","刺"]],[/兔|鼠|貂/,["皮","骨"]]];
+  return (T.find(([re])=>re.test(sp))||[0,["皮","骨","牙"]])[1];
+}
+const sameSp=(c,sp)=>!c.evo&&(String(c.sp||"").includes(sp)||cleanName(c.name).includes(sp));
+const CRAFT_KIND=[["hide",/皮|毛|鱗|羽|翼膜|殼/,[["甲","甲"],["帽","帽"],["靴","靴"],["盾","盾"]]],["hard",/角|牙|骨|爪|齒|螯|刺|針/,[["匕首","匕首"],["短刀","短刀"],["矛","矛"],["項鍊","項鍊"],["戒指","戒指"]]],
+  ["stone",/石|礦|晶/,[["刀","刀"],["矛","矛"],["戒指","戒指"]]],["wood",/木|棍|枝|藤/,[["棍","棍"],["矛","矛"]]]];
+/* 能拿來做的：白字部位和石片木棍（不是裝備、不是食物、不是藥）、還沒做成東西的魔法原料 */
+function craftKind(n){
+  const m=matOf(n); if(n===ESC||POTION(n)||slotOf(n))return null;
+  if(m&&(m.skill||m.fx||m.unique||m.sp==="地城"))return null;
+  const k=CRAFT_KIND.find(([,re])=>re.test(n)); if(k)return k;
+  return m?["magic",null,[["項鍊","項鍊"],["戒指","戒指"]]]:null;
+}
+const craftable=()=>S.items.map((n,i)=>({n,i,k:craftKind(n)})).filter(x=>x.k&&S.items.indexOf(x.n)===x.i);
+function craftName(n,suf){
+  const b=n.replace(/的/g,"").replace(/^(一塊|幾塊|半截|一根|幾根)/,"").replace(/(尖銳的|啃剩的|斷掉的)/g,"");
+  if(/石片|石塊/.test(b))return `石${suf}`; if(/木棍|樹枝|枯枝/.test(b))return `木${suf}`;
+  return `${b}${suf}`.slice(0,14);
+}
+let CFI=-1, CFT="", CFK="sk";
+const craftH=()=>hasSmith()?1:2;
+function craftHTML(){
+  const L=craftable(); if(!L.length)return "";
+  if(!L.some(x=>x.i===CFI))CFI=-1; const cur=CFI>=0?L.find(x=>x.i===CFI):null; const m=cur&&matOf(cur.n);
+  if(cur&&!cur.k[2].some(([s])=>s===CFT))CFT="";
+  const out=cur&&CFT?craftName(cur.n,CFT):"";
+  return `<div class="sacbox" style="margin:8px 0"><label>做裝備（${craftH()} 小時${hasSmith()?"，有鍛冶台或工匠":""}）</label>
+    <select id="cfm"><option value="">選材料…</option>${L.map(x=>`<option value="${x.i}"${x.i===CFI?" selected":""}>${matOf(x.n)?"✦":""}${esc(x.n)}${matOf(x.n)?`（${matOf(x.n).lv}級）`:""}</option>`).join("")}</select>
+    ${cur?`<div class="tags" style="margin-top:6px">${cur.k[2].map(([s])=>`<button class="tag ut" data-cft="${esc(s)}" style="${CFT===s?"outline:2px solid currentColor":""}">${esc(s)}</button>`).join("")}</div>`:""}
+    ${m&&out?`<label style="display:block"><input type="radio" name="cfk" value="sk"${CFK==="sk"?" checked":""}> 附帶技能（從${esc(cleanName(m.sp))}的技能池抽）</label><label style="display:block"><input type="radio" name="cfk" value="fx"${CFK==="fx"?" checked":""}> 效果：${esc(fxDesc(fxFor(out,cur.n)))}</label>`:""}
+    ${out?`<div class="note">做出：${m?"✦":""}${esc(out)}（${slotOf(out)||"?"}${m?`・魔法・${capItemLv(m.lv)}級`:"・白字"}）</div><button class="paybtn" id="cfdo"${busy||S.dead?" disabled":""}>做</button>`:""}</div>`;
+}
+async function craftGear(){
+  if(busy||S.dead||CFI<0||!CFT)return; const mn=S.items[CFI], k=craftKind(mn); if(!k||!k[2].some(([s])=>s===CFT))return;
+  const m=matOf(mn), h=craftH(), pre=snap(); let name=craftName(mn,CFT);
+  S.log.push({who:"you",text:`做裝備：${mn} → ${name}`,pre}); busy=true; render();
+  let mat=null, notes=[];
+  if(m){const tg=capItemLv(m.lv);
+    if(CFK==="fx"){const fx=fxFor(name,mn);name=fxItemName(fx,name);mat={lv:tg,sp:m.sp,fx}}
+    else{let pool=[];try{pool=await poolFor({name:mn,sp:m.sp,lv:m.lv,mat:true})||[]}catch(e){} const c=pool.length?rnd(pool):null;mat={lv:tg,sp:m.sp,skill:c?{n:c.n,sys:c.sys}:{n:"蠻力",sys:"天生"}}}}
+  while(S.items.includes(name))name=(name+"・二").slice(0,18);
+  S.items.splice(S.items.indexOf(mn),1); delete S.mat[mn]; S.items.push(name); if(mat)S.mat[name]=mat;
+  notes.push(`你花了 ${h} 小時，用${mn}做出了${mat?"✦":""}${name}${mat?`（${mat.lv}級・${mat.fx?fxDesc(mat.fx):`附帶「${mat.skill.n}」`}）`:"（白字）"}。`);
+  CFI=-1; CFT=""; advanceTime(h,notes); busy=false; gearSync(); S.log.push(sysEntry(notes.join("\n"))); save(); render();
+}
+function craftBind(){
+  const s=document.getElementById("cfm"); if(s)s.onchange=()=>{CFI=s.value===""?-1:+s.value;CFT="";render()};
+  document.querySelectorAll("[data-cft]").forEach(b=>b.onclick=()=>{CFT=b.dataset.cft;render()});
+  document.querySelectorAll('[name="cfk"]').forEach(r=>r.onchange=()=>{CFK=r.value;render()});
+  const d=document.getElementById("cfdo"); if(d)d.onclick=craftGear;
+}
