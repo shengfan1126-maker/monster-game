@@ -191,6 +191,7 @@ async function devour(i,tier){
   if(fresh&&S.stage==="幼體"){S.growth++; if(S.growth>=3)grow(notes)}
   let lines=[`你把${c.name}吃得乾乾淨淨。${c.small?"墊了墊肚子":"肚子填飽了"}（HP +${heal}）。`];
   let cands=[];
+  if(c.matDrop)lines.push(`牠身上的 ✦${c.matDrop.n} 也一起吞下去了。`);   /* v0.75：沒拿走的原料跟著屍體吃掉 */
   if(c.harvested)lines.push("〈系統〉《大賢者》：「告。原料已經拆走，無可吸收。」");
   else if(!fresh)lines.push("〈系統〉《大賢者》：「告。已經不新鮮，無可吸收。」");
   else if(tier==="失敗")lines.push("〈系統〉《大賢者》：「告。吸收失敗。」");

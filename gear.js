@@ -92,6 +92,7 @@ function gearBind(){
   const tg=document.getElementById("telego"); if(tg)tg.onclick=teleHome;
   const ec=document.getElementById("esccraft"); if(ec)ec.onclick=escCraft;   /* v0.69 */
   if(typeof craftBind==="function")craftBind();   /* v0.74 */
+  if(typeof takeBind==="function")takeBind();     /* v0.75 */
 }
 
 /* ═════════ 魔法效果（v0.64）═════════
@@ -248,7 +249,10 @@ function dropLoot(d,big,notes){
     const left=table.filter(([k])=>!kinds.includes(k)), tot=left.reduce((a,[,w])=>a+w,0); let r=Math.random()*tot, k=left[0][0];
     for(const [kk,w] of left){r-=w;if(r<0){k=kk;break}}
     kinds.push(k);
-    if(k==="mat"){let nm=`${sp}的${partOf(sp)}`; while(S.items.includes(nm))nm+="・二"; S.items.push(nm); S.mat[nm]={lv,sp}; got.push(`✦${nm}（魔法原料・${lv}級）`)}
+    if(k==="mat"){let nm=`${sp}的${partOf(sp)}`; while(S.items.includes(nm))nm+="・二";
+      const c=d.dead!==false?[...S.corpses].reverse().find(x=>sameSp(x,sp)&&!x.matDrop&&!x.harvested):null;
+      if(c){c.matDrop={n:nm,lv,sp};got.push(`✦${nm}（魔法原料・${lv}級，還在屍體上：拿走的話，這具屍體就學不到技能）`)}   /* v0.75：用戶 22:51，拿了原料就不能吃肉學技能 */
+      else{S.items.push(nm); S.mat[nm]={lv,sp}; got.push(`✦${nm}（魔法原料・${lv}級）`)}}
     else if(k==="part"){const nm=`${sp}${rnd(partsOf(sp))}`; S.items.push(nm); got.push(nm); const c=[...S.corpses].reverse().find(x=>sameSp(x,sp)); if(c)c.part=true}
     else if(k==="gear"){let nm=hum?`${sp}的${rnd(LOOT_GEAR)}`:`${sp}${rnd(BEAST_GEAR)[0]}`; while(S.items.includes(nm))nm+="・二"; S.items.push(nm); got.push(nm)}
     else{const p=hum?rnd(["紅色藥水","藍色藥水","草藥膏"]):"草藥膏"; S.items.push(p); got.push(p)}
@@ -397,3 +401,15 @@ function craftBind(){
   document.querySelectorAll('[name="cfk"]').forEach(r=>r.onchange=()=>{CFK=r.value;render()});
   const d=document.getElementById("cfdo"); if(d)d.onclick=craftGear;
 }
+
+/* ═════════ 拿原料（v0.75）═════════
+   用戶 11-14 22:51：拿了魔核（魔法原料）就不能吃肉學技能。掉落的魔法原料先留在屍體上（c.matDrop），
+   按「拿」才放進背包，屍體變成「原料已拆」（吃了只是肉）；直接吃屍體學技能，原料就跟著沒了。 */
+function takeMat(i){
+  const c=S.corpses[i]; if(busy||S.dead||!c||!c.matDrop)return;
+  const pre=snap(), m=c.matDrop; S.log.push({who:"you",text:`從${c.name}身上拿走 ✦${m.n}`,pre});
+  S.items.push(m.n); S.mat[m.n]={lv:m.lv,sp:m.sp}; c.matDrop=null; c.harvested=true;
+  S.log.push(sysEntry(`你拿走了 ✦${m.n}（魔法原料・${m.lv}級）。${cleanName(c.name)}剩下的只是肉，吃了學不到東西了。`)); save(); render();
+}
+const takeBtn=(c,i)=>c.matDrop&&!busy&&!S.dead?`<button class="it harv" data-tm="${i}">拿 ✦${esc(c.matDrop.n)}</button>`:"";
+function takeBind(){document.querySelectorAll("[data-tm]").forEach(b=>b.onclick=()=>takeMat(+b.dataset.tm))}
