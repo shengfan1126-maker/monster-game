@@ -276,3 +276,21 @@ tobot.onclick=()=>window.scrollTo({top:document.documentElement.scrollHeight,beh
 const arrows=()=>{totop.hidden=scrollY<300;tobot.hidden=scrollY+innerHeight>document.documentElement.scrollHeight-300};
 addEventListener("scroll",arrows,{passive:true}); addEventListener("resize",arrows); setInterval(arrows,1500);
 bootSave().then(()=>{S=load(); heal(); if(S)save(); render(); if(!ls.g("guide_seen"))openGuide()});
+
+/* v0.76：新版本提示。打開時、切回這個分頁時、每 10 分鐘，偷看一次伺服器上的 index.html，
+   版本號跟現在這頁不一樣就在上面跳「有新版本，點這裡更新」（手機瀏覽器常常一直用舊網頁）。 */
+const VER_NOW=(document.querySelector(".sub")||{}).textContent||"";
+let VER_SEEN=false;
+async function verCheck(){
+  if(VER_SEEN||location.protocol==="file:")return;
+  try{
+    const r=await fetch(`index.html?vc=${Date.now()}`,{cache:"no-store"}); if(!r.ok)return;
+    const m=/<span class="sub">([^<]+)<\/span>/.exec(await r.text()); if(!m||!VER_NOW||m[1]===VER_NOW)return;
+    VER_SEEN=true;
+    const b=document.createElement("button"); b.className="newver"; b.textContent=`有新版本（${m[1]}），點這裡更新`;
+    b.onclick=()=>{try{save()}catch(e){} location.replace(`${location.pathname}?r=${Date.now()}`)};
+    document.body.appendChild(b);
+  }catch(e){}
+}
+setTimeout(verCheck,3000); setInterval(verCheck,600000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)verCheck()});

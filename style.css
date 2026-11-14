@@ -209,3 +209,6 @@ footer{margin-top:26px;font-size:11px;color:var(--mute);text-align:center;line-h
 /* v0.70：敘述切換 */
 .narr{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--mute);margin:8px 0 4px}
 .narr .tl.on{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+
+/* v0.76：新版本提示 */
+.newver{position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:50;background:var(--ink);color:var(--on-ink);border:none;border-radius:6px;padding:10px 16px;font-weight:800;box-shadow:0 2px 10px rgba(0,0,0,.25);max-width:calc(100% - 32px)}
