@@ -535,7 +535,7 @@ function reborn(sn){
   const old=S, sk=old.skills.find(s=>s.n===sn&&s.sys!=="Unique"); const ng=newGame(old.name);
   if(sk)ng.skills.push({n:sk.n,sys:sk.sys,g:sk.g||"F",box:"act"});
   ng.rebirths=(old.rebirths||0)+1; ng.langs=["哥布林語"];
-  S=ng; heal(); S.log.push({who:"gm",kind:"sys",alts:[{text:`${OPENING}${sk?`\n\n〈系統〉《大賢者》：「告。前世的記憶殘留了一項本領：${sk.n}（${sk.g||"F"}級）。」`:""}`,opts:OPEN_OPTS.slice()}],i:0}); S.opts=OPEN_OPTS.slice(); TAB="story"; save(); render();
+  S=ng; heal(); S.log.push({who:"gm",kind:"sys",alts:[{text:`${OPENING}\n\n${GIFT_TXT}${sk?`\n\n〈系統〉《大賢者》：「告。前世的記憶殘留了一項本領：${sk.n}（${sk.g||"F"}級）。」`:""}`,opts:OPEN_OPTS.slice()}],i:0}); S.opts=OPEN_OPTS.slice(); TAB="story"; save(); render();
 }
 
 /* ═════════ 結局簿與二周目（v0.46）═════════
@@ -644,7 +644,7 @@ function rebornWith(names,div){
   Object.values(ng.world).forEach(x=>{if(x.kind==="地區")x.known=true});
   S=ng; RBP=[]; DVP=[]; DVN=""; DVD=""; heal();
   const keep=S.skills.filter(s=>s.past).map(s=>`${s.n}（${s.g}級）`);
-  S.log.push({who:"gm",kind:"sys",alts:[{text:`〈系統〉第 ${S.rebirths+1} 局。\n你吃了很多、長得很快。睜開眼的時候，你已經是成體了。${keep.length?`\n〈系統〉《大賢者》：「告。前世的記憶殘留了 ${keep.length} 項本領：${keep.join("、")}。」`:""}${S.divine?`\n〈系統〉神兵「${S.divine.name}」在你手邊。`:""}\n〈系統〉這一帶的地區你都記得。`,opts:REBORN_OPTS.slice()}],i:0});
+  S.log.push({who:"gm",kind:"sys",alts:[{text:`〈系統〉第 ${S.rebirths+1} 局。\n你吃了很多、長得很快。睜開眼的時候，你已經是成體了。\n${GIFT_TXT}${keep.length?`\n〈系統〉《大賢者》：「告。前世的記憶殘留了 ${keep.length} 項本領：${keep.join("、")}。」`:""}${S.divine?`\n〈系統〉神兵「${S.divine.name}」在你手邊。`:""}\n〈系統〉這一帶的地區你都記得。`,opts:REBORN_OPTS.slice()}],i:0});
   S.opts=REBORN_OPTS.slice(); TAB="story"; save(); render();
 }
 const REBORN_OPTS=["看看這個窩現在的樣子","出去找吃的","看看自己帶回來的本領"];

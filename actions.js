@@ -398,6 +398,7 @@ function eatItem(i,label){
   const pre=snap(), notes=[];
   S.log.push({who:"you",text:label||`吃掉${it}`,pre});
   S.items.splice(i,1);
+  if(it==="逃跑粉"){notes.push(`你把一包逃跑粉倒進嘴裡。嗆得眼淚直流。`,S.escRecipe?"〈系統〉《大賢者》：「告。配方已知。」":"〈系統〉《大賢者》：「告。解析完成：逃跑粉的配方——任意植物＋任意骨頭。」");S.escRecipe=1;S.eaten.unshift({day:S.day,what:it,got:null});S.log.push(sysEntry(notes.join("\n")));save();render();return}   /* v0.69 */
   if(EDIBLE_ITEM(it)){feed(Math.ceil(hungerOf().full/3));notes.push(`你把${it}嚼碎吞了下去，稍微填了點肚子。`)}
   else notes.push(`你硬是把${it}吞了下去。肚子不太舒服，也沒填飽什麼。`);
   if(/蘑菇/.test(it)&&Math.random()<0.4){addTag("腹痛");notes.push("沒多久，肚子開始絞痛。【腹痛】")}

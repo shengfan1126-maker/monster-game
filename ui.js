@@ -42,7 +42,7 @@ function startHTML(){
 function bindStart(){
   $("pgo").onclick=()=>{
     const nm=$("pname").value.trim()||"無名";
-    S=newGame(nm); heal(); S.log.push({who:"gm",kind:"sys",alts:[{text:OPENING,opts:OPEN_OPTS.slice()}],i:0}); S.opts=OPEN_OPTS.slice(); TAB="story"; save(); render();
+    S=newGame(nm); heal(); S.log.push({who:"gm",kind:"sys",alts:[{text:`${OPENING}\n\n${GIFT_TXT}`,opts:OPEN_OPTS.slice()}],i:0}); S.opts=OPEN_OPTS.slice(); TAB="story"; save(); render();
   };
   $("pname").onkeydown=e=>{if(e.key==="Enter")$("pgo").click()};
   if($("pcont"))$("pcont").onclick=()=>{S=load();heal();render()};
@@ -122,7 +122,8 @@ function checkHTML(ch){
     <div class="costs">${ci.costs.map((c,i)=>`<label class="cost${c.g?" gen":""}"${c.off?' style="opacity:.45"':""}><input type="checkbox" data-c="${i}"${c.off?" disabled":""}><span>${ch.blind?"？？？":`${esc(c.t)}${c.g?"":effOf(c)}${c.off?`（${c.off}，不能付）`:""}`}</span></label>`).join("")}</div>
     ${ch.noSk?`<div class="note">亞當關掉了你的技能：這一戰只能用物品和神兵。</div>`:""}${ch.blind?`<div class="note">亞當遮住了一切：代價和技能都看不見，付了什麼下一戰才知道。</div>`:""}${ch.lvF?`<div class="note">亞當把你的等級改回了 F。</div>`:""}
     ${skBox}${comboBox(ch)}${itBox}${abBox}${doBox}${warBox}${S.bless&&S.bless.worm?`<div class="sacbox"><label><input type="checkbox" id="wormb"> 紫蟲王的加護：你勾的第一項代價由他替你付（算數，但你不用付；只有一次）</label></div>`:""}
-    <button class="paybtn" id="paybtn">付出 0 項：${tierOf(0,ci)}</button>
+    ${ci.lvDiff>=2&&!war&&!raid?`<div class="note" style="color:var(--bad)">對手比你高 ${ci.lvDiff} 級：看起來打不贏。</div>`:""}
+    <button class="paybtn" id="paybtn">付出 0 項：${tierOf(0,ci)}</button>${escOk(ch)?`<button class="tl" id="escbtn" style="margin-top:6px">逃跑粉 ×${escN()}</button>`:""}
   </div>`;
 }
 const effOf=c=>{const x=[];if(c.ally)x.push(`${c.ally}【負傷】`);if(c.hp)x.push(`HP ${c.hp}${c.arm?`（裝備擋掉 ${-c.arm}）`:""}`);if(c.mp)x.push(`MP ${c.mp}`);if(c.time)x.push(`+${c.time} 小時`);if(c.tag)x.push(`【${c.tag}】`);if(c.item)x.push(`失去 ${c.item}`);
@@ -163,7 +164,7 @@ function storyHTML(){
   const pf=!busy&&!S.err&&!S.dead&&pendingFoe();
   const idle=!busy&&!S.err&&!S.dead&&!ch&&!cs&&!pf&&!pendingSubs()&&!S.war&&!(S.evo&&S.evo.forced!=null);
   const bagFood=S.corpses.map((c,i)=>idle?(EA===i?`<button class="it food" data-ecp="${i}|private">私下吃 ${esc(c.name)}<small>+1 小時</small></button><button class="it food" data-ecp="${i}|public">當眾吃<small>${esc(witnesses(c).join("、"))}會看到</small></button>`:`<button class="it food" data-ec="${i}">吃 ${esc(c.name)}<small>${isFresh(c)?"新鮮":"不新鮮"}</small></button>`):`<span class="it food">${esc(c.name)}<small>${isFresh(c)?"新鮮":"不新鮮"}</small></span>`);
-  const bagHv=[];   /* v0.68：拿掉「拆原料」，打倒就掉東西 */
+  const bagHv=idle?escCraftBtn():[];   /* v0.68：拿掉「拆原料」，打倒就掉東西；v0.69：學會配方後可以做逃跑粉 */
   const nm=it=>matOf(it)?`✦${esc(it)}`:esc(it), mc=it=>matOf(it)?" mat":"";
   const bagItem=S.items.map((it,i)=>idle?`<button class="it${mc(it)}" data-bi="${i}">${BI===i?`吃掉 ${nm(it)}？${matOf(it)?"（能學技能）":""}`:nm(it)}</button>`:`<span class="it${mc(it)}">${nm(it)}</span>`);
   const bag=`<div class="bag"><span class="k">背包</span>${bagFood.length+bagItem.length?[...bagFood,...bagHv,...bagItem].join(""):`<span class="none">空的</span>`}</div>${idle&&(S.items.length||bagHv.length)?`<div class="bagnote">金色是食材，點一下就吃；✦ 是魔法原料或魔法物品，點兩下吃掉能學技能；其他東西點兩下也能硬吞，但學不到。</div>`:""}`;
@@ -249,6 +250,7 @@ function bindStory(){
   const ta=$("freein");
   if(ta){ $("sendbtn").onclick=()=>{const v=ta.value;if(v.trim()){ta.value="";act(v,true,pendingCheck()||null)}};
     ta.onkeydown=e=>{if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();$("sendbtn").click()}}; }
+  {const eb=$("escbtn");if(eb)eb.onclick=()=>escUse();}   /* v0.69 */
   const pb=$("paybtn");
   if(pb){
     const ch=pendingCheck(), ci=checkInfo(ch);
@@ -302,7 +304,7 @@ function skillHTML(){
       <div class="note" style="margin-top:6px">狀態在故事裡解決了就會自動拿掉；程序沒拿掉的，可以點兩下手動拿掉。</div>
       <div class="note" style="margin-top:8px">${hasTag("飢餓")?"正餓著。":`飽足還能撐 ${S.full} 小時。`}${S.stage}餓著的時候，每 ${hungerOf().every} 小時 HP -1。</div></div>
     ${gearHTML()}<div class="card"><h3>背包</h3>${S.corpses.length+S.items.length?`${S.corpses.map((c,i)=>`<div class="crow">🍖 ${esc(c.name)}（${c.lv}級・${c.harvested?"原料已拆・":""}${isFresh(c)?`新鮮，還有 ${24-ageOf(c)} 小時`:`不新鮮了，${Math.max(0,72-ageOf(c))} 小時後爛掉`}）${c.evo?"":`<button class="tl" data-cd="${i}">${CD===i?"確定拿掉？":"已經給人／丟掉"}</button>`}</div>`).join("")}${S.items.map((it,i)=>{const m=matOf(it);return `<div class="crow">${m?`✦ ${esc(it)}（${m.skill?`魔法物品，附帶「${esc(m.skill.n)}」`:m.fx?`魔法物品，${esc(fxDesc(m.fx))}`:m.unique?"種族神兵":"魔法原料"}・${m.lv}級）`:esc(it)}${gearBtn(it,i)}${POTION(it)?`<button class="tl" data-dp="${i}">喝掉</button>${S.npcs.map((x,n)=>({x,n})).filter(o=>o.x.where===S.at&&!S.party.some(p=>p.n===o.x.n)&&relOf(o.x)<2).map(o=>`<button class="tl" data-pn="${i}|${o.n}">給 ${esc(o.x.n)}</button>`).join("")}${POTION(it)!=="藍"?S.party.filter(p=>p.tags.includes("負傷")||p.tags.includes("重傷")).map(p=>`<button class="tl" data-pa="${i}|${S.party.indexOf(p)}">給 ${esc(p.n)}</button>`).join(""):""}`:""}<button class="tl" data-di="${i}">${DI===i?"確定拿掉？":"已經給人／丟掉"}</button></div>`}).join("")}`:`<div class="empty">什麼都沒有。</div>`}
-      ${forgeHTML()}<div class="note" style="margin-top:6px">🍖 是食材：新鮮的吃了能學技能。✦ 是魔法原料或魔法物品：不會壞，吃了能學技能；魔法物品帶在身上時，它的技能可以在判定時拿來用。打倒對手就會掉魔法原料、白字裝備或藥，屍體照樣能吃。其他物品吃了只是硬吞。</div></div>
+      ${escCraftBtn().join("")}${forgeHTML()}<div class="note" style="margin-top:6px">🍖 是食材：新鮮的吃了能學技能。✦ 是魔法原料或魔法物品：不會壞，吃了能學技能；魔法物品帶在身上時，它的技能可以在判定時拿來用。打倒對手就會掉魔法原料、白字裝備或藥，屍體照樣能吃。其他物品吃了只是硬吞。</div></div>
     <div class="note">用技能：判定卡上選一個技能來用，攻擊、輔助、強化都一樣，用了就多一層優勢（少付一項）。一次一個，沒有組合技，不花 MP。<br>技能沒有 Lv，只有等級字母（學到時你的等級）。可用的位置滿了，新技能自動放進倉庫；已經會的技能不會再出現在吸收選單裡。只有新鮮的東西（死去 24 小時內的屍體、活捉的小生物、蛋、新鮮植物）能學到技能。同級保底 1 個，每高一級多 1 個，大成功再 +1。</div>
     <div class="note" style="margin-top:6px">恢復：醒著沒餓，每 3 小時 HP +1（有「再生」就 +再生等級）、MP +1。夜裡睡到天亮：沒餓 HP 回一半、MP 回滿，疲勞和小傷一起消掉；餓著 HP 不回、MP 回一半。白天小睡 3 小時：HP、MP 各回四分之一，消掉【疲憊】。吃東西 HP +1~2。</div>
     ${S.sub?`<div class="card" style="margin-top:12px"><h3>種族：${esc(S.sub.name)}</h3><div>${esc(S.sub.essence)}</div><div class="note">${esc(S.sub.look||"")}</div></div>`:""}`;

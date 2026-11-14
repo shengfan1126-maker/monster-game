@@ -138,6 +138,7 @@ function heal(){
   nestSync();
   S.corpses.filter(c=>!c.evo&&GEAR.test(c.name)).forEach(c=>{if(!S.items.includes(c.name))S.items.push(c.name)});
   S.corpses=S.corpses.filter(c=>c.evo||!GEAR.test(c.name));
+  if(S.escGift==null){S.escGift=1;S.items.push(ESC,ESC,ESC);if(Array.isArray(S.log))S.log.push(sysEntry(GIFT_TXT))}   /* v0.69：舊存檔補管理員的恩惠 */
   gearSync();   /* v0.63：裝備欄（舊存檔：有欄位的東西自動穿上） */
   const dead=new Set([...(S.beaten||[]),...S.eaten.map(x=>cleanName(x.what))]);
   S.log.forEach(e=>{if(e.who==="gm"&&e.alts){const d=e.alts[e.i].defeated;if(d&&d.name)dead.add(d.name)}});

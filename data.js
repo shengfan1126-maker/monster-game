@@ -262,7 +262,7 @@ function addNode(pl,from,h,notes){
 const grpW=g=>!g?"":g==="成群"?"成群的":/[隻群的]$/.test(g)?g:g+"的";
 function pickTier(){
   const i=gIdx(S.lv), r=Math.random();
-  const t=i===0?(r<0.68?0:r<0.96?1:2):(r<0.25?i-1:r<0.8?i:i+1);
+  const t=i===0?(r<0.6?0:r<0.85?1:r<0.95?2:3):(r<0.2?i-1:r<0.7?i:r<0.9?i+1:r<0.97?i+2:i+3);   /* v0.69：最高高三級（F：F 60／E 25／D 10／C 5；其他：−1 20／0 50／+1 20／+2 7／+3 3） */
   return GRADES[Math.min(GRADES.length-1,Math.max(0,t))];
 }
 function pickPrey(reg){
@@ -378,7 +378,7 @@ function newGame(name){
     hp:8, hpMax:10, mp:10, mpMax:10, exist:0, full:0,
     loc:"灰岩洞・幼崽窩",
     skills:[{n:"吞噬",sys:"Unique",lv:null,note:"前世繼承。吃下新鮮的肉或死去一天內的屍體，可以從中學到技能。"}],
-    tags:["幼體","飢餓"], items:[], corpses:[{name:"老鼠（咬了一口）",sp:"老鼠",lv:"F",t:29}],
+    tags:["幼體","飢餓"], items:["逃跑粉","逃跑粉","逃跑粉"], escGift:1, corpses:[{name:"老鼠（咬了一口）",sp:"老鼠",lv:"F",t:29}],
     titles:[], eaten:[], dex:{}, dead:false,
     nest:{name:"灰岩洞",p:1,pop:2,d:2,food:0,fed:0,
       tags:[{t:"需求（食物）",c:"bad"},{t:"天然屏障",c:"good"},{t:"禍患（餓狼群）",c:"bad"}],

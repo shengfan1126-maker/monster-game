@@ -90,6 +90,7 @@ function gearBind(){
   document.querySelectorAll("[data-wr]").forEach(b=>b.onclick=()=>wear(+b.dataset.wr));
   document.querySelectorAll("[data-uw]").forEach(b=>b.onclick=()=>unwear(b.dataset.uw));
   const tg=document.getElementById("telego"); if(tg)tg.onclick=teleHome;
+  const ec=document.getElementById("esccraft"); if(ec)ec.onclick=escCraft;   /* v0.69 */
 }
 
 /* ═════════ 魔法效果（v0.64）═════════
@@ -252,4 +253,39 @@ function dropLoot(d,big,notes){
   }
   if(got.length)notes.push(`${cleanName(d.name)}掉下了：${got.join("、")}。`);
   gearSync();
+}
+
+/* ═════════ 逃跑粉（v0.69）═════════
+   用戶 11-14 19:15～19:26：醒來就有 3 包（管理員的恩惠，台詞是用戶寫的）；一般遭遇的判定卡上「逃跑粉」直接脫身、不付代價，關鍵戰不能用。
+   不提示配方：吞掉一包才學會（任意植物＋任意骨頭，1 小時，在哪都能做）。怪物分布最高高三級（data.js pickTier）。 */
+const GIFT_TXT="叮！你獲得了【逃跑粉】【管理員的恩惠】這是逃跑粉哦，打不過就要跑，不然會被野獸吃掉哦，記得要用，這個世界很殘酷的，努力活下去吧！";
+const ESC="逃跑粉";
+const escN=()=>S.items.filter(n=>n===ESC).length;
+const escOk=ch=>!!(ch&&ch.foe&&!ch.war&&!ch.raid&&!ch.local&&escN()>0);
+function escUse(){
+  const e=S.log[S.log.length-1], ch=e&&e.alts&&e.alts[e.i]&&e.alts[e.i].check; if(busy||S.dead||!escOk(ch))return;
+  const pre=snap(); S.items.splice(S.items.indexOf(ESC),1); const pre2=snap();   /* 撤回用 pre（還沒用掉）；模型結果套在 pre2（已經用掉）上 */
+  const prompt=`【程序判定：逃跑粉】主角撒出一包逃跑粉，粉霧炸開，${ch.foe}什麼都看不見、聞不到，主角趁機脫身，沒有付出任何代價（逃跑粉還剩 ${escN()} 包）。寫出脫身的樣子，對手追不上、不會再撲上來；這回合不要給 check，options 給 3 個。`;
+  S.log.push({who:"you",text:ESC,prompt,time:null,pre}); S.opts=[]; S.err=null; S.fightDelay=null; save();
+  doJob({kind:"turn",prompt,noCheck:true},pre2,S.log.length-1);
+}
+/* 配方：任意植物（背包或食物裡的）＋任意骨頭 */
+const isPlantN=n=>PLANT.test(n||"")&&!slotOf(n)&&!matOf(n)&&!POTION(n)&&n!==ESC;
+const isBoneN=n=>/骨/.test(n||"")&&!slotOf(n)&&!matOf(n)&&!POTION(n);
+function escParts(){
+  const pi=S.items.findIndex(isPlantN), pc=pi<0?S.corpses.findIndex(c=>!c.evo&&PLANT.test(c.name)):-1, bi=S.items.findIndex(isBoneN);
+  return {plant:pi>=0?{t:"i",i:pi,n:S.items[pi]}:pc>=0?{t:"c",i:pc,n:S.corpses[pc].name}:null,bone:bi>=0?{t:"i",i:bi,n:S.items[bi]}:null};
+}
+function escCraftBtn(){
+  if(!S.escRecipe)return [];
+  const p=escParts(), ok=p.plant&&p.bone;
+  return [`<button class="it harv" id="esccraft"${ok&&!busy&&!S.dead?"":" disabled"}>${ok?`做逃跑粉（${esc(p.plant.n)}＋${esc(p.bone.n)}，1 小時）`:"做逃跑粉（要植物和骨頭）"}</button>`];
+}
+function escCraft(){
+  if(busy||S.dead||!S.escRecipe)return; const p=escParts(); if(!p.plant||!p.bone)return;
+  const pre=snap(), notes=[];
+  S.log.push({who:"you",text:`做逃跑粉（${p.plant.n}＋${p.bone.n}）`,pre});
+  [p.plant,p.bone].sort((a,b)=>b.i-a.i).forEach(x=>{if(x.t==="i")S.items.splice(x.i,1)}); if(p.plant.t==="c")S.corpses.splice(p.plant.i,1);
+  S.items.push(ESC); notes.push(`你把${p.plant.n}和${p.bone.n}搗碎、拌在一起，做出一包逃跑粉（現在 ${escN()} 包）。`);
+  advanceTime(1,notes); S.log.push(sysEntry(notes.join("\n"))); save(); render();
 }
