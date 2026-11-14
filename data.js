@@ -363,7 +363,7 @@ const PART_RE=/核|牙|爪|角|鱗|甲片|殼|皮|囊|腺|翼|心臟|血|精華|
 const skUsed=k=>!!k&&(S.usedSk||[]).filter(x=>x===k).length>=(/（神兵）$/.test(k)?3:1);   // 神兵的能力一天各 3 次（v0.47）
 /* 白字（普通）武器防具：帶在身上可當一次性物品，用掉換一層優勢；藥水：紅回 HP、藍回 MP、紫兩個都回 */
 const GEAR_RE=/劍|刀|匕首|矛|斧|弓|盾|甲|護|棍|錘|槌|鞭|弩/;
-const POTION=n=>{const m=/(紅|藍|紫)(色)?(藥水|藥劑|藥)/.exec(n||"");return m?m[1]:null};
+const POTION=n=>{if(/草藥膏/.test(n||""))return "草";const m=/(紅|藍|紫)(色)?(藥水|藥劑|藥)/.exec(n||"");return m?m[1]:null};   /* v0.63：草藥膏回 HP 25% */
 const oneShots=()=>S.items.filter(n=>!matOf(n)&&GEAR_RE.test(n)&&!POTION(n));
 const capItemLv=l=>GRADES[Math.min(gIdx(l),gIdx(S.lv)+1,5)];
 const cleanItemName=n=>String(n||"").replace(/\s*[（(][^）)]*級[）)]\s*$/,"").trim();

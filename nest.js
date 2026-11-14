@@ -453,7 +453,7 @@ function raidLoot(c,notes){
     let nm=`${sp}的${gear}`; while(S.items.includes(nm))nm+="・改";
     S.items.push(nm); S.mat[nm]={lv,sp,skill:{n:sk.n,sys:sk.sys}}; got.push(nm);
     notes.push(`戰利品：✦${nm}（魔法物品，附帶「${sk.n}」・${lv}級）`)}
-  if(!again&&Math.random()<0.4){const p=["紅色藥水","藍色藥水"][rint(0,1)];S.items.push(p);got.push(p);notes.push(`戰利品：${p}`)}
+  if(!again&&Math.random()<0.4){const p=["紅色藥水","藍色藥水","草藥膏"][rint(0,2)];   /* v0.63：草藥膏 */S.items.push(p);got.push(p);notes.push(`戰利品：${p}`)}
   if(!got.length)notes.push("這次沒搶到值錢的東西（同一個對手今天已經被你搜刮過了）。");
   return got}
 
@@ -1284,13 +1284,13 @@ const RW={"人類城鎮":{n:"曙光長劍",d:"對「暗」屬性的對手多一�
   "蛙人村":{n:"殘影斗篷",d:"輸一階段不扣生命值（一天三次）"},"諾姆據點":{n:"齒輪盾",d:"在巢穴打的討伐戰每階段多一層"},
   "鳥人聚落":{n:"風羽之冠",d:"每場關鍵戰的最後一階段多一層"},"蜥蜴人營地":{n:"記仇之牙",d:"上一階段輸了，這一階段多一層"}};
 const rwOf=n=>Object.values(RW).find(z=>z.n===n);
-const rwHave=n=>S.items.includes(n);                               // 用戶：只能在主角身上
+const rwHave=n=>S.items.includes(n)&&worn(n);                      /* 用戶：只能在主角身上；v0.63 起要穿上才生效 */
 const rwLeft=k=>{const u=S.rwUse&&S.rwUse.day===S.day?S.rwUse:{};return 3-(u[k]||0)};
 const rwSpend=k=>{if(!S.rwUse||S.rwUse.day!==S.day)S.rwUse={day:S.day};S.rwUse[k]=(S.rwUse[k]||0)+1};
 function rwGive(set,why,notes){
   const w=RW[set]; S.rwGot=S.rwGot||{}; if(!w||S.rwGot[set])return; S.rwGot[set]=why;
   S.items.push(w.n); S.mat[w.n]={lv:"S",sp:set.replace(/城鎮|村|聚落|田地|據點|營地/g,""),unique:true,rw:set};
-  notes.push(`〈系統〉${why}：得到 ✦${w.n}（${set}的種族神兵・S 級）。${w.d}。帶在身上就會生效，只在關鍵戰有用。`);
+  notes.push(`〈系統〉${why}：得到 ✦${w.n}（${set}的種族神兵・S 級）。${w.d}。要穿上才生效（欄位空著會自動穿上；在技能頁的背包換），只在關鍵戰有用。`);
 }
 function rwFoeAttr(){const r=S.raid; if(!r||!r.king)return null; return r.king==="clown"?S.kings.clown.cattr:KINGS[r.king].attr}
 function rwAdv(ch){

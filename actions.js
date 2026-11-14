@@ -449,7 +449,7 @@ function pay(sel,sac,wb){
   }
   if(ch.raid&&S.raid){
     const r=S.raid; let dmg=0;
-    if(tier==="失敗"){dmg=rwShade()?0:dmgOf(ch.foeLv);S.hp-=dmg;r.fails++;if(r.dun&&S.hp<=0){S.hp=1;r.fails=99}const n=S.nest,n2=[`${r.name}${r.at&&r.at!==NEST()?"佔了上風":"衝破了一段防線"}：HP -${dmg}`];
+    if(tier==="失敗"){dmg=rwShade()?0:armorCut(dmgOf(ch.foeLv));S.hp-=dmg;r.fails++;if(r.dun&&S.hp<=0){S.hp=1;r.fails=99}const n=S.nest,n2=[`${r.name}${r.at&&r.at!==NEST()?"佔了上風":"衝破了一段防線"}：HP -${dmg}`];
       if((!r.at||r.at===NEST())&&!r.admin){if(n.pop>1){n.pop--;n2.push(`人口：${POP[n.pop-1]}`)} if(n.d>1){n.d--;n2.push(`戰力：${DEF[n.d-1]}`)}} checkDeath(n2);S.log.push(sysEntry(n2.join("　")))}
     else{if(ch.useSk)r.lastSk=ch.useSk; r.wins+=tier==="大成功"&&r.of>=5?2:1}   // v0.54 修正：用技能成功也算守住
     r.mom=tier==="大成功"?1:tier==="失敗"?-1:0; r.stage++;
@@ -461,7 +461,7 @@ function pay(sel,sac,wb){
   }
   if(ch.war&&S.war){
     let dmg=0;
-    if(tier==="失敗"){dmg=rwShade()?0:dmgOf(ch.foeLv)+1;S.hp-=dmg;const n2=[`${S.war.foe.name}佔了上風：HP -${dmg}`];checkDeath(n2);S.log.push(sysEntry(n2.join("\n")))}
+    if(tier==="失敗"){dmg=rwShade()?0:armorCut(dmgOf(ch.foeLv)+1);S.hp-=dmg;const n2=[`${S.war.foe.name}佔了上風：HP -${dmg}`];checkDeath(n2);S.log.push(sysEntry(n2.join("\n")))}
     S.war.mom=tier==="大成功"?1:tier==="失敗"?-1:0; S.war.stage++;
     if(S.dead){save();render();return}
     S.opts=[]; save();
@@ -551,7 +551,7 @@ async function swapSkills(){
   busy=false; S.log.push(sysEntry(notes.join("\n"))); save(); render();
 }
 
-/* 藥水：紅回 HP、藍回 MP、紫兩個都回；喝掉就沒了，不花時間，也擋不住對手（戰鬥中判定照樣進行） */
+/* 藥水：紅回 HP、藍回 MP、紫兩個都回、草藥膏回 HP 25%（v0.63）；喝掉就沒了，不花時間，也擋不住對手（戰鬥中判定照樣進行） */
 /* 藥水給同伴：紅／紫治傷（負傷→好了、重傷→負傷）；藍沒有效果（同伴沒有 MP），不讓喝 */
 function potionAlly(i,k){
   const it=S.items[i], c=POTION(it), p=S.party[k]; if(!c||!p||busy||S.dead||c==="藍")return;
@@ -574,7 +574,7 @@ function potionNpc(i,n){
 function abandonAllySk(k,j){const p=S.party[k]; if(!p||!p.skills[j])return; const n=p.skills[j].n; p.skills.splice(j,1);S.log.push(sysEntry(`${p.n}忘掉了 ${n}。`));save();render()}
 function drinkPotion(i){
   const it=S.items[i], c=POTION(it); if(!c||busy||S.dead)return;
-  const hp=c!=="藍"?Math.min(S.hpMax-S.hp,Math.ceil(S.hpMax*0.4)):0, mp=c!=="紅"?Math.min(S.mpMax-S.mp,Math.ceil(S.mpMax*0.5)):0;
+  const hp=c!=="藍"?Math.min(S.hpMax-S.hp,Math.ceil(S.hpMax*(c==="草"?0.25:0.4))):0, mp=c!=="紅"&&c!=="草"?Math.min(S.mpMax-S.mp,Math.ceil(S.mpMax*0.5)):0;
   S.items.splice(i,1);S.hp+=hp;S.mp+=mp;
   S.log.push(sysEntry(`你喝掉了 ${it}：${[hp?`HP +${hp}`:"",mp?`MP +${mp}`:""].filter(Boolean).join("、")||"沒有需要回復的地方，白喝了"}。`));
   save();render();

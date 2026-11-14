@@ -138,6 +138,7 @@ function heal(){
   nestSync();
   S.corpses.filter(c=>!c.evo&&GEAR.test(c.name)).forEach(c=>{if(!S.items.includes(c.name))S.items.push(c.name)});
   S.corpses=S.corpses.filter(c=>c.evo||!GEAR.test(c.name));
+  gearSync();   /* v0.63：裝備欄（舊存檔：有欄位的東西自動穿上） */
   const dead=new Set([...(S.beaten||[]),...S.eaten.map(x=>cleanName(x.what))]);
   S.log.forEach(e=>{if(e.who==="gm"&&e.alts){const d=e.alts[e.i].defeated;if(d&&d.name)dead.add(d.name)}});
   S.npcs.filter(x=>dead.has(x.n)).forEach(x=>npcGone(x.n,S.eaten.some(y=>cleanName(y.what)===x.n)?"被你吃掉":"被你打倒",null));                     // 進化完還留著的進化戰卡
