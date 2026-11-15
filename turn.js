@@ -17,6 +17,16 @@ function liveNarr(t){
   if(!m)return "";
   return m[1].replace(/\\$/,"").replace(/\\n/g,"\n").replace(/\\"/g,'"').replace(/\\\\/g,"\\");
 }
+/* v0.81：模型這回合沒出判定卡，卻讓身邊有名字的人死掉，而玩家是要跟他打 */
+function fightNoCard(o,txt){
+  if(!o||o.check)return null;
+  const dead=[], d=o.defeated; if(d&&typeof d==="object"&&d.name&&d.dead!==false&&d.dead!=="false")dead.push(String(d.name));
+  (Array.isArray(o.npc_gone)?o.npc_gone:o.npc_gone?[o.npc_gone]:[]).forEach(x=>{const n=typeof x==="string"?x:x&&x.name, w=x&&typeof x==="object"?String(x.why||""):"死";if(n&&/死|殺|杀|斷氣|断气/.test(w))dead.push(String(n))});
+  if(!dead.length)return null;
+  const lf=S.lastFoe, nx=S.npcs.find(x=>npcHere(x)&&!x.captive&&!x.with&&!(lf&&lf.down&&sameFoe(lf.name,x.n))&&dead.some(n=>sameFoe(n,x.n)));
+  if(!nx||!/打|殺|杀|戰|战|勝負|胜负|決鬥|决斗|挑戰|挑战|攻擊|攻击|砍|劈|揍|宰|幹掉|干掉|單挑|单挑/.test(String(txt||"")))return null;
+  return nx;
+}
 function validateTurn(res){
   const o=parseObjs(res.txt).reverse().find(x=>typeof x.narration==="string"&&x.narration.trim());
   if(o)return o;
@@ -79,7 +89,12 @@ function baseAlt(o,res){
 async function runJob(job,ctx){
   if(job.kind==="turn"){
     if(!job.quick&&job.pend==null)job.pend=(S.pendNarr||[]).slice();   /* v0.70：「不用」模式記下的事，這次一起交給模型 */
-    const res=job.quick?await quickRun(job.quick):await callModel(buildMessages(`【玩家這回合】（現在 ${timeStr()}，${PERIOD(S.hour)}）\n${job.pend&&job.pend.length?`【上次叫你之後，程式直接處理了這些（玩家選了不用敘述）：${job.pend.join("／")}。這回合開頭用一兩句自然帶過，不要重演】\n`:""}${job.prompt}`,ctx),3000,validateTurn,showLive);
+    const tq=`【玩家這回合】（現在 ${timeStr()}，${PERIOD(S.hour)}）\n${job.pend&&job.pend.length?`【上次叫你之後，程式直接處理了這些（玩家選了不用敘述）：${job.pend.join("／")}。這回合開頭用一兩句自然帶過，不要重演】\n`:""}${job.prompt}`;
+    let res=job.quick?await quickRun(job.quick):await callModel(buildMessages(tq,ctx),3000,validateTurn,showLive);
+    if(!job.quick&&!job.noCheck){const nx=fightNoCard(res.val,job.prompt);   /* v0.81：跟有名字的人打，模型沒出判定卡就直接寫死：再叫一次；還是沒有就程式出卡 */
+      if(nx){let r2=null;try{r2=await callModel(buildMessages(`${tq}\n【程式提醒】玩家要跟${nx.n}打，勝負還沒定：這回合一定要給 check（foe 填「${nx.n}」，foeLv 填「${nx.lv||"F"}」），narration 停在動手前那一刻，不要寫誰受傷、誰倒下、誰死了，也不要填 defeated、npc_gone。`,ctx),3000,validateTurn,showLive)}catch(e){}
+        if(r2&&r2.val&&r2.val.check)res=r2;
+        else res={...res,val:{narration:`${nx.n}知道躲不掉了，擺好架勢迎上來。`,options:[],loc:res.val.loc||null,time:0,check:{what:`打倒${nx.n}`,foe:nx.n,foeLv:nx.lv||"F",adv:[],dis:[],costs:[{t:`挨了${nx.n}一下`,hp:-dmgOf(nx.lv||"F")},{t:"拚到喘不過氣",mp:-2}]}}}}}
     const o=res.val, a=baseAlt(o,res);
     const t=parseInt(o.time,10); a.time=isNaN(t)?0:Math.max(0,Math.min(3,t));
     a.ate=normAte(o.ate);
@@ -256,6 +271,7 @@ function gains(a,big,notes,guard){
     if(f.n<=0&&was>0){notes.push(`〈系統〉《大賢者》：「告。${k}已經被你打散了。」`);if(f.tag)S.nest.tags=S.nest.tags.filter(t=>t.t!==f.tag)}});
   const d=a.defeated, dn=d?cleanName(d.name):"";
   const dup=x=>d&&d.dead!==false&&(cleanName(x.name)===dn||cleanName(x.name).includes(dn)||dn.includes(cleanName(x.name))||speciesOf(x.name,x.kind)===speciesOf(d.name,d.kind));
+  const lostLv=(a.lost||[]).map(x=>{const it=S.items.find(it=>it===x||it.includes(x)||x.includes(it));return it&&S.mat[it]&&S.mat[it].lv}).filter(Boolean);   /* v0.81：用掉的魔法材料等級 */
   (a.lost||[]).forEach(x=>{const i=S.items.findIndex(it=>it===x||it.includes(x)||x.includes(it));if(i>=0){notes.push(`失去 ${S.items[i]}`);delete S.mat[S.items[i]];S.items.splice(i,1);return}
     const k=x.replace(/的?屍體|殘骸|肉塊/g,"").trim(), j=S.corpses.findIndex(c=>!c.evo&&(c.name===x||cleanName(c.name)===k||(k&&cleanName(c.name).includes(k))));
     if(j>=0){notes.push(`${S.corpses[j].name}已經不在你手上了`);S.corpses.splice(j,1)}});
@@ -292,12 +308,15 @@ function gains(a,big,notes,guard){
      if(need>0){const lv=(S.lastFoe&&S.lastFoe.lv)||"F";for(let i=0;i<need;i++)toCorpses(k,k,lv).forEach(c=>{c.small=false;S.corpses.push(c)});notes.push(`${k}的屍體 ×${need}放進了身邊的屍體清單。`)}})}
   (a.found||[]).filter(x=>!S.items.includes(x)&&!eatenNames.includes(x)&&!S.corpses.some(c=>c.name===x)).forEach(x=>{
     let m=a.mats&&a.mats[x], fromCorpse=false;
+    {const k=s=>cleanName(String(s)).replace(/[✦的]/g,""), mc=S.corpses.find(c=>!c.evo&&c.matDrop&&(k(x)===k(c.matDrop.n)||k(x).includes(k(c.name))&&/魔核|核|原料/.test(x)&&/魔核|核/.test(c.matDrop.n)));   /* v0.81：故事裡取出魔核＝「拿」 */
+     if(mc){const md=mc.matDrop;S.items.push(md.n);S.mat[md.n]={lv:md.lv,sp:md.sp};mc.matDrop=null;mc.harvested=true;notes.push(`拿走了 ✦${md.n}（魔法原料・${md.lv}級）。${cleanName(mc.name)}剩下的只是肉，吃了學不到東西了。`);return}}
     if(m&&!m.skill){const c=S.corpses.find(c=>!c.evo&&(x.includes(cleanName(c.name))||String(m.sp).includes(cleanName(c.name))));
       if(c&&c.part){notes.push(`（${x}：這具${cleanName(c.name)}已經拿過部位了）`);return}   /* v0.68：掉落由 dropLoot 給 */
       if(c){c.part=true;const w=x.replace(/的/g,"");S.items.push(w);notes.push(`得到 ${w}（${cleanName(c.name)}的部位，可以在背包做成裝備）`);return}   /* v0.74：故事裡剝皮、拔角：這隻還沒掉過部位就給（白字部位） */
       else if(MUNDANE.test(x)||!PART_RE.test(x))m=null;     // 沒有來源屍體、名字又不像部位／魔核：普通東西，不是魔法原料
     }
     if(m&&MUNDANE.test(x))m=null;
+    if(m&&lostLv.length){const top=lostLv.reduce((p,q)=>gIdx(q)>gIdx(p)?q:p);if(gIdx(m.lv)>gIdx(top)){notes.push(`（${x}的等級壓到 ${top} 級：做出來的東西不會比材料高）`);m={...m,lv:top}}}
     if(m&&!fromCorpse&&gIdx(m.lv)>gIdx(capItemLv(m.lv))){notes.push(`（${x}的等級被壓到 ${capItemLv(m.lv)} 級：魔法物品最多比你高一級）`);m.lv=capItemLv(m.lv)}                           // 金幣袋、文件、食物之類，就算模型填了技能也只是普通物品
     if(m){S.items.push(x);S.mat[x]=m;notes.push(`得到 ✦${x}（${m.skill?`魔法物品，附帶「${m.skill.n}」`:"魔法原料"}・${m.lv}級）`)}
     else{if(plainN>=plainMax){notes.push(`（${x}帶不走，留在原地）`);return}plainN++;receive(x,notes)}});
