@@ -209,7 +209,7 @@ function storyHTML(){
         <button class="send" id="sendbtn">送出</button>
       </div>`;
   }
-  return `<div class="log" id="log">${html}${tail}</div><div class="choices">${S.dead?"":bag}${!S.dead&&!busy&&!ch?offerHTML()+adminHTML()+homeHTML()+nineHTML():""}${bottom}</div>`;
+  return `<div class="log" id="log">${html}${tail}</div><div class="choices">${!S.dead&&!busy?hintHTML():""}${S.dead?"":bag}${!S.dead&&!busy&&!ch?offerHTML()+adminHTML()+homeHTML()+nineHTML():""}${bottom}</div>`;
 }
 /* 背包的按鈕：喝藥、給藥、鍛造、裝備（v0.63：技能頁的背包以前沒有綁，喝不了、鍛造不了） */
 function bindBag(){
@@ -234,7 +234,7 @@ function bindStory(){
     if(c&&isHumanoid(c)&&witnesses(c).length){EA=EA===i?-1:i;render();return} eatCorpse(i)});
   document.querySelectorAll("[data-ecp]").forEach(b=>b.onclick=()=>{const [i,h]=b.dataset.ecp.split("|");EA=-1;eatCorpse(+i,null,h)});
   document.querySelectorAll("[data-ei]").forEach(b=>b.onclick=()=>eatItem(+b.dataset.ei));
-  bindBag();
+  bindBag(); hintBind();   /* v0.80：遊戲中的提示 */
   document.querySelectorAll("[data-as]").forEach(b=>b.onclick=()=>{const [k,j]=b.dataset.as.split("|").map(Number);if(ASD===k+":"+j){ASD="";abandonAllySk(k,j)}else{ASD=k+":"+j;render()}});
   document.querySelectorAll("[data-hv]").forEach(b=>b.onclick=()=>harvest(+b.dataset.hv));
   document.querySelectorAll("[data-bi]").forEach(b=>b.onclick=()=>{const i=+b.dataset.bi;if(BI!==i){BI=i;render();return}BI=-1;eatItem(i)});

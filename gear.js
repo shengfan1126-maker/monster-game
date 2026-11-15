@@ -422,3 +422,29 @@ function tripPrompt(){
   let ev; if(Math.random()<0.5){const {sp,grp,lv}=pickPrey(regionOf());ev=`${grpW(grp)}${sp}（${lv}級）擋在路上`}else ev=rnd(TRIP_EV);
   return `\n【路上出事（程序抽到的）】快到目的地的時候：${ev}。寫出這件事，停在主角要決定怎麼應付的那一刻；要動手或硬闖就給 check（填 foe、foeLv）。`;
 }
+
+/* ═════════ 遊戲中的提示（v0.80）═════════
+   用戶 11-15 13:09：「記得放點周目提示，我知道大家都不看新手教學的。」
+   第一次碰到某件事時，故事頁下面跳一行提示（一次一條），按「知道了」就不再出現；記在這台裝置（localStorage mowu_hints），轉生、新開局也不重複。可以「不要再提示」全部關掉。 */
+const HINTS=[
+  ["eat",()=>S.stage==="幼體"&&S.corpses.some(c=>!c.evo),"吃新鮮的屍體會學到技能（〈吞噬〉）。下面金色的是能吃的，點一下就吃。"],
+  ["check",()=>!!pendingCheck(),"判定卡：勾的代價越多越穩（勾到「大成功」更好）。也可以在下面直接打字描述怎麼打，大賢者會把技能、武器、地形拆成步驟，每成立一步多一層優勢。"],
+  ["strong",()=>{const ch=pendingCheck();return !!(ch&&ch.foeLv&&gIdx(ch.foeLv)-gIdx(S.lv)>=2&&!ch.raid&&!ch.war)},"對手比你強很多。打不過就按卡上的「逃跑粉」，一般遭遇都能用；不想打也可以「放過牠」。"],
+  ["key",()=>{const ch=pendingCheck();return !!(ch&&(ch.raid||ch.war))},"關鍵戰：至少要付一項代價，被打得比較痛。撐不住時可以「捨身」（留下永久的傷）換兩項。"],
+  ["king",()=>{const ch=pendingCheck();return !!(ch&&ch.raid&&S.raid&&S.raid.king&&S.raid.kind!=="scout")},"八王戰：前半場在他的領域裡，多兩條劣勢。用打字組合技能把劣勢抵回來。"],
+  ["potion",()=>S.items.some(n=>POTION(n)),"藥水在下面背包列點一下就喝，不花時間。"],
+  ["matdrop",()=>S.corpses.some(c=>c.matDrop),"屍體上有魔法原料：「拿」走就學不到這具屍體的技能；直接吃能學技能，原料跟著吞下去。二選一。"],
+  ["craft",()=>S.items.some(n=>typeof craftKind==="function"&&craftKind(n)),"拿到能做東西的材料了：選單「背包」→「做裝備」，皮做甲帽靴盾、角牙骨做刀矛項鍊戒指。"],
+  ["adult",()=>S.stage==="成體","長大了，可以出巢穴狩獵、探索。嫌等 AI 太慢，選單上面的「敘述」切成「不用」。"],
+  ["party",()=>S.party.some(p=>p.with),"同伴：最多帶 2 位同行；全隊一天能用 2 次能力（代打、幫忙防禦……），判定卡上選。"],
+  ["kings",()=>S.chap>=5&&S.kings&&Object.values(S.kings).some(x=>x.page),"八王的檔案打開了：記錄頁看得到。八王都能談，不一定要打。"]];
+function hintSeen(){try{return JSON.parse(ls.g("mowu_hints")||"[]")}catch(e){return []}}
+function hintNow(){
+  if(!S||S.dead||ls.g("mowu_hints_off")==="1")return null;
+  const seen=hintSeen(); return HINTS.find(([id,ok])=>{if(seen.includes(id))return false;try{return ok()}catch(e){return false}})||null;
+}
+function hintHTML(){const h=hintNow();return h?`<div class="hint">💡 ${h[2]}<div style="margin-top:4px"><button class="tl" data-hint="${h[0]}">知道了</button> <button class="tl" id="hintoff">不要再提示</button></div></div>`:""}
+function hintBind(){
+  document.querySelectorAll("[data-hint]").forEach(b=>b.onclick=()=>{const s=hintSeen();s.push(b.dataset.hint);ls.s("mowu_hints",JSON.stringify(s));render()});
+  const o=document.getElementById("hintoff"); if(o)o.onclick=()=>{ls.s("mowu_hints_off","1");render()};
+}
