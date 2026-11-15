@@ -87,7 +87,7 @@ const weakSk=ch=>{const n=ch&&itemOfSk(ch.useSk),m=n&&matOf(n);return !!(m&&ch.f
 const skillMp=ch=>ch&&ch.useSk&&!/（.+）$/.test(ch.useSk)?1:0;
 /* 同伴幫忙算的優勢最多 1 條（同伴再多也一樣），其他優勢照算 */
 const isAllyAdv=x=>S.party.some(p=>p.n&&String(x).includes(p.n))||/同伴|夥伴|隊友|幫手|協助|聯手/.test(String(x));
-const advList=ch=>[...(ch.adv||[]).filter(x=>!isAllyAdv(x)),...rwAdv(ch),...gearAdv(ch),...fxAdv(ch),...elAdv(ch)];   /* v0.63：逃跑時鞋子、盾 */   // v0.55：種族神兵（關鍵戰自動生效）   // v0.36：同伴的幫忙不再算優勢，改成在場減傷＋能力（見 actions.js「同伴成長」）
+const advList=ch=>[...(ch.adv||[]).filter(x=>!isAllyAdv(x)),...rwAdv(ch),...gearAdv(ch),...fxAdv(ch),...elAdv(ch),...tacAdv(ch)];   /* v0.78：組合 */   /* v0.63：逃跑時鞋子、盾 */   // v0.55：種族神兵（關鍵戰自動生效）   // v0.36：同伴的幫忙不再算優勢，改成在場減傷＋能力（見 actions.js「同伴成長」）
 /* 程序加的劣勢（v0.34）：幼體空手一打一；同行的同伴空手（逼玩家替同伴裝備）。只在有對手的判定算 */
 const allyArmed=p=>!!p.gear||(p.hold||[]).some(h=>GEAR_RE.test(h));
 const meArmed=()=>!!(S.eq&&S.eq.武器);   /* v0.63：武器欄有東西才算 */
@@ -101,7 +101,7 @@ function autoDis(ch){
 function checkInfo(ch){
   const lvDiff=ch.foeLv?Math.max(0,gIdx(ch.foeLv)-(ch.lvF?0:gIdx(S.lv))):0;   // v0.54：殺死管理員第 2 戰把你改回 F 級
   const crit=!!(ch.war||ch.raid);                          // 關鍵戰（進化戰、討伐戰）：至少要付 1 項代價、傷害 ×1.5
-  const net0=advList(ch).length+(ch.useSk&&!skUsed(ch.useSk)&&!clownMem(ch)&&S.mp>=skillMp(ch)?1:0)+(ch.useItem&&S.items.includes(ch.useItem)?1:0)+(allyAbOn(ch)==="增傷"?1:0)+allyDoBonus(ch)+(comboOn(ch)?2:0)+(ch.war&&S.war&&S.war.foe&&S.war.foe.weak?1:0)-ch.dis.length-autoDis(ch).length-lvDiff, net=crit?Math.min(net0,0):net0;
+  const net0=advList(ch).length+(ch.useSk&&!skUsed(ch.useSk)&&!(ch.tac&&ch.tac.keys.includes(ch.useSk))&&!clownMem(ch)&&S.mp>=skillMp(ch)?1:0)+(ch.useItem&&S.items.includes(ch.useItem)?1:0)+(allyAbOn(ch)==="增傷"?1:0)+allyDoBonus(ch)+(comboOn(ch)?2:0)+(ch.war&&S.war&&S.war.foe&&S.war.foe.weak?1:0)-ch.dis.length-autoDis(ch).length-lvDiff, net=crit?Math.min(net0,0):net0;
   const need=Math.max(0,1-net), big=need+(keenOn(ch)?0:1);   /* v0.64：一閃 */
   const d=hitCut(Math.ceil(dmgOf(ch.foeLv)*(crit&&!fortOn(ch)?1.5:1)),ch), fight=!!ch.foe,   /* v0.63～64：防具、擋災、避X、穩樁 */ stalled=fight&&S.fightDelay&&S.fightDelay===ch.foe;
   const half=Math.ceil(S.mpMax/2), skMp=skillMp(ch);

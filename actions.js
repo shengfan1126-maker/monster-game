@@ -2,7 +2,7 @@
    所有 .js 共用同一個全域範圍，載入順序見 index.html；改之前先讀 README.md。 */
 /* ═════════ 玩家的行動 ═════════ */
 const OOC=/^\s*[（(【\[]?\s*(ooc|OOC|Ooc)\s*[:：）)】\]]?\s*/;
-function act(text,free,ch){
+function act(text,free,ch,noTac){
   if(busy||S.dead||!text.trim())return;
   text=text.trim();
   if(OOC.test(text)){                                   // OOC：問規則、回報程序漏記的東西，不推進故事、不花時間
@@ -21,6 +21,7 @@ function act(text,free,ch){
   if(!ch&&(text===`回${NEST()}`||text==="回巢穴")&&!inNest())return doMenu("nest");   // 選項「回巢穴」照路程走
   if(!ch&&text==="休息")return doRest();                                            /* v0.72：固定選項「休息」直接休息，不叫 AI */
   if(!ch&&text==="在巢穴裡走動"&&inNest())return doMenu("nest");
+  if(ch&&!noTac&&!ch.local&&typeof tacTry==="function")return tacTry(text,free,ch);   /* v0.78：判定卡上打字先問大賢者是不是組合 */
   if(ch&&ch.war&&S.war){
     const pre=snap(); S.log.push({who:"you",text,pre,free:true}); S.opts=[]; save();
     doJob({kind:"war",ctx:{stage:S.war.stage,tactic:text}},snap(),S.log.length); return;
@@ -423,7 +424,8 @@ function pay(sel,sac,wb){
   const paidT=[...chosen.map(c=>c.t),...(sac?[`舍身：${sacLabel(sac)}`]:[])];
   if(ch.foe&&!ch.war&&!ch.raid&&!ch.local)S.lastFoe={name:ch.foe,lv:ch.foeLv||"F",cls:ch.multi&&ch.multi.cls||null};
   const blind=!!(ch.blind&&ch.raid&&S.raid);              // v0.54：殺死管理員第 4 戰
-  S.log.push({who:"you",text:`${comboOn(ch)?`和${ch.combo}用合體技，`:""}${ch.useSk?`用「${blind?"？？？":ch.useSk}」，`:""}${paidT.length?`付出：${blind?`？？？（${paidT.length} 項）`:paidT.join("、")}（${tier}）`:`不付代價，硬上（${tier}）`}`,pre});
+  const tacT=tacPay(ch,notes);                            /* v0.78：組合扣技能次數、MP */
+  S.log.push({who:"you",text:`${tacT?tacT+"，":""}${comboOn(ch)?`和${ch.combo}用合體技，`:""}${ch.useSk?`用「${blind?"？？？":ch.useSk}」，`:""}${paidT.length?`付出：${blind?`？？？（${paidT.length} 項）`:paidT.join("、")}（${tier}）`:`不付代價，硬上（${tier}）`}`,pre});
   const skMp=skillMp(ch);
   if(ch.useSk&&!skUsed(ch.useSk)&&(!skMp||S.mp>=skMp)){S.usedSk=S.usedSk||[];S.usedSk.push(ch.useSk)}
   if(ch.useItem&&S.items.includes(ch.useItem)){S.items=S.items.filter(x=>x!==ch.useItem);notes.push(`用掉了 ${ch.useItem}（普通武器防具，一次性）：多一層優勢。`)}
@@ -465,7 +467,7 @@ function pay(sel,sac,wb){
     const half=Math.floor(r.of/2)+1, end=r.dun?(r.fails>0?"lose":r.stage>r.of?"win":null):r.fails>=half?"lose":(r.wins>=half||r.stage>r.of)?(r.wins>r.fails?"win":"lose"):null;   // v0.56：地城三階段都要贏
     if(r.admin&&!end&&r.stage===5&&!r.halved){r.halved=true;S.hp=Math.max(1,Math.floor(S.hp/2));S.log.push(sysEntry(`亞當拿走了你的身體：HP 減半（${S.hp}/${S.hpMax}）。`))}
     S.opts=[]; save();
-    doJob({kind:"raid",ctx:{stage:r.stage,end,prev:{tier,paid:paidT,dmg,skill:ch.useSk||null}}},snap(),S.log.length); return;
+    doJob({kind:"raid",ctx:{stage:r.stage,end,prev:{tier,paid:paidT,dmg,skill:tacT||ch.useSk||null}}},snap(),S.log.length); return;
   }
   if(ch.war&&S.war){
     let dmg=0;
@@ -473,7 +475,7 @@ function pay(sel,sac,wb){
     S.war.mom=tier==="大成功"?1:tier==="失敗"?-1:0; S.war.stage++;
     if(S.dead){save();render();return}
     S.opts=[]; save();
-    doJob({kind:"war",ctx:{stage:S.war.stage,prev:{tier,paid:paidT,dmg,skill:ch.useSk||null}}},snap(),S.log.length); return;
+    doJob({kind:"war",ctx:{stage:S.war.stage,prev:{tier,paid:paidT,dmg,skill:tacT||ch.useSk||null}}},snap(),S.log.length); return;
   }
   if(ch.multi&&ch.multi.n<ch.multi.of&&tier!=="大成功"){         // 連戰：還有下一階段
     if(ch.multi.group&&tier!=="失敗")ch.multi.won=(ch.multi.won||0)+1;

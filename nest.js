@@ -1469,5 +1469,6 @@ function nineEnd(){
 const nineLine=()=>kingsOpen()?`<div class="note">成王試煉：${S.lv==="S"?"✓":"○"} S 級、認可 ${nineN()}/8（每位王付一種代價；小丑王要看穿他的謊言；殺過、開戰過的王不會認可你）</div>`:"";
 
 /* v0.77：八王的領域（用戶 11-15）：在八王戰裡，八王多兩層優勢（你多兩條劣勢）。斥候、獸王半成品那兩場不算。 */
-let KING_DOM=2;
-function kingDomain(k){const K=kingOf(k);return [`${K.t}的領域：這裡的一切都聽他的`,`${K.t}的領域：你的每一步都被看穿`].slice(0,KING_DOM)}
+let KING_DOM=1.5;   /* 用戶 11-15 09:00：1 或 1.5 條，Claude 試完選 1.5（之後組合能拚回來） */
+function kingDomain(k,stage){const K=kingOf(k), n=Math.floor(KING_DOM+((stage||1)%2?0.5:0));   /* KING_DOM 可以是 1.5：單數階段 2 條、雙數階段 1 條 */
+  return [`${K.t}的領域：這裡的一切都聽他的`,`${K.t}的領域：你的每一步都被看穿`].slice(0,n)}
