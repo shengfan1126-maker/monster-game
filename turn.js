@@ -341,16 +341,22 @@ function applyAlt(e){
       a.lost=a.lost.filter(x=>crafted||said.includes(x)||said.includes(cleanName(x))||verb&&(share2(x)||S.corpses.some(c=>(x.includes(cleanName(c.name))||cleanName(c.name).includes(x.replace(/的?屍體/,"")))&&/[給交分送讓]/.test(said))));
     }
     const lf=S.lastFoe, td=!a.check&&a.tdef&&lf&&sameFoe(a.tdef.name,lf.name)?a.tdef:null;   // 一般回合收拾掉上一張判定卡的對手
-    a.defeated=td;
+    const here0=S.npcs.filter(npcHere).map(x=>({...x}));   /* v0.81：這回合開始時在你身邊的人 */
+    const KILL=/處決|殺死|殺掉|殺了|斬殺|宰了|結果了|砍死|殺光|滅口|最後一擊|补刀|補刀|了結|了结|斬首|杀死|杀掉|杀了|斩杀|处决/;
+    a.defeated=td&&!lf.down?td:null;
     gains(a,false,notes);
-    if(td)applyDefeat({...td,lv:lf.lv,cls:lf.cls},notes);
+    if(td&&lf.down){if(td.dead!==false)downKill(lf,notes)}   /* v0.81：補刀之前打倒沒死的 */
+    else if(td)applyDefeat({...td,lv:lf.lv,cls:lf.cls},notes);
     else if(!a.check&&a.tdef&&a.tdef.dead!==false){const cx=S.npcs.find(x=>x.captive&&sameFoe(a.tdef.name,x.n));   // 殺掉被俘虜的對手：也要有屍體
-      if(cx){a.defeated={...a.tdef,lv:cx.lv||a.tdef.lv,cls:cx.cls};applyDefeat(a.defeated,notes)}}
+      if(cx){a.defeated={...a.tdef,lv:cx.lv||a.tdef.lv,cls:cx.cls};applyDefeat(a.defeated,notes)}
+      else{const nx=here0.find(x=>sameFoe(a.tdef.name,x.n));if(nx)corpseOnly(nx.n,a.tdef.kind||kindOfNpc(nx),nx.lv||a.tdef.lv,notes)}}   /* v0.81：身邊的人死了，只給屍體 */
+    else if(!a.check&&lf&&lf.down&&you&&KILL.test(you.text||"")&&!/不殺|別殺|不要殺|不杀|别杀/.test(you.text||"")&&(a.gone||[]).every(x=>!sameFoe(x.name,lf.name)||/死|殺|杀/.test(x.why||""))&&!/還活著|还活着|饒了|放過|逃/.test(a.text||"")){downKill(lf,notes)}   /* v0.81：補刀時模型沒填 */
     else if(!a.check&&you&&/處決|殺死|殺掉|殺了|斬殺|宰了|結果了|砍死|殺光|滅口/.test(you.text||"")&&!/不殺|別殺|不要殺/.test(you.text||"")){   // 處決俘虜／投降的對手：模型常忘了填 defeated
       const t=String(you.text), vs=S.npcs.filter(x=>x.captive&&(()=>{const b=cleanName(x.n).replace(/[A-Z0-9一二三]+$/,"");return b&&(t.includes(b)||t.includes(b.slice(-2)))})());
       vs.forEach(x=>{const b=cleanName(x.n).replace(/[A-Z0-9一二三]+$/,"");toCorpses(b,x.kind||b,x.lv||"F").forEach(c=>{c.small=false;S.corpses.push(c)});
         if(/兩|二|雙|2/.test(t)&&vs.length===1)toCorpses(b,x.kind||b,x.lv||"F").forEach(c=>{c.small=false;S.corpses.push(c)});
         npcGone(x.n,"被你處決了",notes);notes.push(`${b}的屍體放進了身邊的屍體清單。`)})}
+    if(!a.check)(a.gone||[]).filter(x=>/死|殺|杀|斷氣|断气|處決|处决/.test(x.why||"")&&!/假死|裝死|装死/.test(x.why||"")).forEach(x=>{const nx=here0.find(y=>sameFoe(x.name,y.n));if(nx)corpseOnly(nx.n,kindOfNpc(nx),nx.lv,notes,x.why)});   /* v0.81 */
     if(you&&!a.check)invite(you.text,notes);
   }
   if(e.kind==="resolve"){
@@ -386,12 +392,18 @@ function applyAlt(e){
       else notes.push(`找不到「${a.oloc}」這個地點，位置沒有改。可以先到「地點」頁加上它。`)}
     if(a.odef){const lf=S.lastFoe;                       // 只補上最近一次交手的對手，等級照判定卡
       const nm=cleanName(a.odef.name), ex=S.corpses.filter(c=>sameFoe(nm,c.name)&&c.t>=nowH()-24).length;
-      if(lf&&sameFoe(a.odef.name,lf.name)&&!ex)applyDefeat({...a.odef,lv:lf.lv,cls:lf.cls},notes);   // 最近一次交手的：完整結算
+      if(lf&&lf.down&&sameFoe(a.odef.name,lf.name)){if(a.odef.dead)downKill(lf,notes)}   /* v0.81：之前打倒沒死的，只補屍體 */
+      else if(lf&&sameFoe(a.odef.name,lf.name)&&!ex)applyDefeat({...a.odef,lv:lf.lv,cls:lf.cls},notes);   // 最近一次交手的：完整結算
       else if(a.odef.dead){const lv=(lf&&sameFoe(a.odef.name,lf.name)?lf.lv:a.odef.lv)||"F", need=a.odef.n-ex;   // 其他：只補屍體（不加存在值），不重複補
         if(need>0){for(let i=0;i<need;i++)toCorpses(nm,a.odef.kind,lv).forEach(c=>{c.small=false;S.corpses.push(c)});notes.push(`補上了 ${need} 具${nm}的屍體（沒有加存在值）。`)}
         else notes.push(`${nm}的屍體已經在清單裡了，沒有重複補。`)}}
+    else if(you&&/屍|尸/.test(you.text||"")){   /* v0.81：玩家說屍體不見了、模型沒填：補最近一天死在你身邊的人、打倒沒死又補刀的 */
+      const t=String(you.text), hit=n=>{n=cleanName(n);return !!n&&(t.includes(n)||t.includes(n[0])&&n.length>=2)}, lf=S.lastFoe;
+      if(lf&&lf.down&&hit(lf.name)&&!S.npcs.some(x=>sameFoe(x.n,lf.name)&&!x.captive&&/活|沒死/.test(t)))downKill(lf,notes);
+      (S.gone||[]).filter(g=>(g.t!=null?g.t>=nowH()-24:g.day>=S.day-1)&&/死|殺|杀/.test(g.why||"")&&g.here!==false&&hit(g.n)).forEach(g=>{const td=S.log.slice(-40).map(e=>e.alts&&e.alts[e.i]).filter(Boolean).map(x=>x.tdef||x.defeated).filter(d=>d&&sameFoe(d.name,g.n)).pop();   /* 舊存檔的 gone 沒記等級：從最近的回合找 */
+        corpseOnly(g.n,g.k||td&&td.kind||"哥布林",g.lv||td&&td.lv||"F",notes,g.why)})}
     if(/巢穴|據點/.test(a.text)&&/位置|搬|遷|落腳|更正為/.test(a.text))notes.push("巢穴位置不能用 OOC 改：到「同伴・巢穴」頁最下面用「搬家」（可選營地、中立以上聚落旁邊的「○○外圍營地」、或某地區裡的「○○的新營地」）。");
-    if(!notes.length&&/修正|更正|切換|已經?(加入|改|移除|拿掉|補上|放進|調整|新增|升|降|刪|設定|成為|移到|移動|換到|設為)/.test(a.text))
+    if(!notes.length&&/修正|更正|切換|已經?[^，。！]{0,4}?(加入|改|移除|拿掉|補上|補|放進|調整|新增|升|降|刪|設定|成為|移到|移動|換到|設為|更新|標記|處理)/.test(a.text))
       notes.push("程序這次沒有改到任何東西——上面說的「已修正」不算數。可以換個說法再問一次，或用頁面上的按鈕手動改（例如「同伴・巢穴」頁最下面可以補同伴）。");if(a.setChap&&a.setChap!==S.chap){S.chap=a.setChap;notes.push(`〈系統〉《世界之聲》：「第${S.chap}章・${chapOf().name}」`)}}
   if(e.kind==="war"&&a.win&&S.war){
     const f=S.war.foe;

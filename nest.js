@@ -96,8 +96,8 @@ function npcGone(name,why,notes,force){
   const had=S.npcs.some(x=>x.n===n)||S.party.some(x=>x.n===n);
   if(!had&&!force)return;
   S.npcs=S.npcs.filter(x=>x.n!==n); S.party=S.party.filter(x=>x.n!==n);
-  const g=S.gone.find(x=>x.n===n);
-  if(!g)S.gone.push({n,why:String(why||"不在了").slice(0,20),day:S.day});
+  const g=S.gone.find(x=>x.n===n), x0=S.npcs.find(x=>x.n===n)||S.party.find(x=>x.n===n);
+  if(!g)S.gone.push({n,why:String(why||"不在了").slice(0,20),day:S.day,t:nowH(),lv:x0&&x0.lv||null,k:x0?kindOfNpc(x0):null,here:x0?npcHere(x0)||!!x0.with:null});
   else if(force&&why)g.why=String(why).slice(0,20);        // 玩家或敘事者更正原因
   if(had&&notes)notes.push(`${n}${why?`（${why}）`:""}從此不在這裡了。`);
 }
@@ -315,8 +315,21 @@ function applyDefeat(d,notes,big,won){
     npcGone(d.name,"被你殺死",null); facHit(d,notes); if(CIVIL_RACE.test(d.name+(d.kind||"")))heatAdd(2,`殺了${cleanName(d.name)}`,notes)}
   else{notes.push(`你打敗了${d.name}。牠還活著。`); gainExist(d.lv,notes,d.cls?1:0); facHit(d,notes)}
   dropLoot(d,big,notes);   /* v0.68：打倒就掉東西 */
-  S.lastFoe=null;
+  S.lastFoe=d.dead===false?{name:d.name,lv:d.lv,cls:d.cls||null,kind:d.kind||null,down:true}:null;   /* v0.81：打倒沒死的先記著，之後補刀才有屍體 */
 }
+/* v0.81：補刀（之前打倒沒死的）、在你面前死掉的人：只給屍體，不再加存在值、不再掉東西 */
+function corpseOnly(name,kind,lv,notes,why,nodup){
+  const nm=cleanName(name); if(!nm)return false;
+  if(!nodup&&S.corpses.some(c=>sameFoe(nm,c.name)&&c.t>=nowH()-24))return false;
+  S.corpses.push({name:nm,sp:speciesOf(nm,kind),lv:lv||"F",t:nowH(),big:false,cls:classOf(nm)||null});
+  notes&&notes.push(`${nm}倒下了，屍體還是熱的。`);
+  npcGone(nm,why||"被你殺死",null);
+  if(CIVIL_RACE.test(nm+(kind||""))&&why!=="死了")heatAdd(2,`殺了${nm}`,notes);
+  return true;
+}
+function downKill(lf,notes){const ok=corpseOnly(lf.name,lf.kind,lf.lv,notes,null,true);S.lastFoe=null;return ok}
+const npcHere=x=>!!x&&!!x.where&&(x.where===S.at||x.where===S.loc||String(S.loc||"").includes(x.where));
+const kindOfNpc=x=>raceOf(`${x.n}${x.role||""}`)||"哥布林";
 function gainExist(lv,notes,bonus,why){
   if(S.exist>=existMax(S.lv)){notes.push(`存在值已滿（${S.exist}/${existMax(S.lv)}），不會再增加——先去打進化戰。`);return}
   const g=existGain(lv)+(bonus||0);
