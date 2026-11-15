@@ -413,3 +413,12 @@ function takeMat(i){
 }
 const takeBtn=(c,i)=>c.matDrop&&!busy&&!S.dead?`<button class="it harv" data-tm="${i}">拿 ✦${esc(c.matDrop.n)}</button>`:"";
 function takeBind(){document.querySelectorAll("[data-tm]").forEach(b=>b.onclick=()=>takeMat(+b.dataset.tm))}
+
+/* ═════════ 移動途中出事（v0.77，用戶 11-15）═════════
+   移動、回巢穴時兩成機率路上出事：一半是擋路的魔物（照這一區抽），一半是其他小事。出事就不走程式直接結算，完整交給 AI，可以出判定卡。 */
+let TRIP_P=0.2;
+const TRIP_EV=["突然下起冰冷的大雨，路變得又濕又滑","撞見兩隻魔物正在打架，牠們還沒發現你","路邊倒著一具還沒爛的屍體","聽到不遠處有人在呼救","差點踩進獵人留下的陷阱","發現一條以前沒注意過的小路","一群烏鴉在頭頂盤旋，好像在跟著你"];
+function tripPrompt(){
+  let ev; if(Math.random()<0.5){const {sp,grp,lv}=pickPrey(regionOf());ev=`${grpW(grp)}${sp}（${lv}級）擋在路上`}else ev=rnd(TRIP_EV);
+  return `\n【路上出事（程序抽到的）】快到目的地的時候：${ev}。寫出這件事，停在主角要決定怎麼應付的那一刻；要動手或硬闖就給 check（填 foe、foeLv）。`;
+}

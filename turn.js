@@ -152,6 +152,7 @@ async function runJob(job,ctx){
       ch.foe=r.name; ch.foeLv=r.lv; ch.raid={stage:c.stage,of:r.of}; ch.adv=r.admin?[`你知道他的真名：${ADMIN_NAME}`]:r.dun?[]:r.king?kingAdv(r):raidAdv().slice(0,4); ch.dis=[];
       if(r.admin)adminStage(ch,c.stage);
       ch.dis.push(r.admin?"對方是這個世界的管理員":r.dun?"S 級地城":r.king?(r.kind==="scout"?"斥候一波接一波":"對方是八王（S 級）"):r.army?"對方人多勢眾":"對方人多，配合得好");
+      if(r.king&&r.kind!=="scout"&&r.kind!=="half")ch.dis.push(...kingDomain(r.king));   /* v0.77：八王的領域，八王多兩層優勢 */
       if(r.king==="clown"&&metaGet().clownKill)ch.dis.push(`小丑王：「${CLOWN_LINE}」（「${metaGet().clownKill}」對他沒有優勢）`); if(r.mom>0)ch.adv.push("上一階段打得漂亮"); if(r.mom<0)ch.dis.push("上一階段沒守住");
       a.check=ch; a.opts=[];
     }

@@ -94,6 +94,7 @@ function doMenu(k,arg){
   if(k==="go"){TRAVEL=!TRAVEL;render();return}
   TRAVEL=false;
   const sd=menuSeed(k,arg), pre=snap();
+  if((k==="travel"||(k==="nest"&&!inNest()))&&sd.quick&&Math.random()<TRIP_P){sd.prompt+=tripPrompt();sd.quick=null}   /* v0.77：移動途中兩成出事，出事就交給 AI */
   S.log.push({who:"you",text:sd.label,prompt:sd.prompt,time:menuH(k,sd.hours||MENU_HOURS[k]||1),give:sd.give||null,node:sd.node||null,from:sd.from||null,reveal:!!sd.reveal,explore:!!sd.explore,pre});
   S.opts=[]; S.err=null; save();
   const q=NARR!=="full"&&sd.quick?{...sd.quick,brief:NARR==="brief"}:null;   /* v0.70：精簡／不用：程式直接結算 */
