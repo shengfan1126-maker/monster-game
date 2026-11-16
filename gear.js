@@ -260,20 +260,22 @@ function dropLoot(d,big,notes){
   if(SMALL_RE.test(sp)||(lv==="F"&&CREATURE.test(sp)&&!/狼|熊|豬|蛇|蜥|蛛/.test(sp)))return;
   const hum=HUMANOID.test(`${d.name}${d.kind||""}`);
   const table=hum?[["gear",.4],["mat",.3],["pot",.3]]:[["mat",.5],["part",.4],["pot",.1]];   /* v0.74：野獸掉部位（皮、角、牙），不掉做好的裝備 */
-  const got=[], kinds=[];
+  const got=[], kinds=[], onC=[];   /* v0.85：進背包的、留在屍體上的分開寫 */
   for(let n=0;n<(big?2:1);n++){
     const left=table.filter(([k])=>!kinds.includes(k)), tot=left.reduce((a,[,w])=>a+w,0); let r=Math.random()*tot, k=left[0][0];
     for(const [kk,w] of left){r-=w;if(r<0){k=kk;break}}
     kinds.push(k);
     if(k==="mat"){let nm=`${sp}的${partOf(sp)}`; while(S.items.includes(nm))nm+="・二";
       const c=d.dead!==false?[...S.corpses].reverse().find(x=>sameSp(x,sp)&&!x.matDrop&&!x.harvested):null;
-      if(c){c.matDrop={n:nm,lv,sp};got.push(`✦${nm}（魔法原料・${lv}級，還在屍體上：拿走的話，這具屍體就學不到技能）`)}   /* v0.75：用戶 22:51，拿了原料就不能吃肉學技能 */
+      if(c){c.matDrop={n:nm,lv,sp};onC.push(`✦${nm}（魔法原料・${lv}級）`)}   /* v0.75：用戶 22:51，拿了原料就不能吃肉學技能 */
       else{S.items.push(nm); S.mat[nm]={lv,sp}; got.push(`✦${nm}（魔法原料・${lv}級）`)}}
     else if(k==="part"){const nm=`${sp}${rnd(partsOf(sp))}`; S.items.push(nm); got.push(nm); const c=[...S.corpses].reverse().find(x=>sameSp(x,sp)); if(c)c.part=true}
     else if(k==="gear"){let nm=hum?`${sp}的${rnd(LOOT_GEAR)}`:`${sp}${rnd(BEAST_GEAR)[0]}`; while(S.items.includes(nm))nm+="・二"; S.items.push(nm); got.push(nm)}
     else{const p=hum?rnd(["紅色藥水","藍色藥水","草藥膏"]):"草藥膏"; S.items.push(p); got.push(p)}
   }
-  if(got.length)notes.push(`${cleanName(d.name)}掉下了：${got.join("、")}。`);
+  const who=cleanName(d.name);
+  if(got.length){notes.push(`${who}掉下了：${got.join("、")}（已經放進背包，下面標「新」）。`);S.newLoot={n:got.map(x=>x.replace(/^✦/,"").replace(/（.*$/,"")),at:S.log.length}}
+  if(onC.length)notes.push(`${who}身上還有 ${onC.join("、")}：留在屍體旁，按「拿」才拿走；拿了這具屍體就學不到技能，直接吃就連原料一起吞下。`);
   gearSync();
 }
 
@@ -452,6 +454,7 @@ const HINTS=[
   ["king",()=>{const ch=pendingCheck();return !!(ch&&ch.raid&&S.raid&&S.raid.king&&S.raid.kind!=="scout")},"八王戰：在他的領域裡，前半場多兩條劣勢、後半場多一條。用打字組合技能把劣勢抵回來。"],
   ["potion",()=>S.items.some(n=>POTION(n)),"藥水在下面背包列點一下就喝，不花時間。"],
   ["gear",()=>S.items.some(n=>!POTION(n)),"下面背包列的東西點一下，會出現「裝／卸／吞／丟」四格。穿著的會標「穿著」。"],
+  ["loot",()=>!!S.newLoot,"打倒對手會自動掉東西：部位、藥直接放進背包（標「新」）；✦魔法原料留在屍體旁，按「拿」才拿走。不用自己拆。"],
   ["matdrop",()=>S.corpses.some(c=>c.matDrop),"屍體上有魔法原料：「拿」走就學不到這具屍體的技能；直接吃能學技能，原料跟著吞下去。二選一。"],
   ["craft",()=>S.items.some(n=>typeof craftKind==="function"&&craftKind(n)),"拿到能做東西的材料了：選單「背包」→「做裝備」，皮做甲帽靴盾、角牙骨做刀矛項鍊戒指。"],
   ["adult",()=>S.stage==="成體","長大了，可以出巢穴狩獵、探索。嫌等 AI 太慢，選單上面的「敘述」切成「不用」。"],
