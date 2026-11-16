@@ -631,9 +631,10 @@ async function forge(){
     let pool=[]; try{pool=await poolFor({name:mn,sp:mm.sp,lv:mm.lv,mat:true})||[]}catch(e){}
     const c=pool.length?rnd(pool):null; sk=c?{n:c.n,sys:c.sys}:{n:"蠻力",sys:"天生"};
   }
-  let name=wm?wn:fx?fxItemName(fx,wn):`${cleanName(mm.sp)}・${wn}`.slice(0,16);
+  let name=wm?wn:fx?fxItemName(fx,wn):`${cleanName(mm.sp)}・${wn}`;
   if(!wm&&S.items.includes(name))name=(name+"改").slice(0,16);
   const wasK=SLOTS.find(k=>S.eq&&S.eq[k]===wn);   /* v0.64：穿著的拿去鍛，鍛好照樣穿著 */
+  {const ks=slotOf(wn);if(ks&&!wm)(S.gslot=S.gslot||{})[name]=ks}   /* v0.83：鍛過換了名字，照樣是同一欄 */
   S.items=S.items.filter(x=>x!==mn&&(wm?true:x!==wn));
   S.party.forEach(p=>{p.hold=(p.hold||[]).filter(x=>x!==mn&&(wm?true:x!==wn))});
   delete S.mat[mn]; if(!wm)delete S.mat[wn];

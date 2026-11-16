@@ -215,3 +215,7 @@ footer{margin-top:26px;font-size:11px;color:var(--mute);text-align:center;line-h
 
 /* v0.80：遊戲中的提示 */
 .hint{background:var(--chip);border-left:3px solid var(--ink);padding:8px 10px;margin:6px 0 8px;font-size:13px;line-height:1.6;border-radius:4px}
+
+.bag .it.act{border-style:dashed;font-size:12px;padding:3px 8px}
+.bag .it.on{outline:2px solid var(--ink)}
+.bag .it small{margin-left:4px}

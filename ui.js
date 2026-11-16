@@ -23,7 +23,7 @@ function render(){
     document.querySelectorAll("[data-ab]").forEach(b=>b.onclick=()=>{if(b.dataset.ok!=="1"){b.dataset.ok="1";b.textContent="確定吸收？不能撤回，秘寶會消失";return}absorb(b.dataset.ab)})}
   if(TAB==="skill") document.querySelectorAll("[data-mg]").forEach(b=>b.onclick=()=>{const [k,i]=b.dataset.mg.split("|"),n=+i;if(MGK!==k){MGK=k;MG=[]}MG=MG.includes(n)?MG.filter(x=>x!==n):MG.length<5?[...MG,n]:MG;render()});
   if(TAB==="skill"&&$("mgdo"))$("mgdo").onclick=()=>mergeSkills();
-  if(TAB==="skill"||BAGOPEN) document.querySelectorAll("[data-di]").forEach(b=>b.onclick=()=>{const i=+b.dataset.di;if(DI!==i){DI=i;render();return}DI=-1;const it=S.items[i];if(it!=null){S.items.splice(i,1);delete S.mat[it]}save();render()});
+  if(TAB==="skill"||TAB==="story"||BAGOPEN) document.querySelectorAll("[data-di]").forEach(b=>b.onclick=()=>{const i=+b.dataset.di;if(DI!==i){DI=i;render();return}DI=-1;const it=S.items[i];BI=-1;if(it!=null){S.items.splice(i,1);if(!S.items.includes(it))delete S.mat[it]}save();render()});
   if(TAB==="skill"||BAGOPEN) document.querySelectorAll("[data-cd]").forEach(b=>b.onclick=()=>{const i=+b.dataset.cd;if(CD!==i){CD=i;render();return}CD=-1;S.corpses.splice(i,1);save();render()});
   if(TAB==="skill") document.querySelectorAll("[data-ut]").forEach(b=>b.onclick=()=>{const i=+b.dataset.ut;
     if(UT!==i){UT=i;render();return} S.tags.splice(i,1);UT=-1;save();render()});
@@ -168,8 +168,12 @@ function storyHTML(){
   const bagHv=idle?S.corpses.map((c,i)=>takeBtn(c,i)).filter(Boolean):[];   /* v0.75：屍體上的魔法原料 */   /* v0.68：拿掉「拆原料」；v0.71：做逃跑粉只放在「背包」頁（字太長佔空間） */
   const nm=it=>matOf(it)?`✦${esc(it)}`:esc(it), mc=it=>matOf(it)?" mat":"";
   const cnt=it=>{const n=S.items.filter(x=>x===it).length;return n>1?` ×${n}`:""};   /* v0.71：同名的東西合成一顆（逃跑粉 ×3） */
-  const bagItem=S.items.map((it,i)=>S.items.indexOf(it)!==i?"":idle&&POTION(it)?`<button class="it${mc(it)}" data-dp="${i}">喝 ${nm(it)}${cnt(it)}</button>`:idle?`<button class="it${mc(it)}" data-bi="${i}">${BI===i?`吃掉 ${nm(it)}？${matOf(it)?"（能學技能）":""}`:nm(it)+cnt(it)}</button>`:`<span class="it${mc(it)}">${nm(it)}${cnt(it)}</span>`).filter(Boolean);
-  const bag=`<div class="bag"><span class="k">背包</span>${bagFood.length+bagItem.length?[...bagFood,...bagHv,...bagItem].join(""):`<span class="none">空的</span>`}</div>${idle&&(S.items.length||bagHv.length)?`<div class="bagnote">金色是食材，點一下就吃；藥水點一下就喝；✦ 是魔法原料或魔法物品，點兩下吃掉能學技能；其他東西點兩下也能硬吞，但學不到。</div>`:""}`;
+  const wn=it=>worn(it)?`<small>穿著</small>`:"";
+  const itAct=(it,i)=>{const k=slotOf(it), w=k&&worn(it), ok=k&&!w?canWear(it):null;   /* v0.83：點東西打開：裝備／卸下／吞噬／丟棄 */
+    return (k?(w?`<button class="it act" data-uw="${k}">卸下</button>`:ok===true?`<button class="it act" data-wr="${i}">裝備</button>`:`<span class="it act">${esc(ok)}</span>`):"")
+      +`<button class="it act" data-ei="${i}">吞噬${matOf(it)?"（能學技能）":""}</button><button class="it act" data-di="${i}">${DI===i?"確定丟棄？":"丟棄"}</button>`};
+  const bagItem=S.items.map((it,i)=>S.items.indexOf(it)!==i?"":idle&&POTION(it)?`<button class="it${mc(it)}" data-dp="${i}">喝 ${nm(it)}${cnt(it)}</button>`:idle?`<button class="it${mc(it)}${BI===i?" on":""}" data-bi="${i}">${nm(it)}${cnt(it)}${wn(it)}</button>${BI===i?itAct(it,i):""}`:`<span class="it${mc(it)}">${nm(it)}${cnt(it)}${wn(it)}</span>`).filter(Boolean);
+  const bag=`<div class="bag"><span class="k">背包</span>${bagFood.length+bagItem.length?[...bagFood,...bagHv,...bagItem].join(""):`<span class="none">空的</span>`}</div>${idle&&(S.items.length||bagHv.length)?`<div class="bagnote">金色是食材，點一下就吃；藥水點一下就喝；其他東西點一下，選裝備、卸下、吞噬或丟棄。✦ 是魔法原料或魔法物品，吞噬能學技能。</div>`:""}`;
   if(S.dead) bottom=endHTML();
   else if(ch) bottom=checkHTML(ch)+`<div class="free" style="margin-top:10px">
         <textarea id="freein" rows="2" placeholder="描述怎麼打（可以組合技能、武器、地形），或改做別的事、說句話…"></textarea>
@@ -221,6 +225,7 @@ function bindBag(){
   if($("fgdo"))$("fgdo").onclick=()=>forge();
   document.querySelectorAll('[name="fgk"]').forEach(r=>r.onchange=()=>{FGK=r.value;render()});
   gearBind();
+  document.querySelectorAll("[data-ei]").forEach(b=>b.onclick=()=>{const i=+b.dataset.ei;BI=-1;DI=-1;if(BAGOPEN)bagClose();TAB="story";eatItem(i)});   /* v0.83：背包頁也能吞噬，吃完回故事頁看結果 */
 }
 function bindStory(){
   const on=(id,f)=>{const b=$(id);if(b)b.onclick=f};
@@ -233,11 +238,10 @@ function bindStory(){
   document.querySelectorAll("[data-ec]").forEach(b=>b.onclick=()=>{const i=+b.dataset.ec, c=S.corpses[i];
     if(c&&isHumanoid(c)&&witnesses(c).length){EA=EA===i?-1:i;render();return} eatCorpse(i)});
   document.querySelectorAll("[data-ecp]").forEach(b=>b.onclick=()=>{const [i,h]=b.dataset.ecp.split("|");EA=-1;eatCorpse(+i,null,h)});
-  document.querySelectorAll("[data-ei]").forEach(b=>b.onclick=()=>eatItem(+b.dataset.ei));
   bindBag(); hintBind();   /* v0.80：遊戲中的提示 */
   document.querySelectorAll("[data-as]").forEach(b=>b.onclick=()=>{const [k,j]=b.dataset.as.split("|").map(Number);if(ASD===k+":"+j){ASD="";abandonAllySk(k,j)}else{ASD=k+":"+j;render()}});
   document.querySelectorAll("[data-hv]").forEach(b=>b.onclick=()=>harvest(+b.dataset.hv));
-  document.querySelectorAll("[data-bi]").forEach(b=>b.onclick=()=>{const i=+b.dataset.bi;if(BI!==i){BI=i;render();return}BI=-1;eatItem(i)});
+  document.querySelectorAll("[data-bi]").forEach(b=>b.onclick=()=>{const i=+b.dataset.bi;BI=BI===i?-1:i;DI=-1;render()});   /* v0.83：點一下打開動作，再點一下收起 */
   document.querySelectorAll("[data-l]").forEach(b=>b.onclick=()=>learn(+b.dataset.l));
   document.querySelectorAll("[data-lp]").forEach(b=>b.onclick=()=>{const [j,k]=b.dataset.lp.split("|").map(Number);learnFor(j,k)});
   document.querySelectorAll("[data-wk]").forEach(b=>b.onclick=()=>allyWeak(+b.dataset.wk));
@@ -495,5 +499,5 @@ function closeGuide(pop){const was=gsheet.classList.contains("open");gsheet.clas
 help.onclick=openGuide; gdone.onclick=()=>closeGuide(); gx0.onclick=()=>closeGuide(); gsheet.onclick=e=>{if(e.target===gsheet)closeGuide()};
 
 /* v0.70：背包卡（技能頁和故事頁的「背包」彈出頁共用） */
-function bagCardHTML(){return `${gearHTML()}<div class="card"><h3>背包</h3>${S.corpses.length+S.items.length?`${S.corpses.map((c,i)=>`<div class="crow">🍖 ${esc(c.name)}（${c.lv}級・${c.harvested?"原料已拆・":""}${isFresh(c)?`新鮮，還有 ${24-ageOf(c)} 小時`:`不新鮮了，${Math.max(0,72-ageOf(c))} 小時後爛掉`}）${c.evo?"":`<button class="tl" data-cd="${i}">${CD===i?"確定拿掉？":"已經給人／丟掉"}</button>`}${takeBtn(c,i).replace('class="it harv"','class="tl"')}</div>`).join("")}${S.items.map((it,i)=>{const m=matOf(it);return `<div class="crow">${m?`✦ ${esc(it)}（${m.skill?`魔法物品，附帶「${esc(m.skill.n)}」`:m.fx?`魔法物品，${esc(fxDesc(m.fx))}`:m.unique?"種族神兵":"魔法原料"}・${m.lv}級）`:esc(it)}${gearBtn(it,i)}${POTION(it)?`<button class="tl" data-dp="${i}">喝掉</button>${S.npcs.map((x,n)=>({x,n})).filter(o=>o.x.where===S.at&&!S.party.some(p=>p.n===o.x.n)&&relOf(o.x)<2).map(o=>`<button class="tl" data-pn="${i}|${o.n}">給 ${esc(o.x.n)}</button>`).join("")}${POTION(it)!=="藍"?S.party.filter(p=>p.tags.includes("負傷")||p.tags.includes("重傷")).map(p=>`<button class="tl" data-pa="${i}|${S.party.indexOf(p)}">給 ${esc(p.n)}</button>`).join(""):""}`:""}<button class="tl" data-di="${i}">${DI===i?"確定拿掉？":"已經給人／丟掉"}</button></div>`}).join("")}`:`<div class="empty">什麼都沒有。</div>`}
+function bagCardHTML(){return `${gearHTML()}<div class="card"><h3>背包</h3>${S.corpses.length+S.items.length?`${S.corpses.map((c,i)=>`<div class="crow">🍖 ${esc(c.name)}（${c.lv}級・${c.harvested?"原料已拆・":""}${isFresh(c)?`新鮮，還有 ${24-ageOf(c)} 小時`:`不新鮮了，${Math.max(0,72-ageOf(c))} 小時後爛掉`}）${c.evo?"":`<button class="tl" data-cd="${i}">${CD===i?"確定拿掉？":"已經給人／丟掉"}</button>`}${takeBtn(c,i).replace('class="it harv"','class="tl"')}</div>`).join("")}${S.items.map((it,i)=>{const m=matOf(it);return `<div class="crow">${m?`✦ ${esc(it)}（${m.skill?`魔法物品，附帶「${esc(m.skill.n)}」`:m.fx?`魔法物品，${esc(fxDesc(m.fx))}`:m.unique?"種族神兵":"魔法原料"}・${m.lv}級）`:esc(it)}${gearBtn(it,i)}${POTION(it)?`<button class="tl" data-dp="${i}">喝掉</button>${S.npcs.map((x,n)=>({x,n})).filter(o=>o.x.where===S.at&&!S.party.some(p=>p.n===o.x.n)&&relOf(o.x)<2).map(o=>`<button class="tl" data-pn="${i}|${o.n}">給 ${esc(o.x.n)}</button>`).join("")}${POTION(it)!=="藍"?S.party.filter(p=>p.tags.includes("負傷")||p.tags.includes("重傷")).map(p=>`<button class="tl" data-pa="${i}|${S.party.indexOf(p)}">給 ${esc(p.n)}</button>`).join(""):""}`:""}${POTION(it)?"":`<button class="tl" data-ei="${i}">吞噬</button>`}<button class="tl" data-di="${i}">${DI===i?"確定丟棄？":"丟棄"}</button></div>`}).join("")}`:`<div class="empty">什麼都沒有。</div>`}
       ${escCraftBtn().join("")}${craftHTML()}${forgeHTML()}<div class="note" style="margin-top:6px">🍖 是食材：新鮮的吃了能學技能。✦ 是魔法原料或魔法物品：不會壞，吃了能學技能；魔法物品帶在身上時，它的技能可以在判定時拿來用。打倒對手就會掉魔法原料、部位或藥，屍體照樣能吃；部位和魔法原料可以在上面「做裝備」。其他物品吃了只是硬吞。</div></div>`}

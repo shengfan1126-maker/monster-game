@@ -8,13 +8,17 @@
 /* ═════════ 欄位 ═════════ */
 const SLOTS=["頭","項鍊","戒指","武器","副手","衣服","鞋子"];
 const SLOT_FIX={"曙光長劍":"武器","月光長弓":"武器","符文戰錘":"武器","幸運投石索":"武器","殘影斗篷":"衣服","齒輪盾":"副手","風羽之冠":"頭","記仇之牙":"項鍊"};
-const SLOT_RE=[["副手",/盾/],["頭",/冠|盔|帽|頭巾|面具|頭箍/],["項鍊",/項鍊|項圈|護符|牙飾|骨飾|墜飾|吊墜|念珠/],["戒指",/戒|指環|手環|臂環|護腕|手套|手鐲/],
-  ["鞋子",/鞋|靴/],["衣服",/甲(?!片)|衣|袍|斗篷|披風|鎧|背心|外套/],["武器",/劍|刀|匕首|矛|槍|斧|錘|槌|鎚|棍|棒|杖|鞭|弓|弩|投石索|彈弓|叉|戟|鐮|爪刃|拳套/]];
+const SLOT_RE=[["副手",/盾/],["頭",/冠|盔|帽|頭巾|面具|頭箍|頭飾|頭帶|髮帶|髮飾|髮簪|面罩|眼罩|護額|額環/],["項鍊",/項鍊|項圈|護符|牙飾|骨飾|墜飾|吊墜|念珠|耳環|耳墜|頸飾|掛飾/],["戒指",/戒|指環|手環|臂環|護腕|手套|手鐲|腕輪|手甲/],
+  ["鞋子",/鞋|靴|綁腿|護脛|腳環/],["衣服",/甲(?!片)|衣|袍|斗篷|披風|鎧|背心|外套/],["武器",/劍|刀|匕首|矛|槍|斧|錘|槌|鎚|棍|棒|杖|鞭|弓|弩|投石索|彈弓|叉|戟|鐮|爪刃|拳套/]];
 /* 這件東西穿在哪一欄（不是裝備＝null）：藥水、魔法原料、碎片之類不算 */
+/* v0.83：名字最後是裝備名詞（皮帽、頭盔、皮靴……）：AI 給成沒附技能的 ✦ 也算裝備 */
+const SLOT_END=/(冠|盔|帽|帽子|頭巾|面具|頭箍|頭飾|頭帶|髮帶|面罩|項鍊|項圈|護符|墜飾|吊墜|念珠|耳環|戒|戒指|指環|手環|臂環|護腕|手套|手鐲|鞋|鞋子|靴|靴子|綁腿|甲|衣|袍|斗篷|披風|鎧|背心|外套|盾|劍|刀|匕首|矛|槍|斧|錘|槌|鎚|棍|棒|杖|鞭|弓|弩|投石索|彈弓|叉|戟|鐮|爪刃|拳套)(・二|改)*$/;
 function slotOf(n){
-  if(!n)return null; if(SLOT_FIX[n])return SLOT_FIX[n]; if(POTION(n))return null;
-  const m=matOf(n); if(m&&!m.skill&&!m.fx&&!m.unique)return null;
+  if(!n)return null; if(SLOT_FIX[n])return SLOT_FIX[n]; if(S&&S.gslot&&S.gslot[n])return S.gslot[n];   /* v0.83：做出來的東西記住是哪一欄 */
+  if(POTION(n))return null;
+  const m=matOf(n); if(m&&!m.skill&&!m.fx&&!m.unique&&!SLOT_END.test(n))return null;
   if(/碎片|甲片|鱗片|殘骸|斷掉|半截|屍體|鐵礦/.test(n))return null;
+  if(/(毛皮|獸皮|皮|殼|羽毛|羽|角|牙|骨|爪|鱗|毛|鬃)$/.test(n))return null;   /* v0.83：冠羽鳥的羽毛、盾蟹的殼是材料，不是頭冠、盾 */
   const x=SLOT_RE.find(([,re])=>re.test(n)); return x?x[0]:null;
 }
 const isRangedW=n=>/弓|弩|投石|彈弓|標槍|飛刀/.test(n||"");
@@ -81,14 +85,14 @@ function gearHTML(){
 }
 /* 背包裡每一件後面的按鈕 */
 function gearBtn(n,i){
-  if(!slotOf(n))return "";
-  if(worn(n))return `<span class="note">（穿著・${slotOf(n)}）</span>`;
+  const k=slotOf(n); if(!k)return "";
+  if(worn(n))return `<span class="note">（穿著・${k}）</span><button class="tl" data-uw="${k}">卸下</button>`;
   const ok=canWear(n);
-  return ok===true?`<button class="tl" data-wr="${i}">穿上（${slotOf(n)}${S.eq[slotOf(n)]?`，換下 ${esc(S.eq[slotOf(n)])}`:""}）</button>`:`<span class="note">（${esc(ok)}）</span>`;
+  return ok===true?`<button class="tl" data-wr="${i}">裝備（${k}${S.eq[k]?`，換下 ${esc(S.eq[k])}`:""}）</button>`:`<span class="note">（${esc(ok)}）</span>`;
 }
 function gearBind(){
-  document.querySelectorAll("[data-wr]").forEach(b=>b.onclick=()=>wear(+b.dataset.wr));
-  document.querySelectorAll("[data-uw]").forEach(b=>b.onclick=()=>unwear(b.dataset.uw));
+  document.querySelectorAll("[data-wr]").forEach(b=>b.onclick=()=>{BI=-1;wear(+b.dataset.wr)});   /* v0.83：做完動作就收起故事頁的動作列 */
+  document.querySelectorAll("[data-uw]").forEach(b=>b.onclick=()=>{BI=-1;unwear(b.dataset.uw)});
   const tg=document.getElementById("telego"); if(tg)tg.onclick=teleHome;
   const ec=document.getElementById("esccraft"); if(ec)ec.onclick=escCraft;   /* v0.69 */
   if(typeof craftBind==="function")craftBind();   /* v0.74 */
@@ -210,7 +214,7 @@ function fxFor(wn,mn){
   const r=seedRand(`${wn}|${mn}`), c=th.length&&r()<.7?th:gen, tot=c.reduce((a,x)=>a+x.w,0); let p=r()*tot;
   for(const x of c){p-=x.w;if(p<0)return x.fx} return c[0].fx;
 }
-const fxItemName=(fx,wn)=>`${fxName(fx)}${wn}`.slice(0,16);
+const fxItemName=(fx,wn)=>`${fxName(fx)}${wn}`;   /* v0.83：不截字，不然「帽」會被截掉 */
 
 /* ═════════ 元素相剋、魔物特性（v0.65）═════════
    照孤獨異世界：水剋火、火剋木、木剋土、土剋風、風剋水，光暗互剋，剋到 +1。
@@ -367,8 +371,9 @@ const craftable=()=>S.items.map((n,i)=>({n,i,k:craftKind(n)})).filter(x=>x.k&&S.
 function craftName(n,suf){
   const b=n.replace(/的/g,"").replace(/^(一塊|幾塊|半截|一根|幾根)/,"").replace(/(尖銳的|啃剩的|斷掉的)/g,"");
   if(/石片|石塊/.test(b))return `石${suf}`; if(/木棍|樹枝|枯枝/.test(b))return `木${suf}`;
-  return `${b}${suf}`.slice(0,14);
+  return `${b.slice(0,14-suf.length)}${suf}`;
 }
+const CRAFT_SLOT={甲:"衣服",帽:"頭",靴:"鞋子",盾:"副手",匕首:"武器",短刀:"武器",刀:"武器",矛:"武器",棍:"武器",項鍊:"項鍊",戒指:"戒指"};
 let CFI=-1, CFT="", CFK="sk";
 const craftH=()=>hasSmith()?1:2;
 function craftHTML(){
@@ -390,8 +395,9 @@ async function craftGear(){
   if(m){const tg=capItemLv(m.lv);
     if(CFK==="fx"){const fx=fxFor(name,mn);name=fxItemName(fx,name);mat={lv:tg,sp:m.sp,fx}}
     else{let pool=[];try{pool=await poolFor({name:mn,sp:m.sp,lv:m.lv,mat:true})||[]}catch(e){} const c=pool.length?rnd(pool):null;mat={lv:tg,sp:m.sp,skill:c?{n:c.n,sys:c.sys}:{n:"蠻力",sys:"天生"}}}}
-  while(S.items.includes(name))name=(name+"・二").slice(0,18);
+  while(S.items.includes(name))name=name+"・二";
   S.items.splice(S.items.indexOf(mn),1); delete S.mat[mn]; S.items.push(name); if(mat)S.mat[name]=mat;
+  (S.gslot=S.gslot||{})[name]=CRAFT_SLOT[CFT];   /* v0.83 */
   notes.push(`你花了 ${h} 小時，用${mn}做出了${mat?"✦":""}${name}${mat?`（${mat.lv}級・${mat.fx?fxDesc(mat.fx):`附帶「${mat.skill.n}」`}）`:"（白字）"}。`);
   CFI=-1; CFT=""; advanceTime(h,notes); busy=false; gearSync(); S.log.push(sysEntry(notes.join("\n"))); save(); render();
 }
@@ -433,6 +439,7 @@ const HINTS=[
   ["key",()=>{const ch=pendingCheck();return !!(ch&&(ch.raid||ch.war))},"關鍵戰：至少要付一項代價，被打得比較痛。撐不住時可以「捨身」（留下永久的傷）換兩項。"],
   ["king",()=>{const ch=pendingCheck();return !!(ch&&ch.raid&&S.raid&&S.raid.king&&S.raid.kind!=="scout")},"八王戰：在他的領域裡，前半場多兩條劣勢、後半場多一條。用打字組合技能把劣勢抵回來。"],
   ["potion",()=>S.items.some(n=>POTION(n)),"藥水在下面背包列點一下就喝，不花時間。"],
+  ["gear",()=>S.items.some(n=>!POTION(n)),"下面背包列的東西點一下，可以選裝備、卸下、吞噬、丟棄。穿著的會標「穿著」。"],
   ["matdrop",()=>S.corpses.some(c=>c.matDrop),"屍體上有魔法原料：「拿」走就學不到這具屍體的技能；直接吃能學技能，原料跟著吞下去。二選一。"],
   ["craft",()=>S.items.some(n=>typeof craftKind==="function"&&craftKind(n)),"拿到能做東西的材料了：選單「背包」→「做裝備」，皮做甲帽靴盾、角牙骨做刀矛項鍊戒指。"],
   ["adult",()=>S.stage==="成體","長大了，可以出巢穴狩獵、探索。嫌等 AI 太慢，選單上面的「敘述」切成「不用」。"],
