@@ -9,7 +9,7 @@
 const SLOTS=["頭","項鍊","戒指","武器","副手","衣服","鞋子"];
 const SLOT_FIX={"曙光長劍":"武器","月光長弓":"武器","符文戰錘":"武器","幸運投石索":"武器","殘影斗篷":"衣服","齒輪盾":"副手","風羽之冠":"頭","記仇之牙":"項鍊"};
 const SLOT_RE=[["副手",/盾/],["頭",/冠|盔|帽|頭巾|面具|頭箍|頭飾|頭帶|髮帶|髮飾|髮簪|面罩|眼罩|護額|額環/],["項鍊",/項鍊|項圈|護符|牙飾|骨飾|墜飾|吊墜|念珠|耳環|耳墜|頸飾|掛飾/],["戒指",/戒|指環|手環|臂環|護腕|手套|手鐲|腕輪|手甲/],
-  ["鞋子",/鞋|靴|綁腿|護脛|腳環/],["衣服",/甲(?!片)|衣|袍|斗篷|披風|鎧|背心|外套/],["武器",/劍|刀|匕首|矛|槍|斧|錘|槌|鎚|棍|棒|杖|鞭|弓|弩|投石索|彈弓|叉|戟|鐮|爪刃|拳套/]];
+  ["鞋子",/鞋|靴|綁腿|護脛|腳環/],["衣服",/甲(?!片|蟲|蟹|殼)|衣|袍|斗篷|披風|鎧|背心|外套/],["武器",/劍|刀|匕首|矛|槍|斧|錘|槌|鎚|棍|棒|杖|鞭|弓|弩|投石索|彈弓|叉|戟|鐮|爪刃|拳套/]];
 /* 這件東西穿在哪一欄（不是裝備＝null）：藥水、魔法原料、碎片之類不算 */
 /* v0.83：名字最後是裝備名詞（皮帽、頭盔、皮靴……）：AI 給成沒附技能的 ✦ 也算裝備 */
 const SLOT_END=/(冠|盔|帽|帽子|頭巾|面具|頭箍|頭飾|頭帶|髮帶|面罩|項鍊|項圈|護符|墜飾|吊墜|念珠|耳環|戒|戒指|指環|手環|臂環|護腕|手套|手鐲|鞋|鞋子|靴|靴子|綁腿|甲|衣|袍|斗篷|披風|鎧|背心|外套|盾|劍|刀|匕首|矛|槍|斧|錘|槌|鎚|棍|棒|杖|鞭|弓|弩|投石索|彈弓|叉|戟|鐮|爪刃|拳套)(・二|改)*$/;
@@ -18,7 +18,7 @@ function slotOf(n){
   if(POTION(n))return null;
   const m=matOf(n); if(m&&!m.skill&&!m.fx&&!m.unique&&!SLOT_END.test(n))return null;
   if(/碎片|甲片|鱗片|殘骸|斷掉|半截|屍體|鐵礦/.test(n))return null;
-  if(/(毛皮|獸皮|皮|殼|羽毛|羽|角|牙|骨|爪|鱗|毛|鬃)$/.test(n))return null;   /* v0.83：冠羽鳥的羽毛、盾蟹的殼是材料，不是頭冠、盾 */
+  if(/(毛皮|獸皮|皮|殼|羽毛|羽|角|牙|骨|爪|鱗|毛|鬃|螯|鉗|刺|針|觸角|鰭|尾|翅|翼|齒|眼|心臟|囊|腺|核|血)$/.test(n))return null;   /* v0.83：名字最後是部位的都是材料 */
   const x=SLOT_RE.find(([,re])=>re.test(n)); return x?x[0]:null;
 }
 const isRangedW=n=>/弓|弩|投石|彈弓|標槍|飛刀/.test(n||"");
@@ -48,7 +48,9 @@ function gearSync(){
   if(typeof fxSync==="function")fxSync();   /* v0.64：厚命、深泉 */
 }
 function wear(i){
-  const n=S.items[i]; if(n==null||busy||S.dead)return; const k=slotOf(n), ok=canWear(n); if(ok!==true)return;
+  const n=S.items[i]; if(n==null||busy||S.dead)return;
+  if(!slotOf(n)){SLOTPICK=SLOTPICK===i?-1:i;render();return}   /* v0.83：認不出欄位，讓玩家選 */
+  SLOTPICK=-1; const k=slotOf(n), ok=canWear(n); if(ok!==true)return;
   S.eq[k]=n; if(k==="武器"&&S.eq.副手&&!oneMelee(n))S.eq.副手=null;
   save(); render();
 }
@@ -84,6 +86,15 @@ function gearHTML(){
     <div class="note" style="margin-top:6px">防具減傷：盾、衣服各 20%，頭 10%${am<1?`（現在被打只吃 ${Math.round(am*100)}%）`:""}。逃跑時鞋子、盾各多一層。種族神兵要穿上才生效。盾只能配單手近戰武器（或空手）。<br>拿到東西時那一欄空著會自動穿上；在下面背包按「穿上」換。白字武器防具照舊可以在判定時「用掉一件」換一層優勢（穿著的也行，用掉就卸下了）。</div></div>`;
 }
 /* 背包裡每一件後面的按鈕 */
+/* v0.83：每樣東西固定四格：裝／卸／吞／丟（用戶 11-16）。程式認不出是哪一欄的，按「裝」自己選欄位 */
+let SLOTPICK=-1;
+function itemBtns(n,i,c){
+  const k=slotOf(n), w=worn(n), ok=k&&!w?canWear(n):null, P=!!POTION(n), noPick=n===ESC||P||(matOf(n)&&matOf(n).unique&&!k);
+  const wearB=w||noPick||(k&&ok!==true)?`<button class="${c}" disabled>裝</button>`:`<button class="${c}" data-wr="${i}">裝</button>`;
+  const why=k&&!w&&ok!==true?`<span class="note">（${esc(ok)}）</span>`:"";
+  const pick=SLOTPICK===i&&!k?`<span class="note">穿在：</span>${SLOTS.map(s=>`<button class="${c}" data-ps="${i}|${s}">${s}</button>`).join("")}`:"";
+  return `${wearB}<button class="${c}"${w?` data-uw="${slotOf(n)}"`:" disabled"}>卸</button><button class="${c}" ${P?`data-dp="${i}"`:`data-ei="${i}"`}>吞</button><button class="${c}" data-di="${i}">${typeof DI!=="undefined"&&DI===i?"確定丟？":"丟"}</button>${why}${pick}`;
+}
 function gearBtn(n,i){
   const k=slotOf(n); if(!k)return "";
   if(worn(n))return `<span class="note">（穿著・${k}）</span><button class="tl" data-uw="${k}">卸下</button>`;
@@ -91,7 +102,8 @@ function gearBtn(n,i){
   return ok===true?`<button class="tl" data-wr="${i}">裝備（${k}${S.eq[k]?`，換下 ${esc(S.eq[k])}`:""}）</button>`:`<span class="note">（${esc(ok)}）</span>`;
 }
 function gearBind(){
-  document.querySelectorAll("[data-wr]").forEach(b=>b.onclick=()=>{BI=-1;wear(+b.dataset.wr)});   /* v0.83：做完動作就收起故事頁的動作列 */
+  document.querySelectorAll("[data-wr]").forEach(b=>b.onclick=()=>{const i=+b.dataset.wr;if(slotOf(S.items[i]))BI=-1;wear(i)});   /* v0.83：做完動作就收起故事頁的動作列 */
+  document.querySelectorAll("[data-ps]").forEach(b=>b.onclick=()=>{const [i,k]=b.dataset.ps.split("|"),n=S.items[+i];if(n==null)return;(S.gslot=S.gslot||{})[n]=k;SLOTPICK=-1;BI=-1;wear(+i)});
   document.querySelectorAll("[data-uw]").forEach(b=>b.onclick=()=>{BI=-1;unwear(b.dataset.uw)});
   const tg=document.getElementById("telego"); if(tg)tg.onclick=teleHome;
   const ec=document.getElementById("esccraft"); if(ec)ec.onclick=escCraft;   /* v0.69 */
@@ -439,7 +451,7 @@ const HINTS=[
   ["key",()=>{const ch=pendingCheck();return !!(ch&&(ch.raid||ch.war))},"關鍵戰：至少要付一項代價，被打得比較痛。撐不住時可以「捨身」（留下永久的傷）換兩項。"],
   ["king",()=>{const ch=pendingCheck();return !!(ch&&ch.raid&&S.raid&&S.raid.king&&S.raid.kind!=="scout")},"八王戰：在他的領域裡，前半場多兩條劣勢、後半場多一條。用打字組合技能把劣勢抵回來。"],
   ["potion",()=>S.items.some(n=>POTION(n)),"藥水在下面背包列點一下就喝，不花時間。"],
-  ["gear",()=>S.items.some(n=>!POTION(n)),"下面背包列的東西點一下，可以選裝備、卸下、吞噬、丟棄。穿著的會標「穿著」。"],
+  ["gear",()=>S.items.some(n=>!POTION(n)),"下面背包列的東西點一下，會出現「裝／卸／吞／丟」四格。穿著的會標「穿著」。"],
   ["matdrop",()=>S.corpses.some(c=>c.matDrop),"屍體上有魔法原料：「拿」走就學不到這具屍體的技能；直接吃能學技能，原料跟著吞下去。二選一。"],
   ["craft",()=>S.items.some(n=>typeof craftKind==="function"&&craftKind(n)),"拿到能做東西的材料了：選單「背包」→「做裝備」，皮做甲帽靴盾、角牙骨做刀矛項鍊戒指。"],
   ["adult",()=>S.stage==="成體","長大了，可以出巢穴狩獵、探索。嫌等 AI 太慢，選單上面的「敘述」切成「不用」。"],

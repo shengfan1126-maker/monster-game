@@ -219,3 +219,5 @@ footer{margin-top:26px;font-size:11px;color:var(--mute);text-align:center;line-h
 .bag .it.act{border-style:dashed;font-size:12px;padding:3px 8px}
 .bag .it.on{outline:2px solid var(--ink)}
 .bag .it small{margin-left:4px}
+.ibtn{display:inline-flex;gap:4px;flex-wrap:wrap;margin-left:6px}
+.ibtn .tl[disabled],.bag .it.act[disabled]{opacity:.35}
