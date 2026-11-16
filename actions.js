@@ -109,7 +109,8 @@ function doRest(){
   if(!S.dead){
     const fed=!hasTag("飢餓");
     /* 夜裡：沒餓 HP 回一半、MP 回滿；餓著 HP 不回、MP 回一半。白天小睡：沒餓 HP、MP 各回四分之一。 */
-    const hp=fed?Math.ceil(S.hpMax/(night?2:4))+(night?regenLv()*2:0):0;
+    const med=fed&&!S.alone&&inNest()&&typeof jobN==="function"&&jobN("醫療")>0;   /* v0.87：巢穴有人醫療，睡覺多回 */
+    const hp=fed?Math.ceil(S.hpMax/(night?2:4))+(night?regenLv()*2:0)+(med?Math.ceil(S.hpMax/10):0):0;
     const mp=night?(fed?S.mpMax:Math.ceil(S.mpMax/2)):(fed?Math.ceil(S.mpMax/4):0);
     const ah=Math.min(hp,S.hpMax-S.hp), am=Math.min(mp,S.mpMax-S.mp);
     S.hp+=ah; S.mp+=am; checkDeath(notes);

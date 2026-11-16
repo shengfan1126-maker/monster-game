@@ -331,14 +331,14 @@ function partyHTML(){
       ${mateHTML(p,k)}
       <div class="d">${p.skills.length?p.skills.map((x,j)=>`${esc(x.n)}（${esc(x.g||p.lv)}級）<button class="tl" data-as="${k}|${j}">${ASD===k+":"+j?"確定忘掉？":"忘掉"}</button>`).join("　"):"還沒有技能"}${p.tags.length?`　【${p.tags.map(esc).join("】【")}】`:""}</div>
       ${p.note?`<div class="d" style="color:var(--mute)">${esc(p.note)}</div>`:""}
-      <div class="pbtn"><button class="tl" data-pw="${k}">${p.with?"同行中 → 留在巢穴":p.fac?`在〔${esc(p.fac)}〕工作`:"留在巢穴 → 帶在身邊"}</button>${p.fac?`<button class="tl" data-pf="${k}">離開設施</button>`:p.noFac&&!p.with?`<button class="tl" data-pf="${k}">回去顧設施</button>`:""}<button class="tl" data-pq="${k}">${PQ===k?"確定讓牠離開？":"離隊"}</button><button class="tl" data-rn="${k}">改名</button></div>
+      <div class="pbtn"><button class="tl" data-pw="${k}">${p.with?"同行中 → 留在巢穴":"留在巢穴 → 帶在身邊"}</button><button class="tl" data-pq="${k}">${PQ===k?"確定讓牠離開？":"離隊"}</button><button class="tl" data-rn="${k}">改名</button></div>
       ${RN===k?`<div class="padd" style="margin-top:6px"><input id="rnv" maxlength="10" placeholder="新名字"><button class="tl" id="rnok">確定</button></div>`:""}
       <div class="d">拿著：${(p.hold||[]).length?(p.hold||[]).map((h,j)=>`${esc(h)} <button class="tl" data-hb="${k}|${j}">收回</button>`).join("　"):"空手"}${(p.hold||[]).length<3&&S.items.some(n=>!(matOf(n)&&matOf(n).skill))?` <select data-hg="${k}"><option value="">交給牠…</option>${S.items.filter(n=>!(matOf(n)&&matOf(n).skill)).map(n=>`<option>${esc(n)}</option>`).join("")}</select>`:""}</div>
       ${!p.with?`<div class="d">派工：<select data-job="${k}">${Object.entries(JOBS).map(([j,t])=>`<option value="${j}"${(p.job||"")===j?" selected":""}>${j||"不派工"}${j?`（${t}）`:""}</option>`).join("")}</select></div>`:""}
       ${p.alias&&p.alias.length?`<div class="d" style="color:var(--mute)">以前叫：${p.alias.map(esc).join("、")}</div>`:""}
       ${p.gear||S.items.some(n=>matOf(n)&&matOf(n).skill)?`<div class="d">裝備：<select data-eq="${k}"><option value="">（沒有）</option>${[...(p.gear?[p.gear]:[]),...S.items.filter(n=>matOf(n)&&matOf(n).skill)].map(n=>`<option value="${esc(n)}"${p.gear===n?" selected":""}>✦${esc(n)}（${esc((p.gear===n?p.gearMat:matOf(n)).skill.n)}）</option>`).join("")}</select></div>`:""}</div>`).join("");
   return `<div class="card"><h3>同伴</h3>${PNOTE?`<div class="err">${esc(PNOTE)}</div>`:""}${rows||`<div class="empty">還沒有同伴。</div>`}
-    <div class="note" style="margin:8px 0 6px">最多兩名同行，其餘留在巢穴，可以派工（狩獵、採集、看守俘虜、照顧俘虜、巡邏），每天換日時生效。同伴最多 3 個技能（命名過的 4 個），吃東西學到的技能可以給牠們；魔法物品可以給牠們裝備。受傷先【負傷】，再傷就【重傷】退出行動；睡一晚會好轉。<br>故事裡已經跟著你、程序卻沒記到的，可以在這裡補上：</div>
+    <div class="note" style="margin:8px 0 6px">最多兩名同行，其餘留在巢穴，可以派工（狩獵、採集、巡邏、醫療、情報、訓練），每天換日時生效；族人的分工在巢穴頁。同伴最多 3 個技能（命名過的 4 個），吃東西學到的技能可以給牠們；魔法物品可以給牠們裝備。受傷先【負傷】，再傷就【重傷】退出行動；睡一晚會好轉。<br>故事裡已經跟著你、程序卻沒記到的，可以在這裡補上：</div>
     <div class="padd"><input id="pn" maxlength="10" placeholder="名字"><input id="pk" maxlength="10" placeholder="本事（例如 偵查）"><button class="tl" id="padd">加入</button></div></div>`;
 }
 let PQ=-1;
@@ -354,11 +354,11 @@ function bindNest(){
   document.querySelectorAll("[data-pw]").forEach(b=>b.onclick=()=>{const p=S.party[+b.dataset.pw];
     if(!p.with&&S.party.filter(x=>x.with).length>=2){alertNote("同行最多兩名。");return}
     if(!p.with&&p.tags.includes("重傷")){alertNote(`${p.n}還在養傷。`);return}
-    if(!p.with&&p.fac){alertNote(`${p.n}在〔${p.fac}〕工作，不能同行。要帶他出門，先按「離開設施」。`);return}
     p.with=!p.with; if(p.with)p.job=""; save();render()});
   document.querySelectorAll("[data-hg]").forEach(sel=>sel.onchange=()=>{if(!sel.value)return;const n=[];equipAlly(S.party[+sel.dataset.hg].n,sel.value,false,n);S.log.push(sysEntry(n.join("\n")));save();render()});
   document.querySelectorAll("[data-hb]").forEach(b=>b.onclick=()=>{const [k,j]=b.dataset.hb.split("|").map(Number);const p=S.party[k];const it=p.hold[j];if(it==null)return;p.hold.splice(j,1);S.items.push(it);if(p.holdMat&&p.holdMat[it]){S.mat[it]=p.holdMat[it];delete p.holdMat[it]}save();render()});
   document.querySelectorAll("[data-job]").forEach(sel=>sel.onchange=()=>{S.party[+sel.dataset.job].job=sel.value;save();render()});
+  document.querySelectorAll("[data-wk]").forEach(b=>b.onclick=()=>{const [j,d]=b.dataset.wk.split("|");workSet(j,+d)});
   document.querySelectorAll("[data-eq]").forEach(sel=>sel.onchange=()=>{const p=S.party[+sel.dataset.eq], v=sel.value;
     if(p.gear){S.items.push(p.gear);S.mat[p.gear]=p.gearMat;p.gear=null;p.gearMat=null}
     if(v){const i=S.items.indexOf(v);if(i>=0){S.items.splice(i,1);p.gear=v;p.gearMat=S.mat[v];delete S.mat[v]}}
@@ -442,10 +442,18 @@ function heatHTML(){
       <div class="note" style="margin-bottom:6px">整窩搬到已知的地點：路上要花時間、存糧丟一半、可能有幾隻不肯走；巢穴原本的地利沒了。討伐隊會撲空，注目度降回「風聲」。${(S.chap||1)<4?"（會進入第 4 章）":""}</div>
       <div class="padd"><select id="mvto">${moveDests().map(n=>`<option${MV===n?" selected":""}>${esc(n)}</option>`).join("")}</select><button class="tl" id="mvok">${MV?"確定搬家？":"搬過去"}</button></div></div></div>`;
 }
+/* v0.87：分工 */
+function workHTML(){
+  if(S.alone||!S.nest)return ""; workFix(); const n=S.nest, c=crewN(), idle=workIdle();
+  const rows=JOB_LIST.map(j=>{const al=jobAllies(j), k=(n.work||{})[j]||0, f=JOB_FAC[j], hasF=jobFac(j);
+    return `<div class="row"><span class="k">${j}</span><span>${S.chief?`<span class="wk"><button class="tl" data-wk="${j}|-1"${k>0?"":" disabled"}>－</button> 族人 <b>${k}</b> <button class="tl" data-wk="${j}|1"${idle>0?"":" disabled"}>＋</button></span>`:""}${al.length?`　同伴：${al.map(p=>esc(p.n)+(dirHit(p,j)?"★":"")).join("、")}`:""}${hasF?`　〔${f}〕加成`:""}<br><span class="note">${esc(JOBS[j])}</span></span></div>`}).join("");
+  const tr=S.chief&&jobCrew("訓練")?`<div class="note">族人訓練：${Math.floor(n.trainPts||0)}／${CREW_EVO}（滿了有一隻進化成有名字的同伴；這個巢穴最多進化 ${n.pop} 隻，已經 ${n.evoN||0} 隻）</div>`:"";
+  return `<div class="card"><h3>分工</h3>${S.chief?`<div class="note" style="margin-bottom:6px">能工作的族人 ${c} 隻（跟著人口），閒著 ${idle} 隻。同伴的工作在上面隊伍頁選；★＝職業對口，效果加倍。每天換日時結算。</div>`:`<div class="note" style="margin-bottom:6px">當上巢穴之主之前，族人不聽你的；留在巢穴的同伴可以在隊伍頁派工。</div>`}${rows}${tr}</div>`;
+}
 function nestHTML(){
   const n=S.nest;
   if(S.alone)return heatHTML()+`<div class="card"><h3>沒有巢穴</h3><div class="note">你為了小丑王丟下了巢穴、同伴和伴侶。現在只有你自己、你的裝備、你的技能。</div></div>`;
-  return partyHTML()+heatHTML()+`<div class="card"><h3>${esc(n.name)}</h3>
+  return partyHTML()+heatHTML()+workHTML()+`<div class="card"><h3>${esc(n.name)}</h3>
       <div class="note" style="margin-bottom:8px">${esc(n.note)}</div>
       ${track("p","存糧",PROS,n.p)}${track("pop","人口",POP,n.pop)}${track("d","戰力",DEF,n.d)}
       <div class="tags">${n.tags.map(t=>`<span class="tag ${t.c||""}">〔${esc(t.t)}〕</span>`).join("")}</div>
@@ -480,8 +488,9 @@ const GUIDE=[
  ["打倒之後掉什麼（不用自己拆）",`打倒對手會<b>自動掉東西</b>（成功 1 件、大成功 2 件），不用自己剝皮、拆原料：<br>・野獸：部位（灰狼皮、灰狼牙、灰狼骨……）或草藥膏，<b>直接放進背包</b>，下面背包列會標「新」。<br>・有一半機會多一樣 <b>✦魔法原料</b>（例如 ✦灰狼的毛皮）：它<b>留在屍體旁</b>，按「拿」才放進背包。拿了，這具屍體就學不到技能；不拿直接吃，原料跟著吞下去、照樣學技能。二選一。<br>・類人：裝備、藥水，或 ✦魔法原料。<br>・野獸沒有魔核。老鼠、蟲子、小鳥、蛋這類小東西，還有 F 級的小動物（狼、熊、豬、蛇、蜥、蛛以外），不掉東西。<br>部位可以在背包「做裝備」：先選材料，再從下拉選做成什麼。`],
  ["背包：裝／卸／吞／丟",`下面背包列：金色是屍體，點一下就吃；藥水點一下就喝；<b>其他東西點一下，後面出現四格「裝／卸／吞／丟」</b>，再點一下收起。<br>・<b>裝</b>：穿上（換下同一欄原本的）。程式認不出要穿哪裡的東西，按「裝」會讓你自己選欄位。<br>・<b>卸</b>：脫下來，放回背包。<br>・<b>吞</b>：吃掉。✦ 的東西吃了能學技能；其他東西只是硬吞。<br>・<b>丟</b>：按兩下才丟掉。<br>選單的「背包」和技能頁的背包，每樣東西也都有這四格。穿著的東西標「穿著」，剛掉的標「新」。`],
  ["物品、武器、藥水",`部位、石片木棍、魔法原料都能在背包<b>做裝備</b>（先選材料、再從下拉選：皮毛做甲、背心、披風、帽、頭巾、靴、綁腿、盾、護腕、鞭、投石索；角牙骨做匕首、短刀、長刀、劍、矛、標槍、斧、錘、棒、爪刃、弓、頭盔、盾、項鍊、戒指；石頭、木頭也能做刀斧錘矛棍弓杖盾；魔法原料做出來是魔法裝備，技能或效果二選一）；白字武器防具（帽子、鞋子、項鍊、戒指也行）＋魔法原料可以在背包<b>鍛造</b>成魔法物品（有工匠比較快），<b>附帶技能或效果二選一</b>：效果照原料那隻魔物抽（屬性紋、避某屬性、剋某類、擋災、一閃、餘震、生息、厚命、輕身、浮空、歸巢、尋路……），鍛造前就看得到，穿著才生效，物品等級比對手低時戰鬥效果不生效。<br>魔法物品等級低於對手：自己選了用照樣有效，打完會壞、不能修。白字武器防具也能「用掉一件」換一層優勢。<br><b>敘述：完整／精簡／不用</b>（故事頁選單上面）：精簡（預設）時，移動、回巢穴、採集、探索、狩獵由程式直接結算，AI 只補一兩句；不用＝只有程式的一行，下次叫 AI 時它會帶過；完整＝每一步都讓 AI 寫。判定結果、自己打字、關鍵戰一律完整。狩獵會直接出判定卡，不想打可以按「放過牠」。選單的<b>背包</b>可以直接換裝備、喝藥、鍛造。<br><b>組合</b>：判定卡出現時，在下面打字描述怎麼打（例：「用火吐息點燃草叢困住牠，再用鐵爪撕開」）。大賢者會拆成步驟，每個成立的步驟多一層優勢；用到的技能各扣一次和 MP 1（魔法物品附帶的不扣 MP）。對手的特性會讓某些步驟不成立（太快的要先困住、飛的地形困不住、硬殼光用割的沒用……）。拆錯了按「更正」改，或「撤回」。不是在出手的話（談判、逃跑），照舊改寫局面。<br><b>捨身</b>（進化戰、討伐戰、八王戰）：選一個部位留下永久的傷——眼睛（探索時間加倍）、單手（不能用雙手武器和盾）、腿（移動時間加倍）、身體（HP 上限 -20%）、心靈（MP 上限 -20%），或失去一個技能。獨角獸王的加護可以治好一處。<br><b>相剋</b>：水剋火、火剋木、木剋土、土剋風、風剋水，光暗互剋。用的技能是剋對手屬性的系別、或穿著剋它的「紋」，多一層優勢。判定卡會寫對手的屬性和特性（敏捷、飛行、硬甲……），特性影響優劣勢。<br><b>裝備欄</b>（技能頁）：頭、項鍊、戒指、武器、副手、衣服、鞋子。拿到時欄位空著自動穿上，其他用「裝／卸」換。盾、衣服各減傷 20%、頭 10%；逃跑時鞋子、盾各多一層；種族神兵要穿上才生效；盾只能配單手近戰武器。<br>紅藥水回 HP、藍藥水回 MP、紫藥水兩者、草藥膏回 HP 25%；也能餵給受傷的同伴，或給 NPC／想收服的魔物增加好感。`],
- ["同伴",`對你有「追隨」的角色會成為同伴，最多兩名同行。<b>同伴不再算優勢，改成在場減傷。同伴空手會讓判定多一項劣勢</b>，把武器交給他（隊伍頁）。留在巢穴的同伴可以派工。<br>同伴也有技能（F～A 字母，最多 5 個）；在隊伍頁可以讓他忘掉一個。<br><b>同伴成長</b>：留在巢穴打獵每天 +1、跟你出門協助一次 +2，存在值滿 20 就能進化（取名、選職業：戰士、斥候、法師、祭司、工匠），進化後歸零。同伴最高等級是你的等級 −1；等級夠的同伴在場，你受到的傷害永久 −1（兩個 −2）；太弱的上不了戰場。職業能力一天全隊 2 次：戰士替你擋代價、法師增傷、祭司治療。`],
- ["巢穴",`存糧要夠：每天吃「人口格數」份，吃光人口會掉。當上巢穴之主後巢穴有等級（E 起），把用不到的東西<b>捐給巢穴</b>換物資點數，點數夠了升級；每次升級都會引來一次討伐，並從 3 個隨機設施裡選 1 個（農田、獵場、鍛冶台、宿舍、陷阱、治療所）。<br>設施要有人手；對口的同伴留在巢穴就會自動去顧，但顧設施的同伴不能同行。`],
+ ["同伴",`對你有「追隨」的角色會成為同伴，最多兩名同行。<b>同伴不再算優勢，改成在場減傷。同伴空手會讓判定多一項劣勢</b>，把武器交給他（隊伍頁）。留在巢穴的同伴可以派工（見「分工」）。<br>同伴也有技能（F～A 字母，最多 5 個）；在隊伍頁可以讓他忘掉一個。<br><b>同伴成長</b>：留在巢穴打獵每天 +1、訓練每天 +2、跟你出門協助一次 +2，存在值滿 20 就能進化（取名、選職業：戰士、斥候、法師、祭司、工匠），進化後歸零。同伴最高等級是你的等級 −1；等級夠的同伴在場，你受到的傷害永久 −1（兩個 −2）；太弱的上不了戰場。職業能力一天全隊 2 次：戰士替你擋代價、法師增傷、祭司治療。`],
+ ["巢穴",`存糧要夠：每天吃「人口格數」份，吃光人口會掉。當上巢穴之主後巢穴有等級（E 起），把用不到的東西<b>捐給巢穴</b>換物資點數，點數夠了升級；每次升級都會引來一次討伐，並從 3 個隨機設施裡選 1 個（農田、獵場、鍛冶台、宿舍、陷阱、治療所、哨塔、訓練場）。<br>大部分設施是某份工作的<b>加成</b>，要有人做那份工作才有效（見「分工」）；鍛冶台、宿舍自己會動。`],
+ ["分工：底下的人做什麼",`巢穴頁的<b>分工</b>：當上巢穴之主後，族人聽你的。能工作的族人跟著人口變多，用 ＋／－ 分到六份工作；留在巢穴的同伴在隊伍頁選工作，職業對口（★）效果加倍。每天換日結算，結果寫成一行「巢穴分工：……」。<br>・<b>狩獵</b>：帶回存糧，偶爾拖回一具新鮮屍體（這一帶的野獸），你不用親自跑也能吃新物種、學技能。〔獵場〕：多一半，常拖回屍體。<br>・<b>採集</b>：樹枝、石片、草藥膏、苦草、獸骨（做裝備、做逃跑粉用得到）。〔農田〕：多帶一樣、每天多收存糧。<br>・<b>巡邏</b>（守家）：討伐的動向先知道、俘虜不會逃；兩個以上在巡邏，討伐戰多一層優勢。〔陷阱〕：再多一層。<br>・<b>醫療</b>：受傷的同伴兩天好一級；你在巢穴睡覺多回 HP。〔治療所〕：每天好一級。<br>・<b>情報</b>（往外探、往裡問）：審問俘虜（態度軟化）、打聽沒去過的據點在哪、打聽八王檔案；注目度漲得慢一點。〔哨塔〕：情報加倍，討伐戰前兩個階段多一層優勢。<br>・<b>訓練</b>：同伴存在值每天 +2（比打獵快一倍）。族人練久了，會有一隻<b>進化成有名字的同伴</b>（自動取名，系統會通知你）；哥布林本來就是雜兵，所以不快，每個巢穴進化的數量也有上限（跟著人口）。〔訓練場〕：1.5 倍。<br>工作的人越多產出越多，但去訓練、情報的族人就不打獵：存糧不夠人口會掉，能工作的族人也跟著少。`],
  ["注目度與討伐",`殺人類、當眾吃人、抓人、進化、巢穴變大，都會讓人類注意到你：風聲 → 偵察 → 討伐隊 → 討伐軍。派一個同伴<b>巡邏</b>，就會提早知道他們什麼時候來、來多少。<br>討伐戰在巢穴迎戰，守不住巢穴就完了（可以撤回）。搬家可以讓討伐撲空，但新巢穴從 F 級重來。`],
  ["據點在哪裡",`黑顎提過附近有一些聚落、營地、巢穴，但誰也沒去過。每次開新遊戲，它們會隨機藏在不同的地區（友善的、敵對的都有，可能是矮人、精靈、半身人、人類、獸人，還有別的類人）。地圖頁的「？未探索的據點」會列出每個地區還有幾處。<b>在那個地區多按幾次「探索」</b>（附近的地區 2～4 次、遠的 3～6 次）才會找到。找到之前，不知道裡面是什麼。`],
  ["突襲與地圖",`找到敵對的營地或巢穴後，走到那裡，行動列會多一個<b>突襲</b>：成功會直接搶到魔法物品，也會讓那個勢力少一個人。地圖頁的已知地點現在按地區分組，可以收合。人多的巢穴狩獵成功會多一份獵物直接進存糧。亞人村落（矮人、精靈、半身人、人類、諾姆等）每局隨機抽，不一定每種都有。`],

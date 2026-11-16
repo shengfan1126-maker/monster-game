@@ -148,7 +148,7 @@ const HEAT=[{n:"沒人注意",at:0},{n:"風聲",at:6},{n:"偵察",at:14},{n:"討
 const HUMAN_TXT=/人類|冒險者|獵人|商隊|商人|騎士|衛兵|村|鎮|公會|旅人|樵夫|礦工|精靈|矮人|半身人/;
 const heatLv=()=>{let k=0;HEAT.forEach((h,i)=>{if((S.heat||0)>=h.at)k=i});return k};
 const CIVIL_RACE=/人類|冒險者|精靈|矮人|半身人|騎士|衛兵|商人/;
-const patrol=()=>S.party.some(p=>!p.with&&p.job==="巡邏"&&!p.tags.includes("重傷"));
+const patrol=()=>S.party.some(p=>!p.with&&p.job==="巡邏"&&!p.tags.includes("重傷"))||(S.chief&&((S.nest.work||{}).巡邏||0)>0);   /* v0.87：族人巡邏也算 */
 function heatAdd(d,why,notes){
   if(!d||S.dead)return; const was=heatLv();
   let cap=60; if(S.raidCool&&S.day<S.raidCool)cap=HEAT[3].at-1;          // 剛打退討伐：一陣子不會再來
@@ -172,6 +172,8 @@ function raidSet(army){
 function restoreWith(r){const keep=r&&r.withBefore||[];S.party.forEach(p=>p.with=keep.includes(p.n));}
 function raidAdv(){
   const a=[...(S.raid&&S.raid.prep||[]).map(k=>RAID_PREP[k].adv),...raidCounters()], n=S.nest;
+  if(n.lv&&facOn("哨塔")&&S.raid&&(S.raid.stage||1)<=(jobAllies("情報").some(p=>dirHit(p,"情報"))?3:2))a.unshift("〔哨塔〕先看到他們怎麼來");   /* v0.87 */
+  if(jobN("巡邏")>=2)a.push("巡邏的守著洞口");
   if(n.d>=4)a.push(`巢穴戰力：${DEF[n.d-1]}`);
   if(n.lv&&facOn("陷阱"))a.push("〔陷阱〕設施");
   ["陷阱","天然屏障","工坊"].forEach(t=>{if(n.tags.some(x=>x.t===t))a.push(t==="工坊"?"〔工坊〕打的武器":`〔${t}〕`)});
@@ -233,27 +235,103 @@ function startRaid(help){
   S.opts=[]; save(); doJob({kind:"raid",ctx:{stage:1}},snap(),S.log.length);
 }
 const RAID_STEPS={1:["埋伏好的一擊"],3:["前哨和陷阱","洞口攻防","對上帶頭的強者"],5:["遠處的火把和偵察","陷阱與伏擊","洞口攻防","洞裡的混戰","對上統帥"]};
-/* 派工：留在巢穴的同伴每天做一件事 */
-const JOBS={"":"（沒事）","狩獵":"每天帶回存糧","採集":"有時帶回草藥、燧石之類","看守":"俘虜不會逃走","照顧":"俘虜兩天好一級（最多到服從）","巡邏":"討伐的動向會先知道"};
-const GATHER=["草藥","燧石","乾柴","野果","樹脂","獸骨"];
+/* v0.87 分工（用戶 11-16）：同伴、族人都派到同一張表；設施是工作的加成。
+   巡邏＝守家；情報＝往外探、審問俘虜；訓練＝同伴進化變快、族人練久了會有人進化（自動命名）。 */
+const JOBS={"":"（沒事）","狩獵":"帶回存糧，偶爾帶回一具新鮮屍體","採集":"帶回樹枝、石片、草藥膏、草、骨頭","巡邏":"守家：討伐的動向先知道、俘虜不逃","醫療":"受傷的同伴兩天好一級","情報":"審問俘虜、找據點線索、打聽八王","訓練":"同伴存在值每天 +2；族人練久了會有人進化"};
+const JOB_LIST=Object.keys(JOBS).filter(Boolean);
+const JOB_FAC={狩獵:"獵場",採集:"農田",巡邏:"陷阱",醫療:"治療所",情報:"哨塔",訓練:"訓練場"};
+const JOB_OLD={看守:"巡邏",照顧:"情報"};
+const WORKERS=[1,2,4,6,8];   /* 人口格數 → 能工作的族人 */
+const crewN=()=>S.chief&&!S.alone&&S.nest?WORKERS[Math.max(0,Math.min(4,(S.nest.pop||1)-1))]:0;
+function workFix(){
+  const n=S.nest; if(!n)return; n.work=n.work||{}; const w=n.work;
+  Object.keys(w).forEach(k=>{if(!JOB_LIST.includes(k))delete w[k];else w[k]=Math.max(0,w[k]|0)});
+  if(!n.workInit&&S.chief){if(!JOB_LIST.some(k=>w[k])){const c=crewN();w.狩獵=Math.ceil(c/2);w.採集=c-w.狩獵}n.workInit=true}
+  let over=JOB_LIST.reduce((a,k)=>a+(w[k]||0),0)-crewN();
+  for(const k of ["訓練","情報","醫療","巡邏","採集","狩獵"]){while(over>0&&w[k]>0){w[k]--;over--}}
+  S.party.forEach(p=>{if(JOB_OLD[p.job])p.job=JOB_OLD[p.job];if(p.job&&!JOBS[p.job])p.job="";if(p.fac)p.fac=null});
+}
+const workIdle=()=>crewN()-JOB_LIST.reduce((a,k)=>a+((S.nest.work||{})[k]||0),0);
+function workSet(job,d){
+  if(busy||S.dead||!S.chief||!JOBS[job])return; workFix(); const w=S.nest.work;
+  if(d>0&&workIdle()<=0)return; if(d<0&&!(w[job]>0))return; w[job]=(w[job]||0)+d; save(); render();
+}
+const jobAllies=j=>S.party.filter(p=>!p.with&&p.job===j&&!p.tags.includes("重傷"));
+const jobCrew=j=>S.chief?((S.nest.work||{})[j]||0):0;
+const jobN=j=>jobAllies(j).length+jobCrew(j);
+const jobFac=j=>!!(S.nest&&S.nest.lv&&(S.nest.fac||[]).includes(JOB_FAC[j]));
+const JOB_DIR={狩獵:"戰士",巡邏:"斥候",醫療:"祭司",情報:"法師",訓練:"戰士"};
+const dirHit=(p,j)=>p.dir&&(p.dir===JOB_DIR[j]||(j==="情報"&&p.dir==="斥候"));   /* 對口職業效果加倍 */
+const GATHER=["樹枝","一塊尖銳的石片","草藥膏","苦草","獸骨"];
+const EVO_NAMES=["灰耳","缺牙","短腿","尖鼻","泥爪","鐵頭","火眼","長舌","瘦猴","石拳","夜目","斷角","歪嘴","黑指","跛子","細眼"];
+const CREW_EVO=60;   /* 族人訓練點：累積 60 點有一隻進化（不要太快：哥布林是雜兵） */
+function nestPrey(){
+  const reg=regionByLoc(NEST())||REGIONS[0], top=gIdx(S.lv), r2={};
+  GRADES.forEach((g,i)=>{if(i<=top&&reg[g])r2[g]=reg[g].filter(e=>!HUMANOID.test(e[0]))});
+  return pickPrey(r2);
+}
 function dayJobs(notes){
-  const out=[], n=S.nest, home=S.party.filter(p=>!p.with);
-  home.forEach(p=>{if(p.with||!p.job)return; const hurt=p.tags.includes("重傷");
-    if(p.job==="狩獵"){if(hurt)return;const g=1+gIdx(p.lv)+(p.tags.includes("負傷")?-1:0);if(g>0){n.food=(n.food||0)+g;out.push(`${p.n}打獵帶回 ${g} 份`)} allyXp(p,1,out)}
-    if(p.job==="採集"&&!hurt&&Math.random()<0.5){const it=rnd(GATHER);receive(it,null);out.push(`${p.n}採回了${it}`)}
-  });
+  workFix(); const out=[], n=S.nest, fac=j=>jobFac(j);
+  /* 狩獵 */
+  const hA=jobAllies("狩獵"), hC=jobCrew("狩獵");
+  if(hA.length||hC){
+    let g=hA.reduce((a,p)=>a+(1+gIdx(p.lv)+(p.tags.includes("負傷")?-1:0))*(dirHit(p,"狩獵")?2:1),0)+Math.floor(hC/2);
+    if(fac("狩獵"))g=Math.round(g*1.5);
+    if(g>0){n.food=(n.food||0)+g;out.push(`狩獵帶回 ${g} 份`)}
+    hA.forEach(p=>allyXp(p,1,out));
+    const pc=Math.min(0.4,(0.05+0.02*(hA.length+hC))*(fac("狩獵")?2:1));   /* 偶爾：5 個人約一週一具；有獵場加倍 */
+    if(Math.random()<pc){const {sp,lv}=nestPrey(), nm=cleanName(sp);S.corpses.push({name:nm,sp:speciesOf(nm,sp),lv,t:nowH(),big:false,cls:null,brought:true});
+      out.push(`狩獵隊拖回一具新鮮的${nm}（${lv}級，在背包，一天內吃能學技能）`)}
+  }
+  /* 採集 */
+  const gA=jobAllies("採集"), gC=jobCrew("採集"); let got=0;
+  if(gA.length||gC){
+    const tries=[...gA.map(p=>dirHit(p,"採集")?0.9:0.6),...Array(gC).fill(0.3)], cap=fac("採集")?4:3;
+    tries.forEach(pr=>{if(got<cap&&Math.random()<pr){const it=rnd(GATHER);receive(it,null);got++;out.push(`採回${it}`)}});
+    if(fac("採集")){const s=nStr(), f=Math.max(1,Math.round(FOOD_B[s]*Math.min(3,gA.length+gC)/3));n.food=(n.food||0)+f;out.push(`〔農田〕+${f} 份存糧`)}
+  }
+  /* 醫療 */
+  const mN=jobN("醫療");
+  if(mN){const every=fac("醫療")?1:2; n.medT=(n.medT||0)+1;
+    if(n.medT>=every){n.medT=0;S.party.forEach(p=>{if(p.tags.includes("負傷")){p.tags=p.tags.filter(t=>t!=="負傷");out.push(`${p.n}的傷治好了`)}
+      else if(p.tags.includes("重傷")){p.tags=p.tags.filter(t=>t!=="重傷");p.tags.push("負傷");out.push(`${p.n}的重傷好轉了`)}})}}
+  /* 情報 */
+  const iA=jobAllies("情報"), iPow=(iA.reduce((a,p)=>a+(dirHit(p,"情報")?2:1),0)+jobCrew("情報"))*(fac("情報")?2:1);
+  if(iPow){n.intel=(n.intel||0)+iPow;
+    while(n.intel>=6){n.intel-=6; const r=intelRoll(); if(r)out.push(r); else {n.intel=0;break}}}
+  /* 訓練 */
+  const tA=jobAllies("訓練"), tC=jobCrew("訓練");
+  tA.forEach(p=>allyXp(p,(fac("訓練")?3:2)*(dirHit(p,"訓練")?1:1),out));
+  if(tC&&!S.alone){n.trainPts=(n.trainPts||0)+tC*(fac("訓練")?1.5:1);
+    if(n.trainPts>=CREW_EVO){if((n.evoN||0)<(n.pop||1)){n.trainPts-=CREW_EVO;crewEvolve(notes)}else n.trainPts=CREW_EVO}}
   const hunters=kept().filter(x=>x.contract&&TECH[x.cls||""]&&TECH[x.cls||""].tag==="獵手").length;
   if(hunters){n.food=(n.food||0)+hunters;out.push(`〔獵手〕多 ${hunters} 份`)}
-  if(n.tags.some(t=>t.t==="治療所"))S.party.forEach(p=>{if(p.tags.includes("負傷")){p.tags=p.tags.filter(t=>t!=="負傷");out.push(`${p.n}的傷在〔治療所〕好了`)}
-    else if(p.tags.includes("重傷")){p.tags=p.tags.filter(t=>t!=="重傷");p.tags.push("負傷")}});
-  if(out.length)notes.push("巢穴："+out.join("；"));
+  if(out.length)notes.push("巢穴分工："+out.join("；"));
+}
+/* 情報：先審問俘虜，再找據點線索，再打聽八王 */
+function intelRoll(){
+  const cap=S.npcs.filter(x=>x.captive&&x.where===NEST()&&relOf(x)<1);
+  const opts=[];
+  if(cap.length)opts.push(()=>{const x=rnd(cap);const tmp=[];relChange([{name:x.n,d:1,why:"被問了好幾天，態度軟化"}],tmp,true);return `審問${x.n}：${tmp.join("")||"他鬆口了一點"}`});
+  const sd=(S.sites||[]).filter(x=>!x.found);
+  if(sd.length)opts.push(()=>{const x=rnd(sd);S.expl=S.expl||{};S.expl[x.region]=(S.expl[x.region]||0)+1;
+    const left=Math.max(0,x.need-S.expl[x.region]);return `打聽到${x.region}一帶有個誰也沒去過的地方${left?`（再去那裡探索 ${left} 次左右就找得到）`:"（去那裡探索一次就找得到）"}`});
+  if(S.kings&&S.chap>=5){const ks=Object.keys(S.kings).filter(k=>K_FIELDS.some(([f])=>!S.kings[k].know[f]&&!(f==="lair"&&lairHid(k))));
+    if(ks.length)opts.push(()=>{const k=rnd(ks),f=K_FIELDS.find(([f])=>!S.kings[k].know[f]&&!(f==="lair"&&lairHid(k)));const t=[];kingReveal(k,f[0],t);return t.join("")||null})}
+  return opts.length?rnd(opts)():null;
+}
+function crewEvolve(notes){
+  const used=new Set([...S.party.map(p=>p.n),...S.npcs.map(x=>x.n),...(S.gone||[]).map(x=>x.n),S.name]);
+  let nm=EVO_NAMES.find(x=>!used.has(x)); if(!nm){let i=2;while(used.has("哥布林"+i))i++;nm="哥布林"+i}
+  const dir=rnd(Object.keys(DIRS)), lv="F", sk=DIRS[dir].skill;
+  const p={n:nm,kind:"哥布林"+dir,kind0:"哥布林",lv,xp:0,knack:"",note:"族人訓練出來的，原本只是雜兵。",skills:[{...sk,g:lv}],tags:[],with:false,named:true,dir,job:"",from:"族人"};
+  S.party.push(p); S.nest.evoN=(S.nest.evoN||0)+1;
+  notes.push(`〈系統〉《世界之聲》：「族人之中，有一隻哥布林進化了。」\n牠自稱「${nm}」（哥布林${dir}・${lv}級・會${sk.n}），成了你的同伴，留在${NEST()}。到隊伍頁可以改名、派工、帶牠出門。`);
 }
 function dayCaptives(notes,hungry){
-  const guard=S.party.some(p=>!p.with&&p.job==="看守"&&!p.tags.includes("重傷"));
-  const care=S.party.some(p=>!p.with&&p.job==="照顧"&&!p.tags.includes("重傷"));
+  const guard=jobN("巡邏")>0;
   S.npcs.filter(x=>x.captive&&x.where===NEST()).forEach(x=>{
     if(hungry){relChange([{name:x.n,d:-1,why:"餓著肚子"}],notes)}
-    else if(care){x.care=(x.care||0)+1;if(x.care>=2&&relOf(x)<1){x.care=0;relChange([{name:x.n,d:1,why:"有人照顧他"}],notes)}}
     if(!x.captive)return;
     const r=relOf(x), p=guard?0:r<=-2?0.5:r<=-1?0.25:0;
     if(p&&Math.random()<p)npcGone(x.n,"趁夜逃走了",notes);
@@ -359,12 +437,14 @@ const NEST_UP={E:20,D:30,C:60,B:120,A:240};
 const nLv=()=>S.nest&&S.nest.lv||null;
 const nStr=()=>Math.max(0,gIdx(nLv()||"F"));            // F0 E1 D2 C3 B4 A5
 const FAC={
-  "農田":{cls:null,txt:"每天自己長出存糧"},
-  "獵場":{cls:"斥候",txt:"每天帶回獵物（有斥候同伴看著更多）"},
-  "鍛冶台":{cls:"工匠",txt:"每隔幾天打出一件白字武器防具；有人看著，鍛造也比較快"},
+  "農田":{job:"採集",txt:"採集的人多帶一樣，每天多收一份存糧"},
+  "獵場":{job:"狩獵",txt:"狩獵帶回的多一半，常常拖回新鮮屍體"},
+  "鍛冶台":{cls:"工匠",txt:"每隔幾天打出一件白字武器防具；你做裝備、鍛造也比較快"},
   "宿舍":{cls:null,txt:"每隔幾天有同類聚過來（人口 +1，要有存糧）"},
-  "陷阱":{cls:"斥候",txt:"討伐戰多一層優勢"},
-  "治療所":{cls:"祭司",txt:"同伴每天好一級傷"}};
+  "陷阱":{job:"巡邏",txt:"有人巡邏時，討伐戰多一層優勢"},
+  "治療所":{job:"醫療",txt:"有人醫療時，受傷的同伴每天好一級"},
+  "哨塔":{job:"情報",txt:"情報加倍；有人顧著時，討伐戰前兩個階段多一層優勢（法師、斥候顧：前三個）"},
+  "訓練場":{job:"訓練",txt:"訓練效果變 1.5 倍"}};
 const FOOD_B=[0,3,4,6,8,10], WPN=["骨矛","粗石斧","木盾","皮甲","鐵匕首","粗鐵短刀"];
 function rollFac(n){const left=Object.keys(FAC).filter(f=>!(n.fac||[]).includes(f)); if((n.fac||[]).length>=5||!left.length)return null;
   return left.sort(()=>Math.random()-0.5).slice(0,3)}
@@ -374,34 +454,26 @@ function nestFix(o){
   n.lv="E"; n.pts=0; n.fac=[]; n.facT={}; n.pick=rollFac(n);
 }
 const facWorkers=f=>{
-  const n=S.nest, c=FAC[f].cls, pop=Math.max(0,n.pop-1);
-  const ally=c?S.party.find(p=>p.fac===f):null;
-  return c?(ally?1:0)+Math.min(2,pop):Math.min(3,n.pop);
+  const n=S.nest, F=FAC[f]; if(!F)return 0;
+  if(F.job)return jobN(F.job);
+  return Math.min(3,n.pop)+(F.cls&&S.party.some(p=>!p.with&&p.dir===F.cls)?1:0);
 };
-function facAssign(){
-  const n=S.nest, fs=n.fac||[];
-  S.party.forEach(p=>{if(p.fac&&(!fs.includes(p.fac)||p.with||p.tags.includes("重傷")))p.fac=null});
-  fs.forEach(f=>{const c=FAC[f].cls; if(!c||S.party.some(p=>p.fac===f))return;
-    const a=S.party.find(p=>!p.with&&!p.fac&&p.dir===c&&!p.noFac&&!p.tags.includes("重傷")); if(a)a.fac=f});
-}
+function facAssign(){S.party.forEach(p=>{if(p.fac)p.fac=null})}   /* v0.87：設施不再綁人，只當加成 */
 const facOn=f=>(S.nest.fac||[]).includes(f)&&facWorkers(f)>0;
 function facDay(notes){
   const n=S.nest; if(!n.lv||!(n.fac||[]).length)return;
-  n.facT=n.facT||{}; facAssign(); const out=[], s=nStr();
+  n.facT=n.facT||{}; const out=[];
   (n.fac||[]).forEach(f=>{
-    const w=facWorkers(f); if(w<=0)return; const m=w/3;
-    if(f==="農田"){const g=Math.max(1,Math.round(FOOD_B[s]*m));n.food=(n.food||0)+g;out.push(`〔農田〕+${g} 份存糧`)}
-    if(f==="獵場"){const g=Math.max(1,Math.round((FOOD_B[s]-1)*m));n.food=(n.food||0)+g;out.push(`〔獵場〕帶回 ${g} 份獵物`)}
+    if(FAC[f]&&FAC[f].job)return;   /* 有工作的設施在分工裡算 */
+    const w=Math.min(4,facWorkers(f)); if(w<=0)return;
     if(f==="鍛冶台"){n.facT[f]=(n.facT[f]||0)+1;if(n.facT[f]>=7-w){n.facT[f]=0;const it=rnd(WPN);receive(it,null);out.push(`〔鍛冶台〕打出了「${it}」（白字）`)}}
-    if(f==="宿舍"){n.facT[f]=(n.facT[f]||0)+1;if(n.facT[f]>=6-w&&(n.food||0)>=needOf()){n.facT[f]=0;if(n.pop<POP.length){n.pop++;out.push(`〔宿舍〕又有同類聚過來。人口：${POP[n.pop-1]}`)}}}
-    if(f==="治療所")S.party.forEach(p=>{if(p.tags.includes("負傷")){p.tags=p.tags.filter(t=>t!=="負傷");out.push(`${p.n}的傷在〔治療所〕好了`)}
-      else if(p.tags.includes("重傷")){p.tags=p.tags.filter(t=>t!=="重傷");p.tags.push("負傷")}});
+    if(f==="宿舍"){n.facT[f]=(n.facT[f]||0)+1;if(n.facT[f]>=6-Math.min(3,w)&&(n.food||0)>=needOf()){n.facT[f]=0;if(n.pop<POP.length){n.pop++;out.push(`〔宿舍〕又有同類聚過來。人口：${POP[n.pop-1]}`)}}}
   });
   if(out.length)notes.push("設施："+out.join("；"));
 }
 /* 注目度的被動累積：從 D 級起很慢，而且只到「風聲／偵察」為止，光靠巢穴大不會直接引來討伐 */
 function nestHeatDay(notes){
-  const iv={D:4,C:3,B:2,A:2}[nLv()]; if(!iv||S.raid)return;
+  const iv0={D:4,C:3,B:2,A:2}[nLv()]; if(!iv0||S.raid)return; const iv=iv0+(jobN("情報")?2:0);   /* v0.87：有人做情報，注目度漲得慢 */
   const cap={D:HEAT[1].at-1,C:HEAT[2].at-1,B:HEAT[2].at-1,A:HEAT[2].at-1}[nLv()];
   if(S.day%iv===0&&(S.heat||0)<cap)heatAdd(1,"巢穴越來越大",notes);
 }
@@ -430,13 +502,13 @@ function pickFac(j){
   const n=S.nest; if(busy||!n.pick||!n.pick[j])return; const f=n.pick[j], pre=snap();
   S.log.push({who:"you",text:`選了設施：${f}`,pre});
   n.fac.push(f); n.pick=null; facAssign();
-  S.log.push(sysEntry(`〈系統〉《世界之聲》：「〔${f}〕蓋好了。${FAC[f].txt}。」${FAC[f].cls?`\n（排一個${FAC[f].cls}同伴留在巢穴，他會自動去顧；被排進去的同伴不能同行。）`:""}`)); save(); render();
+  S.log.push(sysEntry(`〈系統〉《世界之聲》：「〔${f}〕蓋好了。${FAC[f].txt}。」${FAC[f].job?`\n（這是「${FAC[f].job}」的加成：到巢穴頁「分工」派人去做${FAC[f].job}才有效。）`:""}`)); save(); render();
 }
 function nestLvHTML(){
   const n=S.nest; if(!n.lv)return `<div class="note" style="margin-top:8px">成為巢穴之主後，巢穴才有等級。</div>`;
   const to=nextNLv(), cost=to&&NEST_UP[to], can=cost&&!n.pick&&!S.raid&&(n.pts||0)>=cost&&to!=="S";
-  const fac=(n.fac||[]).map(f=>{const w=facWorkers(f), a=S.party.find(p=>p.fac===f);
-    return `<div class="row"><span class="k">〔${esc(f)}〕</span><span>人手 ${w}／3${FAC[f].cls?`・${a?esc(a.n)+"在顧":"缺"+FAC[f].cls}`:""}<br><span class="note">${esc(FAC[f].txt)}</span></span></div>`}).join("");
+  const fac=(n.fac||[]).map(f=>{const F=FAC[f]||{txt:""}, w=facWorkers(f);
+    return `<div class="row"><span class="k">〔${esc(f)}〕</span><span>${F.job?`加成「${F.job}」・${w?`${w} 人在做`:"<b>沒人做，沒效果</b>"}`:`人手 ${Math.min(3,w)}`}<br><span class="note">${esc(F.txt)}</span></span></div>`}).join("");
   const dn=donatable();
   return `<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px"><div class="row"><span class="k">巢穴等級</span><span><b>${n.lv}</b> 級・物資點數 <b>${n.pts||0}</b>${to&&cost&&to!=="S"?`（升 ${to} 要 ${cost}）`:""}</span></div>
     ${to&&cost&&to!=="S"?`<button class="paybtn" id="nup" style="margin:6px 0"${can?"":" disabled"}>升到 ${to} 級${can?"（會引來一次討伐）":n.pick?"（先選設施）":S.raid?"（先處理討伐）":"（點數不夠）"}</button>`:`<div class="note">已經是一般升級的最高級。</div>`}
