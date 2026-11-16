@@ -22,7 +22,7 @@ function slotOf(n){
   const x=SLOT_RE.find(([,re])=>re.test(n)); return x?x[0]:null;
 }
 const isRangedW=n=>/弓|弩|投石|彈弓|標槍|飛刀/.test(n||"");
-const isTwoW=n=>!/手斧|投石索|彈弓|飛刀/.test(n||"")&&/弓|弩|斧|錘|槌|鎚|矛|槍|戟|大劍|巨劍|長柄/.test(n||"");
+const isTwoW=n=>!/手斧|投石索|彈弓|飛刀|標槍/.test(n||"")&&/弓|弩|斧|錘|槌|鎚|矛|槍|戟|大劍|巨劍|長柄/.test(n||"");
 const oneMelee=n=>!n||(!isRangedW(n)&&!isTwoW(n));
 const wtWord=n=>isRangedW(n)?(isTwoW(n)?"雙手遠程":"單手遠程"):isTwoW(n)?"雙手":"單手";
 const worn=n=>!!(S&&S.eq&&SLOTS.some(k=>S.eq[k]===n));
@@ -372,8 +372,10 @@ function partsOf(sp){
   return (T.find(([re])=>re.test(sp))||[0,["皮","骨","牙"]])[1];
 }
 const sameSp=(c,sp)=>!c.evo&&(String(c.sp||"").includes(sp)||cleanName(c.name).includes(sp));
-const CRAFT_KIND=[["hide",/皮|毛|鱗|羽|翼膜|殼/,[["甲","甲"],["帽","帽"],["靴","靴"],["盾","盾"]]],["hard",/角|牙|骨|爪|齒|螯|刺|針/,[["匕首","匕首"],["短刀","短刀"],["矛","矛"],["項鍊","項鍊"],["戒指","戒指"]]],
-  ["stone",/石|礦|晶/,[["刀","刀"],["矛","矛"],["戒指","戒指"]]],["wood",/木|棍|枝|藤/,[["棍","棍"],["矛","矛"]]]];
+/* v0.86：用戶 11-16「做裝備為什麼只能做匕首短刀 … 做個下拉吧，那麼多武器」→ 每種材料能做的列多一點，用下拉選 */
+const CRAFT_KIND=[["hide",/皮|毛|鱗|羽|翼膜|殼/,[["甲"],["背心"],["披風"],["帽"],["頭巾"],["靴"],["綁腿"],["盾"],["護腕"],["鞭"],["投石索"]].map(([x])=>[x,x])],
+  ["hard",/角|牙|骨|爪|齒|螯|刺|針/,[["匕首"],["短刀"],["長刀"],["劍"],["矛"],["標槍"],["斧"],["錘"],["棒"],["爪刃"],["弓"],["頭盔"],["盾"],["項鍊"],["戒指"]].map(([x])=>[x,x])],
+  ["stone",/石|礦|晶/,[["刀"],["斧"],["錘"],["矛"],["盾"],["戒指"],["項鍊"]].map(([x])=>[x,x])],["wood",/木|棍|枝|藤/,[["棍"],["棒"],["矛"],["標槍"],["弓"],["杖"],["盾"]].map(([x])=>[x,x])]];
 /* 能拿來做的：白字部位和石片木棍（不是裝備、不是食物、不是藥）、還沒做成東西的魔法原料 */
 function craftKind(n){
   const m=matOf(n); if(n===ESC||POTION(n)||slotOf(n))return null;
@@ -387,7 +389,8 @@ function craftName(n,suf){
   if(/石片|石塊/.test(b))return `石${suf}`; if(/木棍|樹枝|枯枝/.test(b))return `木${suf}`;
   return `${b.slice(0,14-suf.length)}${suf}`;
 }
-const CRAFT_SLOT={甲:"衣服",帽:"頭",靴:"鞋子",盾:"副手",匕首:"武器",短刀:"武器",刀:"武器",矛:"武器",棍:"武器",項鍊:"項鍊",戒指:"戒指"};
+const CRAFT_SLOT={甲:"衣服",背心:"衣服",披風:"衣服",帽:"頭",頭巾:"頭",頭盔:"頭",靴:"鞋子",綁腿:"鞋子",盾:"副手",護腕:"戒指",項鍊:"項鍊",戒指:"戒指"};
+const craftSlot=t=>CRAFT_SLOT[t]||"武器";
 let CFI=-1, CFT="", CFK="sk";
 const craftH=()=>hasSmith()?1:2;
 function craftHTML(){
@@ -397,7 +400,7 @@ function craftHTML(){
   const out=cur&&CFT?craftName(cur.n,CFT):"";
   return `<div class="sacbox" style="margin:8px 0"><label>做裝備（${craftH()} 小時${hasSmith()?"，有鍛冶台或工匠":""}）</label>
     <select id="cfm"><option value="">選材料…</option>${L.map(x=>`<option value="${x.i}"${x.i===CFI?" selected":""}>${matOf(x.n)?"✦":""}${esc(x.n)}${matOf(x.n)?`（${matOf(x.n).lv}級）`:""}</option>`).join("")}</select>
-    ${cur?`<div class="tags" style="margin-top:6px">${cur.k[2].map(([s])=>`<button class="tag ut" data-cft="${esc(s)}" style="${CFT===s?"outline:2px solid currentColor":""}">${esc(s)}</button>`).join("")}</div>`:""}
+    ${cur?`<select id="cft" style="margin-top:6px"><option value="">做成…</option>${SLOTS.map(sl=>{const L2=cur.k[2].filter(([x])=>craftSlot(x)===sl);return L2.length?`<optgroup label="${sl}">${L2.map(([x])=>`<option value="${esc(x)}"${CFT===x?" selected":""}>${esc(x)}${sl==="武器"?`（${wtWord(x)}）`:""}</option>`).join("")}</optgroup>`:""}).join("")}</select>`:""}
     ${m&&out?`<label style="display:block"><input type="radio" name="cfk" value="sk"${CFK==="sk"?" checked":""}> 附帶技能（從${esc(cleanName(m.sp))}的技能池抽）</label><label style="display:block"><input type="radio" name="cfk" value="fx"${CFK==="fx"?" checked":""}> 效果：${esc(fxDesc(fxFor(out,cur.n)))}</label>`:""}
     ${out?`<div class="note">做出：${m?"✦":""}${esc(out)}（${slotOf(out)||"?"}${m?`・魔法・${capItemLv(m.lv)}級`:"・白字"}）</div><button class="paybtn" id="cfdo"${busy||S.dead?" disabled":""}>做</button>`:""}</div>`;
 }
@@ -411,13 +414,13 @@ async function craftGear(){
     else{let pool=[];try{pool=await poolFor({name:mn,sp:m.sp,lv:m.lv,mat:true})||[]}catch(e){} const c=pool.length?rnd(pool):null;mat={lv:tg,sp:m.sp,skill:c?{n:c.n,sys:c.sys}:{n:"蠻力",sys:"天生"}}}}
   while(S.items.includes(name))name=name+"・二";
   S.items.splice(S.items.indexOf(mn),1); delete S.mat[mn]; S.items.push(name); if(mat)S.mat[name]=mat;
-  (S.gslot=S.gslot||{})[name]=CRAFT_SLOT[CFT];   /* v0.83 */
+  (S.gslot=S.gslot||{})[name]=craftSlot(CFT);   /* v0.83 */
   notes.push(`你花了 ${h} 小時，用${mn}做出了${mat?"✦":""}${name}${mat?`（${mat.lv}級・${mat.fx?fxDesc(mat.fx):`附帶「${mat.skill.n}」`}）`:"（白字）"}。`);
   CFI=-1; CFT=""; advanceTime(h,notes); busy=false; gearSync(); S.log.push(sysEntry(notes.join("\n"))); save(); render();
 }
 function craftBind(){
   const s=document.getElementById("cfm"); if(s)s.onchange=()=>{CFI=s.value===""?-1:+s.value;CFT="";render()};
-  document.querySelectorAll("[data-cft]").forEach(b=>b.onclick=()=>{CFT=b.dataset.cft;render()});
+  const ct=document.getElementById("cft"); if(ct)ct.onchange=()=>{CFT=ct.value;render()};   /* v0.86：下拉 */
   document.querySelectorAll('[name="cfk"]').forEach(r=>r.onchange=()=>{CFK=r.value;render()});
   const d=document.getElementById("cfdo"); if(d)d.onclick=craftGear;
 }
@@ -456,7 +459,7 @@ const HINTS=[
   ["gear",()=>S.items.some(n=>!POTION(n)),"下面背包列的東西點一下，會出現「裝／卸／吞／丟」四格。穿著的會標「穿著」。"],
   ["loot",()=>!!S.newLoot,"打倒對手會自動掉東西：部位、藥直接放進背包（標「新」）；✦魔法原料留在屍體旁，按「拿」才拿走。不用自己拆。"],
   ["matdrop",()=>S.corpses.some(c=>c.matDrop),"屍體上有魔法原料：「拿」走就學不到這具屍體的技能；直接吃能學技能，原料跟著吞下去。二選一。"],
-  ["craft",()=>S.items.some(n=>typeof craftKind==="function"&&craftKind(n)),"拿到能做東西的材料了：選單「背包」→「做裝備」，皮做甲帽靴盾、角牙骨做刀矛項鍊戒指。"],
+  ["craft",()=>S.items.some(n=>typeof craftKind==="function"&&craftKind(n)),"拿到能做東西的材料了：選單「背包」→「做裝備」，先選材料、再從下拉選要做成什麼（皮毛做防具、鞭；角牙骨做各種刀斧矛弓、頭盔、項鍊戒指）。"],
   ["adult",()=>S.stage==="成體","長大了，可以出巢穴狩獵、探索。嫌等 AI 太慢，選單上面的「敘述」切成「不用」。"],
   ["party",()=>S.party.some(p=>p.with),"同伴：最多帶 2 位同行；全隊一天能用 2 次能力（代打、幫忙防禦……），判定卡上選。"],
   ["kings",()=>S.chap>=5&&S.kings&&Object.values(S.kings).some(x=>x.page),"八王的檔案打開了：記錄頁看得到。八王都能談，不一定要打。"]];
