@@ -221,3 +221,10 @@ footer{margin-top:26px;font-size:11px;color:var(--mute);text-align:center;line-h
 .bag .it small{margin-left:4px}
 .ibtn{display:inline-flex;gap:4px;flex-wrap:wrap;margin-left:6px}
 .ibtn .tl[disabled],.bag .it.act[disabled]{opacity:.35}
+/* v0.89：新手教學可收合（參考孤獨篇） */
+.tut{border-top:1px solid var(--line);padding:4px 0}
+.tut summary{font-weight:700;cursor:pointer;padding:6px 0}
+.tutb{font-size:14px;line-height:1.7;color:var(--ink2);padding-bottom:6px}
+.tutb p,.tutb ul{margin:4px 0}
+.tutb ul{padding-left:20px}
+.tutb li{margin:2px 0}

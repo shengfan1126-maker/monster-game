@@ -461,10 +461,10 @@ const HINTS=[
   ["matdrop",()=>S.corpses.some(c=>c.matDrop),"屍體上有魔法原料：「拿」走就學不到這具屍體的技能；直接吃能學技能，原料跟著吞下去。二選一。"],
   ["craft",()=>S.items.some(n=>typeof craftKind==="function"&&craftKind(n)),"拿到能做東西的材料了：選單「背包」→「做裝備」，先選材料、再從下拉選要做成什麼（皮毛做防具、鞭；角牙骨做各種刀斧矛弓、頭盔、項鍊戒指）。"],
   ["adult",()=>S.stage==="成體","長大了，可以出巢穴狩獵、探索。嫌等 AI 太慢，選單上面的「敘述」切成「不用」。"],
-  ["work",()=>S.chief&&!S.alone&&S.nest&&S.nest.lv&&typeof workIdle==="function","當上巢穴之主了：巢穴頁有「分工」，把族人分去狩獵、採集、巡邏、醫療、情報、訓練。設施是工作的加成，要有人做才有效。"],
-  ["crewevo",()=>S.party.some(p=>p.from==="族人"),"族人裡有人進化成有名字的同伴了，在隊伍頁。可以改名、派工，或帶牠出門。"],
+  ["work",()=>S.chief&&!S.alone&&S.nest&&S.nest.lv&&typeof workIdle==="function","當上巢穴之主了：「同伴・巢穴」頁有「分工」，把族人分去狩獵、採集、巡邏、醫療、情報、訓練。設施是工作的加成，要有人做才有效。"],
+  ["crewevo",()=>S.party.some(p=>p.from==="族人"),"族人裡有人進化成有名字的同伴了，在「同伴・巢穴」頁。可以改名、派工，或帶牠出門。"],
   ["party",()=>S.party.some(p=>p.with),"同伴：最多帶 2 位同行；全隊一天能用 2 次能力（代打、幫忙防禦……），判定卡上選。"],
-  ["kings",()=>S.chap>=5&&S.kings&&Object.values(S.kings).some(x=>x.page),"八王的檔案打開了：記錄頁看得到。八王都能談，不一定要打。"]];
+  ["kings",()=>S.chap>=5&&S.kings&&Object.values(S.kings).some(x=>x.page),"八王的檔案打開了：履歷頁看得到。八王都能談，不一定要打。"]];
 function hintSeen(){try{return JSON.parse(ls.g("mowu_hints")||"[]")}catch(e){return []}}
 function hintNow(){
   if(!S||S.dead||ls.g("mowu_hints_off")==="1")return null;
