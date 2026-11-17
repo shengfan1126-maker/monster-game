@@ -472,7 +472,7 @@ function nestHTML(){
     <div class="card"><h3>巢穴裡的人</h3>
       ${S.npcs.filter(x=>!S.party.some(p=>p.n===x.n)&&x.where===NEST()).map(x=>`<div class="npc"><div class="h"><b>${esc(x.n)}${x.captive?"　〔俘虜〕":x.contract?"　〔約定〕":""}</b><span>${esc(x.role)}・${x.lv} 級</span></div>
         <div class="d">${esc(x.face)}　·　對你：<b>${REL[relOf(x)+2]}</b> <span class="pips">${REL.map((_,i)=>`<span class="pip${i<=relOf(x)+2?" on":""}${i>(x.cap==null?3:x.cap)+2?" off":""}"></span>`).join("")}</span>${x.foe?"　（對手）":""}</div>
-        ${x.captive?`<div class="pbtn"><button class="tl" data-ec="${esc(x.n)}">吃掉</button><button class="tl" data-dc="${esc(x.n)}">讓同伴單挑</button><button class="tl" data-uc="${esc(x.n)}">收為己用</button></div>`:""}
+        ${x.captive?`<div class="pbtn"><button class="tl" data-ec="${esc(x.n)}">吃掉</button><button class="tl" data-dc="${esc(x.n)}">讓同伴單挑</button><button class="tl" data-uc="${esc(x.n)}"${beastNpc(x)&&relOf(x)<1?" disabled":""}>${beastNpc(x)?"馴服":"收為己用"}</button></div>${beastNpc(x)&&relOf(x)<1?`<div class="note">巢穴有存糧，每天餵牠就會親近一級；到「服從」就能馴服。</div>`:""}`:""}
         <div class="pbtn"><button class="tl" data-ng="${esc(x.n)}">${NG===x.n?"確定他已經不在了？":"他已經不在了"}</button></div></div>`).join("")}
       ${S.gone.length?`<div class="note" style="margin-top:8px">不在的人：${S.gone.map(x=>`${esc(x.n)}（${esc(x.why)}）`).join("、")}</div>`:""}
     </div>`;
@@ -576,7 +576,7 @@ const GUIDE=[
 <ul><li>討伐戰在巢穴迎戰，守不住巢穴就完了（可以撤回）。搬家可以讓討伐撲空，但新巢穴從 F 級重來。</li>
 <li>討伐隊的組成寫在「外面的眼光」。有對應職業的同伴（戰士壓斥候、斥候壓法師、法師壓戰士、祭司和工匠互剋）多一層優勢。</li>
 <li>回巢穴<b>備戰</b>（設陷阱、埋伏、備戰），每樣多一層優勢，三樣都做完這場只打一個階段。</li>
-<li>贏得不漂亮只是逼退，幾天後會帶更多人回來。漂亮贏了會抓到<b>俘虜</b>：吃掉、讓同伴單挑練手、或收為己用。</li>
+<li>贏得不漂亮只是逼退，幾天後會帶更多人回來。漂亮贏了會抓到<b>俘虜</b>：吃掉、讓同伴單挑練手、或收為己用。<b>動物</b>（狼崽之類）的俘虜，巢穴有存糧就每天餵牠、親近一級，到「服從」按「馴服」直接成為同伴。</li>
 <li>每 30 天（第 25 天起預告）有一次大討伐。全滅時可以帶 1 個技能轉生。</li></ul>
 <p><b>關鍵戰</b>（進化戰、討伐戰、八王戰、地城、殺管理員）至少要付一項代價。撐不住可以<b>捨身</b>：選一處留下永久的傷——眼睛（探索時間加倍）、單手（不能用雙手武器和盾）、腿（移動時間加倍）、身體（HP 上限 −20%）、心靈（MP 上限 −20%），或失去一個技能。獨角獸王的加護可以治好一處。</p>`],
  ["據點、突襲、統治",`<p>附近有聚落、營地、巢穴，每局隨機藏在不同地區（矮人、精靈、半身人、人類、獸人……友善敵對都有）。</p>

@@ -331,10 +331,21 @@ function crewEvolve(notes){
   S.party.push(p); S.nest.evoN=(S.nest.evoN||0)+1;
   notes.push(`〈系統〉《世界之聲》：「族人之中，有一隻哥布林進化了。」\n牠自稱「${nm}」（哥布林${dir}・${lv}級・會${sk.n}），成了你的同伴，留在${NEST()}。到「同伴・巢穴」頁可以改名、派工、帶牠出門。`);
 }
+/* v0.93：動物俘虜＝馴服（用戶 11-18「做」）。不是類人的俘虜：巢穴有存糧就每天餵、關係 +1；到「服從」按「馴服」直接成為同伴（不經過約定）。
+   俘虜的 role 沒填時預設「人類」，所以名字像動物的（灰狼幼崽……）也算。 */
+const BEAST_NM=/狼|熊|豬|狐|鹿|犬|鷹|蝠|蛇|蜥|蛛|蟲|鼠|蛙|鳥|獸|崽|貓|豹|虎|牛|馬|羊|兔/;
+const beastNpc=x=>{const nm=cleanName(x.n||"");return !HUMANOID.test(nm)&&(!HUMANOID.test(x.role||"")||(x.role==="人類"&&BEAST_NM.test(nm)))};
+const beastKind=x=>HUMANOID.test(x.role||"")?cleanName(x.n):x.role;
+function tame(x,notes){
+  if(!x||!x.captive||!beastNpc(x))return; x.captive=false; x.contract=false;
+  recruit({name:x.n,kind:beastKind(x),knack:x.knack,note:x.face||"在巢穴裡馴服的。"},notes);
+  if(S.party.some(p=>p.n===x.n))notes.push(`${x.n}不再掙扎，乖乖跟在你腳邊——牠被你馴服了。`);
+}
 function dayCaptives(notes,hungry){
   const guard=jobN("巡邏")>0;
   S.npcs.filter(x=>x.captive&&x.where===NEST()).forEach(x=>{
     if(hungry){relChange([{name:x.n,d:-1,why:"餓著肚子"}],notes)}
+    else if(beastNpc(x)&&relOf(x)<1)relChange([{name:x.n,d:1,why:"每天有東西吃"}],notes);   /* v0.93：餵動物俘虜 */
     if(!x.captive)return;
     const r=relOf(x), p=guard?0:r<=-2?0.5:r<=-1?0.25:0;
     if(p&&Math.random()<p)npcGone(x.n,"趁夜逃走了",notes);
@@ -358,8 +369,8 @@ function relChange(list,notes,force){               // force：OOC 更正，不�
     if(now===was){if(d>0&&was>=cap)notes.push(`${x.n}對你的態度不會再更好了。`);return}
     x.r=now; x.rel=REL[now+2]; if(d>0)x.upDay=S.day;
     notes.push(`${x.n}對你：${REL[was+2]} → ${x.rel}${c.why?`（${c.why}）`:""}`);
-    if(x.captive&&now>=1)contract(x,notes);
-    if(now>=3&&!S.party.some(p=>p.n===x.n))recruit({name:x.n,kind:raceOf(x.role)||"哥布林",knack:x.knack,note:x.face},notes);
+    if(x.captive&&now>=1){if(!beastNpc(x))contract(x,notes);else if(!x.tameSaid){x.tameSaid=1;notes.push(`${x.n}不太怕你了：到「同伴・巢穴」頁按「馴服」，牠就成為你的同伴。`)}}
+    if(now>=3&&!S.party.some(p=>p.n===x.n)&&!(x.captive&&beastNpc(x)))recruit({name:x.n,kind:raceOf(x.role)||"哥布林",knack:x.knack,note:x.face},notes);
   });
 }
 function recruit(r,notes){
@@ -614,8 +625,8 @@ function duelCaptive(n){
 }
 function useContract(n){
   const x=S.npcs.find(y=>y.n===n&&y.captive); if(!x||busy||S.dead)return;
-  const pre=snap(), notes=[]; S.log.push({who:"you",text:`處置俘虜：讓${n}留下來幫忙`,pre});
-  if(relOf(x)<1){notes.push(`${n}還不肯：關係至少要到「友善」（照顧幾天、給藥水或食物）。`)}else contract(x,notes);
+  const B=beastNpc(x), pre=snap(), notes=[]; S.log.push({who:"you",text:B?`馴服${n}`:`處置俘虜：讓${n}留下來幫忙`,pre});
+  if(relOf(x)<1){notes.push(B?`${n}還會咬人：要到「服從」才馴服得了（巢穴有存糧，每天餵牠就會親近一級）。`:`${n}還不肯：關係至少要到「服從」（照顧幾天、給藥水或食物）。`)}else if(B)tame(x,notes); else contract(x,notes);
   S.log.push(sysEntry(notes.join("\n"))); save(); render();
 }
 /* 全滅轉生：帶 1 個技能（維持等級）從頭開始 */
