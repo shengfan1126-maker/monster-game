@@ -337,6 +337,7 @@ function partyHTML(){
       ${RN===k?`<div class="padd" style="margin-top:6px"><input id="rnv" maxlength="10" placeholder="新名字"><button class="tl" id="rnok">確定</button></div>`:""}
       <div class="d">拿著：${(p.hold||[]).length?(p.hold||[]).map((h,j)=>`${esc(h)} <button class="tl" data-hb="${k}|${j}">收回</button>`).join("　"):"空手"}${(p.hold||[]).length<3&&S.items.some(n=>!(matOf(n)&&matOf(n).skill))?` <select data-hg="${k}"><option value="">交給牠…</option>${S.items.filter(n=>!(matOf(n)&&matOf(n).skill)).map(n=>`<option>${esc(n)}</option>`).join("")}</select>`:""}</div>
       ${!p.with?`<div class="d">派工：<select data-job="${k}">${Object.entries(JOBS).map(([j,t])=>`<option value="${j}"${(p.job||"")===j?" selected":""}>${j||"不派工"}${j?`（${t}）`:""}</option>`).join("")}</select></div>`:""}
+      ${allyLangs(p).length||p.langPts?`<div class="d">會說：${allyLangs(p).length?esc(allyLangs(p).join("、")):"只有哥布林語"}${p.langPts?`（跟你學語言 ${p.langPts}／${ALLY_LANG_PTS}）`:""}</div>`:""}
       ${p.alias&&p.alias.length?`<div class="d" style="color:var(--mute)">以前叫：${p.alias.map(esc).join("、")}</div>`:""}
       ${p.gear||S.items.some(n=>matOf(n)&&matOf(n).skill)?`<div class="d">裝備：<select data-eq="${k}"><option value="">（沒有）</option>${[...(p.gear?[p.gear]:[]),...S.items.filter(n=>matOf(n)&&matOf(n).skill)].map(n=>`<option value="${esc(n)}"${p.gear===n?" selected":""}>✦${esc(n)}（${esc((p.gear===n?p.gearMat:matOf(n)).skill.n)}）</option>`).join("")}</select></div>`:""}</div>`).join("");
   return `<div class="card"><h3>同伴</h3>${PNOTE?`<div class="err">${esc(PNOTE)}</div>`:""}${rows||`<div class="empty">還沒有同伴。</div>`}
@@ -393,11 +394,11 @@ function mapHTML(){
   const sl=n=>isSettle(n)?`<div class="d">對你：<b>${SREL[stOf(n)+2]}</b>${domOf(n)?`　統治：<b>${DOM[domOf(n)]}</b>`:""}${domOf(n)===2&&S.at===n?`<br><button class="tl" data-dom="sub|${esc(n)}">逼他們稱臣（4 小時）</button>${S.law?"":`<button class="tl" data-dom="raze|${esc(n)}">消滅他們（4 小時）</button>`}`:""}${stOf(n)>=2&&S.at===n&&!S.dead?`<br><button class="tl" data-bt="${esc(n)}">背叛他們（2 小時，關係變敵對）</button>`:""}${n==="人類城鎮"&&S.at===n?baptHTML():""}${S.world[n].grudge?`　記仇 ${S.world[n].grudge}`:""}${(S.world[n].deals||[]).length?`<br>約定：${S.world[n].deals.map(esc).join("；")}`:""}</div>`:"";
   const row=([n,x])=>`<div class="npc"><div class="h"><b>${x.kind==="地區"?"":"📍"}${esc(n)}</b><span>${esc(x.kind)}${x.kind!=="地區"&&x.region&&x.region!==n?`・屬於${esc(x.region)}`:""}・從這裡 ${pathHours(S.at,n)??"?"} 小時</span></div>
       ${x.note?`<div class="d">${esc(x.note)}</div>`:""}${sl(n)}${ppl(n).map(y=>`<div class="d">・${esc(y.n)}（${esc(y.role)}・${y.lv}級）對你：<b>${REL[relOf(y)+2]}</b></div>`).join("")}</div>`;
-  return lairHTML()+dunHTML()+tradeHTML()+`<div class="card"><h3>現在在：${esc(S.at)}</h3><div class="note">${esc(h.kind)}${h.note?`・${esc(h.note)}`:""}</div>${sl(S.at)}
+  return lairHTML()+dunHTML()+shopHTML()+tradeHTML()+`<div class="card"><h3>現在在：${esc(S.at)}</h3><div class="note">${esc(h.kind)}${h.note?`・${esc(h.note)}`:""}</div>${sl(S.at)}
       ${ppl(S.at).map(y=>`<div class="d">・${esc(y.n)}（${esc(y.role)}）對你：<b>${REL[relOf(y)+2]}</b></div>`).join("")}
       <div class="exits" style="margin-top:8px"><div class="k">出口</div>${exitsOf(S.at).map(([n,x])=>`<div class="row"><span>${esc(n)}</span><span>${x} 小時</span></div>`).join("")}
       ${hiddenOf(S.at).length?`<div class="note">還有 ${hiddenOf(S.at).length} 個方向沒探索過，按「探索」去找。</div>`:`<div class="note">這附近的路都走過了；再探索會發現新的冒險地點或地形。</div>`}</div>
-      <div class="note" style="margin-top:6px">聚落對你：敵對 → 警戒 → 中立 → 交易 → 友好 → 同盟。到「交易」才能以物易物；公道的生意做幾次會更好。當眾吃他們的族人會被記仇。</div></div>
+      <div class="note" style="margin-top:6px">聚落對你：敵對 → 警戒 → 中立 → 交易 → 友好 → 同盟。中立以上、聽得懂他們的話，就能用上面的貨架以物易物；做滿 3 次生意會好一格。當眾吃他們的族人會被記仇。</div></div>
     <div class="card"><h3>已知的地點</h3>${(()=>{const ks=known.filter(([n,x])=>x.kind!=="地區");if(!ks.length)return `<div class="empty">還沒有。</div>`;
       const g={};ks.forEach(e=>{const r=e[1].region||"其他";(g[r]=g[r]||[]).push(e)});
       return Object.keys(g).map(r=>`<details${r===(h.region||"")||ks.length<=6?" open":""}><summary style="font-weight:800;margin:6px 0">${esc(r)}（${g[r].length}）</summary>${g[r].map(row).join("")}</details>`).join("")})()}</div>
@@ -422,6 +423,7 @@ function bindMap(){
   {const f=$("lichfin");if(f)f.onclick=()=>{if(!LC){LC="fin";render();return}LC="";lichFinal()}}
   document.querySelectorAll("[data-dom]").forEach(b=>b.onclick=()=>{const [k,n]=b.dataset.dom.split("|");if(DOMC!==b.dataset.dom){DOMC=b.dataset.dom;b.textContent="確定？再按一次";return}DOMC="";domAct(k,n)});
   document.querySelectorAll("[data-tr]").forEach(c=>c.onchange=()=>{TRD.sel[c.dataset.tr]=c.checked;render()});
+  shopBind();
   {const w=$("trw");if(w){w.oninput=e=>TRD.want=e.target.value;$("trok").onclick=()=>{TRD.want=w.value;doTrade()}}}
   const b=$("madd"); if(b)b.onclick=()=>{const n=$("mn").value.trim();if(!n)return;
     addNode({name:n,kind:$("mk").value,note:$("mt").value.trim()},S.at,+$("mh").value,null);save();render()};
@@ -448,9 +450,9 @@ function heatHTML(){
 function workHTML(){
   if(S.alone||!S.nest)return ""; workFix(); const n=S.nest, c=crewN(), idle=workIdle();
   const rows=JOB_LIST.map(j=>{const al=jobAllies(j), k=(n.work||{})[j]||0, f=JOB_FAC[j], hasF=jobFac(j);
-    return `<div class="row"><span class="k">${j}</span><span>${S.chief?`<span class="wk"><button class="tl" data-wk="${j}|-1"${k>0?"":" disabled"}>－</button> 族人 <b>${k}</b> <button class="tl" data-wk="${j}|1"${idle>0?"":" disabled"}>＋</button></span>`:""}${al.length?`　同伴：${al.map(p=>esc(p.n)+(dirHit(p,j)?"★":"")).join("、")}`:""}${hasF?`　〔${f}〕加成`:""}<br><span class="note">${esc(JOBS[j])}</span></span></div>`}).join("");
+    return `<div class="row"><span class="k">${j}</span><span>${j==="商隊"?`<span class="note">只能派同伴（要會別族的話）</span>`:S.chief?`<span class="wk"><button class="tl" data-wk="${j}|-1"${k>0?"":" disabled"}>－</button> 族人 <b>${k}</b> <button class="tl" data-wk="${j}|1"${idle>0?"":" disabled"}>＋</button></span>`:""}${al.length?`　同伴：${al.map(p=>esc(p.n)+(dirHit(p,j)?"★":"")).join("、")}`:""}${hasF?`　〔${f}〕加成`:""}<br><span class="note">${esc(JOBS[j])}</span></span></div>`}).join("");
   const tr=S.chief&&jobCrew("訓練")?`<div class="note">族人訓練：${Math.floor(n.trainPts||0)}／${CREW_EVO}（滿了有一隻進化成有名字的同伴；這個巢穴最多進化 ${n.pop} 隻，已經 ${n.evoN||0} 隻）</div>`:"";
-  return `<div class="card"><h3>分工</h3>${S.chief?`<div class="note" style="margin-bottom:6px">能工作的族人 ${c} 隻（跟著人口），閒著 ${idle} 隻。同伴的工作在上面隊伍頁選；★＝職業對口，效果加倍。有工作的同伴存在值每天 +1（訓練 +2）。每天換日時結算。</div>`:`<div class="note" style="margin-bottom:6px">當上巢穴之主之前，族人不聽你的；留在巢穴的同伴可以在隊伍頁派工。</div>`}${rows}${tr}</div>`;
+  return `<div class="card"><h3>分工</h3>${S.chief?`<div class="note" style="margin-bottom:6px">能工作的族人 ${c} 隻（跟著人口），閒著 ${idle} 隻。同伴的工作在上面的同伴卡選；★＝職業對口，效果加倍。有工作的同伴存在值每天 +1（訓練 +2）。每天換日時結算。</div>`:`<div class="note" style="margin-bottom:6px">當上巢穴之主之前，族人不聽你的；留在巢穴的同伴可以在上面的同伴卡派工。</div>`}${rows}${tr}</div>`;
 }
 function nestHTML(){
   const n=S.nest;
@@ -560,13 +562,14 @@ const GUIDE=[
 <li>每次升級會引來一次討伐，並從 3 個隨機設施選 1 個：農田、獵場、鍛冶台、宿舍、陷阱、治療所、哨塔、訓練場。</li>
 <li>大部分設施是某份工作的<b>加成</b>，要有人做那份工作才有效；鍛冶台、宿舍自己會動。</li>
 <li>人多的巢穴，你狩獵成功會多一份獵物直接進存糧。</li></ul>`],
- ["分工：底下的人做什麼",`<p>當上巢穴之主後，族人聽你的。在「同伴・巢穴」頁的<b>分工</b>，用 ＋／－ 把族人分到六份工作（能工作的族人跟著人口變多）。留在巢穴的同伴也能選工作，職業對口（★）效果加倍。每天換日結算，寫成一行「巢穴分工：……」。</p>
+ ["分工：底下的人做什麼",`<p>當上巢穴之主後，族人聽你的。在「同伴・巢穴」頁的<b>分工</b>，用 ＋／－ 把族人分到六份工作（第七份「商隊」只能派同伴）（能工作的族人跟著人口變多）。留在巢穴的同伴也能選工作，職業對口（★）效果加倍。每天換日結算，寫成一行「巢穴分工：……」。</p>
 <ul><li><b>狩獵</b>：帶回存糧，偶爾拖回一具新鮮屍體，你不用親自跑也能吃新物種。〔獵場〕多一半。</li>
 <li><b>採集</b>：樹枝、石片、草藥膏、苦草、獸骨，做裝備用得到。〔農田〕多帶一樣、每天多收存糧。</li>
 <li><b>巡邏</b>：討伐的動向先知道、俘虜不會逃；兩個以上在巡邏，討伐戰多一層優勢。〔陷阱〕再多一層。</li>
 <li><b>醫療</b>：受傷的同伴兩天好一級；你在巢穴睡覺多回 HP。〔治療所〕每天好一級。</li>
 <li><b>情報</b>：審問俘虜、打聽沒去過的據點、打聽八王檔案；注目度漲得慢一點。〔哨塔〕情報加倍，討伐戰前兩個階段多一層優勢。</li>
-<li><b>訓練</b>：同伴存在值每天 +2。族人練久了，會有一隻<b>進化成有名字的同伴</b>（自動取名、會通知你）；哥布林本來是雜兵，所以不快，數量也有上限。〔訓練場〕1.5 倍。</li></ul>
+<li><b>商隊</b>（只能派同伴）：會那裡語言的同伴帶 2 份存糧去中立以上的聚落換貨，1 人約 2 天一趟（工匠每天）；態度越好越換得到魔法物品，也算做生意。存糧要夠吃才出門。</li>
+<li><b>訓練</b>：同伴存在值每天 +2，還會跟你學你會的語言。族人練久了，會有一隻<b>進化成有名字的同伴</b>（自動取名、會通知你）；哥布林本來是雜兵，所以不快，數量也有上限。〔訓練場〕1.5 倍。</li></ul>
 <p>去訓練、情報的族人就不打獵：存糧不夠，人口會掉，能工作的族人也跟著少。</p>`],
  ["注目度、討伐戰、俘虜",`<p>殺人類、當眾吃人、抓人、進化、巢穴變大，都會讓人類注意到你：風聲 → 偵察 → 討伐隊 → 討伐軍。有人<b>巡邏</b>就會提早知道他們什麼時候來、來多少。</p>
 <ul><li>討伐戰在巢穴迎戰，守不住巢穴就完了（可以撤回）。搬家可以讓討伐撲空，但新巢穴從 F 級重來。</li>
@@ -579,8 +582,16 @@ const GUIDE=[
 <ul><li>「地點」頁的「？未探索的據點」列出每個地區還有幾處。<b>在那個地區多按幾次「探索」</b>才找得到（附近 2～4 次、遠的 3～6 次）。同行的斥候同伴「偵查」一次等於幫你探索 2 次。</li>
 <li>找到敵對的營地或巢穴，走過去會多一個<b>突襲</b>：成功直接搶到魔法物品，也讓那個勢力少一個人。</li>
 <li><b>統治</b>：突襲成功讓他們「威懾」→「壓制」；壓制後到那個地點，可以逼他們稱臣（每天上貢 2 份存糧）或消滅他們。</li>
-<li>有人提出交換條件時會出「<b>契約提議</b>」：同意了他暫時跟你走，條件完成後回去。</li></ul>`],
- ["語言",`<p>吃下新鮮的野豬人、狗頭人、諾姆、精靈、人類，就學會那一族的<b>語言</b>（哥布林語是母語）。不會的語言聽不懂，也沒辦法交易、招募。</p>`],
+<li>有人提出交換條件時會出「<b>契約提議</b>」：同意了他暫時跟你走，條件完成後回去。</li></ul>
+<p><b>交易（貨架）</b>：人在聚落、聽得懂他們的話、他們對你中立以上，「地點」頁就有貨架。以物易物、不找零：</p>
+<ul><li>先勾背包裡要拿出去的東西，再按想要的那樣「換」。白字、部位、藥 1 點；魔法物品 F1・E2・D3・C4・B5・A6・S10。</li>
+<li>價錢跟著態度：中立 ×2、交易 ×1.5、友好原價、同盟打 75 折；警戒、敵對不跟你換。工匠同伴在旁邊多算一格。</li>
+<li>貨架有白字、藥、一件魔法物品、一件 ★特製品（高你一級，技能和效果都有，比較貴），7 天換一次貨。</li>
+<li>做滿 3 次生意，他們對你好一格（最多到友好）。</li></ul>`],
+ ["語言",`<p>不會的<b>語言</b>聽不懂，也沒辦法交易、招募（哥布林語是母語）。學法有兩種，選哪種隨你：</p>
+<ul><li><b>吃</b>：吃下新鮮的那一族（精靈、人類、矮人、諾姆、野豬人、狗頭人……），馬上學會。被人看到吃人，人類會更注意你。</li>
+<li><b>抓回來學</b>：巢穴關著那一族的俘虜（或答應留下的人），有人做<b>情報</b>的工作，就會慢慢學會（2 個族人約 6 天，有哨塔更快）。</li>
+<li>你會的語言，留在巢穴做<b>訓練</b>的同伴會跟你學（約 3 天一種）。會別族語言的同伴可以派去「商隊」。</li></ul>`],
  ["結局簿與轉生",`<p><b>履歷</b>頁最上面是<b>結局簿</b>：每個結局的條件都寫在那裡，達成就解鎖，<b>好幾個可以同時解鎖</b>。</p>
 <ul><li>退休類的結局解鎖後，可以在那裡退休結束這一局，也可以繼續玩。</li>
 <li>結局簿跨局保存，也會抄進存檔：換裝置匯出再匯入，結局簿一起過去。</li>

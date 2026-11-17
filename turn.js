@@ -215,7 +215,7 @@ function setMulti(ch){
 }
 /* 交易：能在「交易」以上的聚落、或願意做生意的商人面前提出 */
 function tradeTarget(){
-  if(isSettle(S.at)&&stOf(S.at)>=1)return hasLang(S.at)?S.at:null;
+  if(isSettle(S.at)&&stOf(S.at)>=0)return hasLang(S.at)?S.at:null;   /* v0.91：中立就能交易（貨架見 gear.js） */
   const m=S.npcs.find(x=>x.where===S.at&&!x.foe&&!x.captive&&relOf(x)>=0&&hasLang(`${x.role}${x.n}`)&&/商|鐵匠|商隊|傭兵/.test(`${x.role}${x.n}`));
   return m?m.n:null;
 }
@@ -234,17 +234,17 @@ function doTrade(){
   TRD={sel:{},want:""}; S.opts=[]; save();
   const st=findSettle(who), stt=st?SREL[stOf(st)+2]:"";
   doJob({kind:"turn",prompt:`【交易】主角在${who}${stt?`（對主角：${stt}）`:""}提出以物易物：拿出 ${list.join("、")}，總值 ${v}；想換：${want}。
-價值：F 級 1、E 級 2、D 級 5、C 級 15、B 級 50、A 級 200；普通的東西大約 1。
+價值：魔法物品 F 級 1、E 級 2、D 級 3、C 級 4、B 級 5、A 級 6、S 級 10；普通的東西 1。
 對方照自己的需要和對主角的態度出價：換到的東西總值大約等於 ${v}（交情好可以多一點）。想要的太貴，就討價還價、改給別的，或拒絕。${smN}
 成交：trade_ok 填 true，found 填換到的東西（魔法物品用 magic 格式）；lost 不用填，程序會拿走主角給的東西。沒成交：trade_ok 填 false，found 留空。
 長期的約定（例如定期交換、互不侵犯、幫忙打造）填 deal：[{"place":"${st||who}","what":"約定內容"}]。`},pre,S.log.length);
 }
 function tradeHTML(){
-  const who=tradeTarget(); if(!who||busy)return "";
+  const who=tradeTarget(); if(!who||busy||isSettle(who))return "";   /* v0.91：聚落改用貨架（shopHTML），這張卡只剩聚落以外的商人 */
   const v=Object.keys(TRD.sel).filter(k=>TRD.sel[k]).reduce((t,k)=>t+(k[0]==="i"?valItem(S.items[+k.slice(2)]||""):valCorpse(S.corpses[+k.slice(2)]||{small:1})),0);
   const it=S.items.map((n,i)=>`<label style="display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px solid var(--line)"><span style="flex:1"><input type="checkbox" data-tr="i:${i}"${TRD.sel["i:"+i]?" checked":""}> ${matOf(n)?"✦":""}${esc(n)}</span><span style="white-space:nowrap">值 ${valItem(n)}</span></label>`).join("");
   const cs=S.corpses.map((c,i)=>!c.evo&&valCorpse(c)?`<label style="display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px solid var(--line)"><span style="flex:1"><input type="checkbox" data-tr="c:${i}"${TRD.sel["c:"+i]?" checked":""}> ${esc(c.name)}</span><span style="white-space:nowrap">值 ${valCorpse(c)}</span></label>`:"").join("");
-  return `<div class="card"><h3>和${esc(who)}交易</h3><div class="note" style="margin-bottom:6px">以物易物。價值：F 1・E 2・D 5・C 15・B 50・A 200。沒談成的話東西會留在你手上。</div>
+  return `<div class="card"><h3>和${esc(who)}交易</h3><div class="note" style="margin-bottom:6px">以物易物。價值：魔法物品 F 1・E 2・D 3・C 4・B 5・A 6・S 10，普通的東西 1。沒談成的話東西會留在你手上。</div>
     ${it}${cs}<div class="row" style="margin-top:6px"><span class="k">合計</span><span><b>${v}</b></span></div>
     <div class="padd" style="margin-top:6px"><input id="trw" maxlength="30" placeholder="想換什麼（可以不填）" value="${esc(TRD.want)}"><button class="tl" id="trok"${v?"":" disabled"}>提出交易</button></div></div>`;
 }
@@ -340,7 +340,7 @@ function applyAlt(e){
         const lim=Math.ceil(you.trade.v*(S.nest.tags.some(t=>t.t==="商路")?1.5:1.2)+1);let sum=0;
         a.found=(a.found||[]).filter(x=>{const m=a.mats&&a.mats[x];sum+=m?VALUE[m.lv]||1:1;return sum<=lim});
         notes.push(`成交：給出 ${[...you.trade.items,...you.trade.corpses].join("、")}`);
-        const st=findSettle(you.trade.place); if(st&&stOf(st)===1&&!S.world[st].traded){S.world[st].traded=1}else if(st&&stOf(st)===1&&++S.world[st].traded>=3){S.world[st].traded=0;stChange(st,1,"做了幾次公道的生意",notes)}}
+        const st=findSettle(you.trade.place); if(st)tradeCount(st,notes)}
       else{a.found=[];a.mats={};notes.push("這筆交易沒談成，東西還在你手上。")}
       a.lost=[];
     }

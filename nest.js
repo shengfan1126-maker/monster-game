@@ -237,7 +237,7 @@ function startRaid(help){
 const RAID_STEPS={1:["埋伏好的一擊"],3:["前哨和陷阱","洞口攻防","對上帶頭的強者"],5:["遠處的火把和偵察","陷阱與伏擊","洞口攻防","洞裡的混戰","對上統帥"]};
 /* v0.87 分工（用戶 11-16）：同伴、族人都派到同一張表；設施是工作的加成。
    巡邏＝守家；情報＝往外探、審問俘虜；訓練＝同伴進化變快、族人練久了會有人進化（自動命名）。 */
-const JOBS={"":"（沒事）","狩獵":"帶回存糧，偶爾帶回一具新鮮屍體","採集":"帶回樹枝、石片、草藥膏、草、骨頭","巡邏":"守家：討伐的動向先知道、俘虜不逃","醫療":"受傷的同伴兩天好一級","情報":"審問俘虜、找據點線索、打聽八王","訓練":"同伴存在值每天 +2；族人練久了會有人進化"};
+const JOBS={"":"（沒事）","狩獵":"帶回存糧，偶爾帶回一具新鮮屍體","採集":"帶回樹枝、石片、草藥膏、草、骨頭","巡邏":"守家：討伐的動向先知道、俘虜不逃","醫療":"受傷的同伴兩天好一級","情報":"審問俘虜、找據點線索、打聽八王","訓練":"同伴存在值每天 +2；族人練久了會有人進化；同伴跟你學你會的語言","商隊":"會別族語言的同伴帶存糧去聚落換貨（只能派同伴）"};
 const JOB_LIST=Object.keys(JOBS).filter(Boolean);
 const JOB_FAC={狩獵:"獵場",採集:"農田",巡邏:"陷阱",醫療:"治療所",情報:"哨塔",訓練:"訓練場"};
 const JOB_OLD={看守:"巡邏",照顧:"情報"};
@@ -245,7 +245,7 @@ const WORKERS=[1,2,4,6,8];   /* 人口格數 → 能工作的族人 */
 const crewN=()=>S.chief&&!S.alone&&S.nest?WORKERS[Math.max(0,Math.min(4,(S.nest.pop||1)-1))]:0;
 function workFix(){
   const n=S.nest; if(!n)return; n.work=n.work||{}; const w=n.work;
-  Object.keys(w).forEach(k=>{if(!JOB_LIST.includes(k))delete w[k];else w[k]=Math.max(0,w[k]|0)});
+  Object.keys(w).forEach(k=>{if(!JOB_LIST.includes(k)||k==="商隊")delete w[k];else w[k]=Math.max(0,w[k]|0)});   /* v0.91：商隊只能派同伴（族人不會別族的話） */
   if(!n.workInit&&S.chief){if(!JOB_LIST.some(k=>w[k])){const c=crewN();w.狩獵=Math.ceil(c/2);w.採集=c-w.狩獵}n.workInit=true}
   let over=JOB_LIST.reduce((a,k)=>a+(w[k]||0),0)-crewN();
   for(const k of ["訓練","情報","醫療","巡邏","採集","狩獵"]){while(over>0&&w[k]>0){w[k]--;over--}}
@@ -253,14 +253,14 @@ function workFix(){
 }
 const workIdle=()=>crewN()-JOB_LIST.reduce((a,k)=>a+((S.nest.work||{})[k]||0),0);
 function workSet(job,d){
-  if(busy||S.dead||!S.chief||!JOBS[job])return; workFix(); const w=S.nest.work;
+  if(busy||S.dead||!S.chief||!JOBS[job]||job==="商隊")return; workFix(); const w=S.nest.work;
   if(d>0&&workIdle()<=0)return; if(d<0&&!(w[job]>0))return; w[job]=(w[job]||0)+d; save(); render();
 }
 const jobAllies=j=>S.party.filter(p=>!p.with&&p.job===j&&!p.tags.includes("重傷"));
 const jobCrew=j=>S.chief?((S.nest.work||{})[j]||0):0;
 const jobN=j=>jobAllies(j).length+jobCrew(j);
 const jobFac=j=>!!(S.nest&&S.nest.lv&&(S.nest.fac||[]).includes(JOB_FAC[j]));
-const JOB_DIR={狩獵:"戰士",巡邏:"斥候",醫療:"祭司",情報:"法師",訓練:"戰士"};
+const JOB_DIR={狩獵:"戰士",巡邏:"斥候",醫療:"祭司",情報:"法師",訓練:"戰士",商隊:"工匠"};
 const dirHit=(p,j)=>p.dir&&(p.dir===JOB_DIR[j]||(j==="情報"&&p.dir==="斥候"));   /* 對口職業效果加倍 */
 const GATHER=["樹枝","一塊尖銳的石片","草藥膏","苦草","獸骨"];
 const EVO_NAMES=["灰耳","缺牙","短腿","尖鼻","泥爪","鐵頭","火眼","長舌","瘦猴","石拳","夜目","斷角","歪嘴","黑指","跛子","細眼"];
@@ -298,13 +298,15 @@ function dayJobs(notes){
   /* 情報 */
   const iA=jobAllies("情報"), iPow=(iA.reduce((a,p)=>a+(dirHit(p,"情報")?2:1),0)+jobCrew("情報"))*(fac("情報")?2:1);
   if(iPow){n.intel=(n.intel||0)+iPow;
-    while(n.intel>=6){n.intel-=6; const r=intelRoll(); if(r)out.push(r); else {n.intel=0;break}}}
+    while(n.intel>=6){n.intel-=6; const r=intelRoll(); if(r)out.push(r); else {n.intel=0;break}}
+    langCaptive(iPow,out)}   /* v0.91：關著別族的俘虜，做情報的順便跟他學語言（另外算點數，不搶情報抽獎） */
   /* 訓練 */
   const tA=jobAllies("訓練"), tC=jobCrew("訓練");
-  tA.forEach(p=>allyXp(p,(fac("訓練")?3:2)*(dirHit(p,"訓練")?1:1),out));
+  tA.forEach(p=>{allyXp(p,(fac("訓練")?3:2)*(dirHit(p,"訓練")?1:1),out);allyLangTick(p,out)});   /* v0.91：訓練的同伴跟你學語言 */
+  caravanDay(out);   /* v0.91：商隊 */
   if(tC&&!S.alone){n.trainPts=(n.trainPts||0)+tC*(fac("訓練")?1.5:1);
     if(n.trainPts>=CREW_EVO){if((n.evoN||0)<(n.pop||1)){n.trainPts-=CREW_EVO;crewEvolve(notes)}else n.trainPts=CREW_EVO}}
-  ["採集","巡邏","醫療","情報"].forEach(j=>jobAllies(j).forEach(p=>allyXp(p,1,out)));   /* v0.88：用戶 11-17，在巢穴工作的同伴也有經驗（每天 +1，同狩獵；訓練 +2） */
+  ["採集","巡邏","醫療","情報","商隊"].forEach(j=>jobAllies(j).forEach(p=>allyXp(p,1,out)));   /* v0.88：用戶 11-17，在巢穴工作的同伴也有經驗（每天 +1，同狩獵；訓練 +2） */
   const hunters=kept().filter(x=>x.contract&&TECH[x.cls||""]&&TECH[x.cls||""].tag==="獵手").length;
   if(hunters){n.food=(n.food||0)+hunters;out.push(`〔獵手〕多 ${hunters} 份`)}
   if(out.length)notes.push("巢穴分工："+out.join("；"));
@@ -327,7 +329,7 @@ function crewEvolve(notes){
   const dir=rnd(Object.keys(DIRS)), lv="F", sk=DIRS[dir].skill;
   const p={n:nm,kind:"哥布林"+dir,kind0:"哥布林",lv,xp:0,knack:"",note:"族人訓練出來的，原本只是雜兵。",skills:[{...sk,g:lv}],tags:[],with:false,named:true,dir,job:"",from:"族人"};
   S.party.push(p); S.nest.evoN=(S.nest.evoN||0)+1;
-  notes.push(`〈系統〉《世界之聲》：「族人之中，有一隻哥布林進化了。」\n牠自稱「${nm}」（哥布林${dir}・${lv}級・會${sk.n}），成了你的同伴，留在${NEST()}。到隊伍頁可以改名、派工、帶牠出門。`);
+  notes.push(`〈系統〉《世界之聲》：「族人之中，有一隻哥布林進化了。」\n牠自稱「${nm}」（哥布林${dir}・${lv}級・會${sk.n}），成了你的同伴，留在${NEST()}。到「同伴・巢穴」頁可以改名、派工、帶牠出門。`);
 }
 function dayCaptives(notes,hungry){
   const guard=jobN("巡邏")>0;
@@ -339,7 +341,7 @@ function dayCaptives(notes,hungry){
   });
 }
 /* 以物易物的價值 */
-const VALUE={F:1,E:2,D:5,C:15,B:50,A:200,S:800};
+const VALUE={F:1,E:2,D:3,C:4,B:5,A:6,S:10};   /* v0.91：用戶 11-17，魔法物品 1 級 1 點、S 10 點；白字、部位、藥 1 點 */
 const valItem=n=>{const m=matOf(n);return m?VALUE[m.lv]||1:1};
 const valCorpse=c=>c.small?0:VALUE[c.lv]||1;
 /* 關係：-2 敵意、-1 警戒、0 無視、1 服從、2 信賴、3 追隨（到追隨就成為同伴） */

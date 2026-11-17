@@ -446,6 +446,109 @@ function tripPrompt(){
   return `\n【路上出事（程序抽到的）】快到目的地的時候：${ev}。寫出這件事，停在主角要決定怎麼應付的那一刻；要動手或硬闖就給 check（填 foe、foeLv）。`;
 }
 
+/* ═════════ 語言、聚落的貨架、商隊（v0.91，用戶 11-17）═════════
+   語言兩條路：吃那一族（不正規）、或關著那一族的俘虜讓人做情報慢慢學（守序）。聽不懂就不能交易。
+   同伴在巢穴做「訓練」，會跟你學你會的語言；會別族語言的同伴可以派去「商隊」，帶存糧去聚落換貨。
+   交易：以物易物、不找零。中立就能換（價錢 ×2），交易 ×1.5、友好 ×1、同盟 ×0.75；警戒、敵對不跟你換。
+   價值：白字、部位、藥水 1 點；魔法物品 F1 E2 D3 C4 B5 A6 S10（VALUE）；特製品＝魔法物品的 3 倍。 */
+const LANG_PTS=12, ALLY_LANG_PTS=3, SHOP_DAYS=7, CAR_FOOD=2;
+const SHOP_MUL={0:2,1:1.5,2:1,3:0.75};
+const SHOP_RACE={精靈:["弓","短刀","皮甲","披風","頭巾"],矮人:["斧","錘","頭盔","盾","戒指"],人類:["劍","矛","皮甲","頭盔","盾"],半身人:["投石索","匕首","背心","靴","項鍊"],
+  諾姆:["錘","杖","頭盔","護腕","戒指"],蜥蜴人:["矛","標槍","盾","綁腿","項鍊"],鳥人:["弓","標槍","披風","帽","項鍊"],蛙人:["叉","短刀","背心","綁腿","項鍊"]};
+const shopRace=st=>(Object.keys(SHOP_RACE).find(r=>st.includes(r)))||cleanName(st).replace(/村|聚落|城鎮|田地|據點|營地|洞穴/g,"")||"商人";
+const allyLangs=p=>{const own=langOf(`${p.kind0||""}${p.kind||""}`);return [...new Set([...(own&&own!=="哥布林語"?[own]:[]),...(p.langs||[])])]};
+function langCaptive(pow,out){
+  const n=S.nest; if(!n)return; n.langPts=n.langPts||{};
+  const ls=[...new Set(S.npcs.filter(x=>x.where===NEST()&&(x.captive||x.contract)).map(x=>langOf(`${x.role||""}${x.n}`)).filter(l=>l&&l!=="哥布林語"&&!(S.langs||[]).includes(l)))];
+  if(!ls.length)return; const l=ls[0]; n.langPts[l]=(n.langPts[l]||0)+pow;
+  if(n.langPts[l]>=LANG_PTS){S.langs=S.langs||["哥布林語"];S.langs.push(l);delete n.langPts[l];out.push(`從巢穴裡的人那裡學會了${l}（現在聽得懂、也說得出）`)}
+  else out.push(`跟巢穴裡的人學${l}：${n.langPts[l]}／${LANG_PTS}`);
+}
+function allyLangTick(p,out){
+  const want=(S.langs||[]).filter(l=>l!=="哥布林語"&&!allyLangs(p).includes(l)); if(!want.length){p.langPts=0;return}
+  p.langPts=(p.langPts||0)+1;
+  if(p.langPts>=ALLY_LANG_PTS){p.langPts=0;(p.langs=p.langs||[]).push(want[0]);out.push(`${p.n}跟你學會了${want[0]}`)}
+}
+function tradeCount(st,notes){   /* 做滿 3 次生意，中立 → 交易 → 友好 */
+  const w=S.world[st]; if(!w)return; w.traded=(w.traded||0)+1;
+  if(w.traded>=3&&stOf(st)>=0&&stOf(st)<=1){w.traded=0;stChange(st,1,"做了幾次生意",notes)}
+}
+function shopMk(st,k,used){
+  const race=shopRace(st), nouns=SHOP_RACE[race]||["短刀","矛","皮甲","盾","靴"], i=gIdx(S.lv);
+  const pre=`${race}${k==="special"?"特製的":"的"}`, fresh=nouns.filter(x=>!(used&&used.has(pre+x)));
+  let n=k==="pot"?rnd(["紅色藥水","藍色藥水","草藥膏"]):pre+rnd(fresh.length?fresh:nouns);
+  if(k!=="pot")while(S.items.includes(n)||(used&&used.has(n)))n+="・二";
+  const o={n,k};
+  if(k==="magic"||k==="special"){
+    const lv=GRADES[Math.min(5,k==="special"?i+1:i)], pk=poolKey(race), pool=(pk&&POOLS[pk])||LOOT_POOL, sk=rnd(pool);
+    o.mat={lv,sp:race,skill:{n:sk.n,sys:sk.sys}}; if(k==="special")o.mat.fx=fxFor(n,race);
+  }
+  return o;
+}
+function shopOf(st){
+  S.shop=S.shop||{}; let sh=S.shop[st];
+  if(!sh||S.day>=sh.day+SHOP_DAYS){sh=S.shop[st]={day:S.day,w:[]};
+    const used=new Set(); for(const k of ["white","white","white","pot","magic","special"]){const o=shopMk(st,k,used);used.add(o.n);sh.w.push(o)}}
+  return sh;
+}
+const wareBase=o=>o.k==="special"?3*(VALUE[o.mat.lv]||1):o.mat?(VALUE[o.mat.lv]||1):1;
+const smithWith=()=>S.party.some(p=>p.with&&allyElig(p)&&allyAbOf(p)==="交易");
+const shopTier=st=>Math.min(3,stOf(st)+(smithWith()?1:0));
+const warePrice=(o,st)=>Math.max(1,Math.ceil(wareBase(o)*SHOP_MUL[Math.max(0,shopTier(st))]));
+const shopTake=o=>{let n=o.n; if(o.mat||S.mat[n])while(S.items.includes(n))n+="・二"; S.items.push(n); if(o.mat)S.mat[n]=JSON.parse(JSON.stringify(o.mat)); return n};   /* 同名的魔法物品不能疊在一起（S.mat 用名字當鑰匙） */
+const tradeV=n=>{if(n===ESC)return 0;const m=matOf(n);return m?(m.unique||m.artifact?0:VALUE[m.lv]||1):1};
+const payList=()=>S.items.map((n,i)=>({key:"i:"+i,n,v:tradeV(n)})).filter(x=>x.v&&!worn(x.n)).concat(S.corpses.map((c,i)=>({key:"c:"+i,n:c.name,v:c.evo?0:valCorpse(c),c:true})).filter(x=>x.v));
+let SHSEL={};
+const shopPay=()=>payList().filter(x=>SHSEL[x.key]).reduce((a,x)=>a+x.v,0);
+function shopBuy(j){
+  const st=S.at; if(busy||S.dead||!isSettle(st)||stOf(st)<0||!hasLang(st))return;
+  const sh=shopOf(st), o=sh.w[j]; if(!o)return; const price=warePrice(o,st), sel=payList().filter(x=>SHSEL[x.key]), paid=sel.reduce((a,x)=>a+x.v,0);
+  if(paid<price)return;
+  const pre=snap(), notes=[];
+  const its=sel.filter(x=>!x.c).map(x=>x.n), cs=sel.filter(x=>x.c).map(x=>x.n);
+  its.forEach(n=>{const i=S.items.indexOf(n);if(i>=0){S.items.splice(i,1);if(!S.items.includes(n))delete S.mat[n]}});
+  cs.forEach(n=>{const i=S.corpses.findIndex(c=>c.name===n&&!c.evo);if(i>=0)S.corpses.splice(i,1)});
+  const got=shopTake(o); sh.w.splice(j,1);
+  notes.push(`在${st}用 ${[...its,...cs].join("、")} 換到 ${o.mat?"✦":""}${got}${o.mat?`（${o.mat.lv}級，附帶「${o.mat.skill.n}」${o.mat.fx?`＋${fxName(o.mat.fx)}`:""}）`:""}${paid>price?`。多給了 ${paid-price} 點，對方不找`:""}。`);
+  tradeCount(st,notes); gearSync();
+  S.log.push({who:"you",text:`在${st}交易：換 ${got}`,pre}); S.log.push(sysEntry(notes.join("\n"))); SHSEL={}; save(); render();
+}
+function shopHTML(){
+  const st=S.at; if(!st||!isSettle(st)||busy)return "";
+  const t=stOf(st), sw=SREL[t+2]||"";
+  if(t<0)return `<div class="card"><h3>${esc(st)}</h3><div class="note">他們對你「${esc(sw)}」，不跟你做生意。要中立以上才肯交換東西。</div></div>`;
+  if(!hasLang(st))return `<div class="card"><h3>${esc(st)}</h3><div class="note">你聽不懂${esc(langOf(st))}，沒辦法交換東西。抓他們的人回巢穴、派人做情報慢慢學；或者獵殺他們的人吃掉。</div></div>`;
+  const sh=shopOf(st), pay=shopPay(), tier=shopTier(st);
+  const tierTxt={0:"中立：價錢 ×2",1:"交易：價錢 ×1.5",2:"友好：照原價",3:"同盟：打 75 折"}[tier];
+  const wares=sh.w.map((o,j)=>{const pr=warePrice(o,st), m=o.mat;
+    const d=o.k==="special"?`★特製・${m.lv}級・附帶「${esc(m.skill.n)}」＋${esc(fxName(m.fx))}`:m?`✦魔法物品・${m.lv}級・附帶「${esc(m.skill.n)}」`:o.k==="pot"?"藥":"白字";
+    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)"><span style="flex:1">${m?"✦":""}${esc(o.n)}<br><span class="note">${d}</span></span><span style="white-space:nowrap"><b>${pr}</b> 點 <button class="tl" data-sb="${j}"${pay>=pr?"":" disabled"}>換</button></span></div>`}).join("")||`<div class="note">今天的貨都換完了。</div>`;
+  const pl=payList().map(x=>`<label style="display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px solid var(--line)"><span style="flex:1"><input type="checkbox" data-sp="${x.key}"${SHSEL[x.key]?" checked":""}> ${matOf(x.n)?"✦":""}${esc(x.n)}</span><span style="white-space:nowrap">${x.v} 點</span></label>`).join("")||`<div class="note">背包裡沒有能拿去換的東西（穿著的不算）。</div>`;
+  return `<div class="card"><h3>${esc(st)}的貨架</h3><div class="note" style="margin-bottom:6px">以物易物、不找零。對你${esc(tierTxt)}${smithWith()?"（工匠同伴在旁邊幫你議價，多算一格）":""}。第 ${sh.day+SHOP_DAYS} 天換貨。做滿 3 次生意，他們對你好一格。</div>
+    ${wares}<div class="note" style="margin:8px 0 4px">先勾要拿出去的東西，再按想要的那樣「換」：白字、部位、藥 1 點；魔法物品 F1・E2・D3・C4・B5・A6・S10。</div>${pl}
+    <div class="row" style="margin-top:6px"><span class="k">拿出去</span><span><b>${pay}</b> 點</span></div></div>`;
+}
+function shopBind(){
+  document.querySelectorAll("[data-sp]").forEach(c=>c.onchange=()=>{SHSEL[c.dataset.sp]=c.checked;render()});
+  document.querySelectorAll("[data-sb]").forEach(b=>b.onclick=()=>shopBuy(+b.dataset.sb));
+}
+function caravanDay(out){
+  const cA=jobAllies("商隊"); if(!cA.length||!S.nest)return; const n=S.nest, who=cA.map(p=>p.n).join("、");
+  const ok=st=>isSettle(st)&&S.world[st].known!==false&&stOf(st)>=0&&(!langOf(st)||cA.some(p=>allyLangs(p).includes(langOf(st))));
+  const dests=Object.keys(S.world).filter(ok).sort((a,b)=>stOf(b)-stOf(a));
+  if(!dests.length){n.carT=0;out.push(`商隊（${who}）沒地方去：要找到對你中立以上的聚落，而且商隊裡有人會說那裡的話`);return}
+  n.carT=(n.carT||0)+cA.reduce((a,p)=>a+(dirHit(p,"商隊")?2:1),0);
+  if(n.carT<2){out.push(`商隊（${who}）往${dests[0]}去了`);return}
+  n.carT-=2;
+  if((n.food||0)<needOf()+CAR_FOOD){out.push(`商隊（${who}）沒帶東西出門：存糧不夠多（要留夠今天吃的，再多 ${CAR_FOOD} 份）`);return}
+  const st=dests[0], sh=shopOf(st), can=sh.w.map((o,j)=>({o,j,p:warePrice(o,st)})).filter(x=>x.o.k!=="special"&&x.p<=CAR_FOOD);
+  if(!can.length){out.push(`商隊（${who}）在${st}換不到東西（貨架上的都太貴了）`);return}
+  const pick=can.find(x=>x.o.mat)||rnd(can); n.food-=CAR_FOOD; sh.w.splice(pick.j,1);
+  const got=shopTake(pick.o);
+  out.push(`商隊（${who}）拿 ${CAR_FOOD} 份存糧去${st}換回 ${pick.o.mat?"✦":""}${got}（在背包）`);
+  const tn=[]; tradeCount(st,tn); if(tn.length)out.push(tn.join(""));
+}
+
 /* ═════════ 遊戲中的提示（v0.80）═════════
    用戶 11-15 13:09：「記得放點周目提示，我知道大家都不看新手教學的。」
    第一次碰到某件事時，故事頁下面跳一行提示（一次一條），按「知道了」就不再出現；記在這台裝置（localStorage mowu_hints），轉生、新開局也不重複。可以「不要再提示」全部關掉。 */
@@ -461,10 +564,13 @@ const HINTS=[
   ["matdrop",()=>S.corpses.some(c=>c.matDrop),"屍體上有魔法原料：「拿」走就學不到這具屍體的技能；直接吃能學技能，原料跟著吞下去。二選一。"],
   ["craft",()=>S.items.some(n=>typeof craftKind==="function"&&craftKind(n)),"拿到能做東西的材料了：選單「背包」→「做裝備」，先選材料、再從下拉選要做成什麼（皮毛做防具、鞭；角牙骨做各種刀斧矛弓、頭盔、項鍊戒指）。"],
   ["adult",()=>S.stage==="成體","長大了，可以出巢穴狩獵、探索。嫌等 AI 太慢，選單上面的「敘述」切成「不用」。"],
-  ["work",()=>S.chief&&!S.alone&&S.nest&&S.nest.lv&&typeof workIdle==="function","當上巢穴之主了：「同伴・巢穴」頁有「分工」，把族人分去狩獵、採集、巡邏、醫療、情報、訓練。設施是工作的加成，要有人做才有效。"],
+  ["work",()=>S.chief&&!S.alone&&S.nest&&S.nest.lv&&typeof workIdle==="function","當上巢穴之主了：「同伴・巢穴」頁有「分工」，把族人分去狩獵、採集、巡邏、醫療、情報、訓練（商隊只能派同伴）。設施是工作的加成，要有人做才有效。"],
   ["crewevo",()=>S.party.some(p=>p.from==="族人"),"族人裡有人進化成有名字的同伴了，在「同伴・巢穴」頁。可以改名、派工，或帶牠出門。"],
   ["party",()=>S.party.some(p=>p.with),"同伴：最多帶 2 位同行；全隊一天能用 2 次能力（代打、幫忙防禦……），判定卡上選。"],
-  ["kings",()=>S.chap>=5&&S.kings&&Object.values(S.kings).some(x=>x.page),"八王的檔案打開了：履歷頁看得到。八王都能談，不一定要打。"]];
+  ["kings",()=>S.chap>=5&&S.kings&&Object.values(S.kings).some(x=>x.page),"八王的檔案打開了：履歷頁看得到。八王都能談，不一定要打。"],
+  ["lang",()=>isSettle(S.at)&&!hasLang(S.at),"聽不懂他們的話，就沒辦法交換東西。抓那一族的人回巢穴、派人做情報慢慢學；或者獵殺他們的人吃掉——但別被看到。"],
+  ["shop",()=>isSettle(S.at)&&hasLang(S.at)&&stOf(S.at)>=0,"「地點」頁有這裡的貨架：勾背包裡要拿出去的東西，再按想要的「換」。不找零；他們對你越好越便宜。"],
+  ["caravan",()=>S.party.some(p=>!p.with&&allyLangs(p).length),"有同伴會說別族的話了：派他去「商隊」，就會帶存糧去聚落替你換東西，不用自己跑。"]];
 function hintSeen(){try{return JSON.parse(ls.g("mowu_hints")||"[]")}catch(e){return []}}
 function hintNow(){
   if(!S||S.dead||ls.g("mowu_hints_off")==="1")return null;
