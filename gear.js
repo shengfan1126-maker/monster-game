@@ -456,7 +456,8 @@ const SHOP_MUL={0:2,1:1.5,2:1,3:0.75};
 const SHOP_RACE={精靈:["弓","短刀","皮甲","披風","頭巾"],矮人:["斧","錘","頭盔","盾","戒指"],人類:["劍","矛","皮甲","頭盔","盾"],半身人:["投石索","匕首","背心","靴","項鍊"],
   諾姆:["錘","杖","頭盔","護腕","戒指"],蜥蜴人:["矛","標槍","盾","綁腿","項鍊"],鳥人:["弓","標槍","披風","帽","項鍊"],蛙人:["叉","短刀","背心","綁腿","項鍊"]};
 const shopRace=st=>(Object.keys(SHOP_RACE).find(r=>st.includes(r)))||cleanName(st).replace(/村|聚落|城鎮|田地|據點|營地|洞穴/g,"")||"商人";
-const allyLangs=p=>{const own=langOf(`${p.kind0||""}${p.kind||""}`);return [...new Set([...(own&&own!=="哥布林語"?[own]:[]),...(p.langs||[])])]};
+const allyLangs=p=>{if(beastAlly(p))return [];   /* v0.92：動物不會說話 */
+  const own=langOf(`${p.kind0||""}${p.kind||""}`);return [...new Set([...(own&&own!=="哥布林語"?[own]:[]),...(p.langs||[])])]};
 function langCaptive(pow,out){
   const n=S.nest; if(!n)return; n.langPts=n.langPts||{};
   const ls=[...new Set(S.npcs.filter(x=>x.where===NEST()&&(x.captive||x.contract)).map(x=>langOf(`${x.role||""}${x.n}`)).filter(l=>l&&l!=="哥布林語"&&!(S.langs||[]).includes(l)))];
@@ -465,6 +466,7 @@ function langCaptive(pow,out){
   else out.push(`跟巢穴裡的人學${l}：${n.langPts[l]}／${LANG_PTS}`);
 }
 function allyLangTick(p,out){
+  if(beastAlly(p)){p.langPts=0;return}
   const want=(S.langs||[]).filter(l=>l!=="哥布林語"&&!allyLangs(p).includes(l)); if(!want.length){p.langPts=0;return}
   p.langPts=(p.langPts||0)+1;
   if(p.langPts>=ALLY_LANG_PTS){p.langPts=0;(p.langs=p.langs||[]).push(want[0]);out.push(`${p.n}跟你學會了${want[0]}`)}
@@ -533,7 +535,8 @@ function shopBind(){
   document.querySelectorAll("[data-sb]").forEach(b=>b.onclick=()=>shopBuy(+b.dataset.sb));
 }
 function caravanDay(out){
-  const cA=jobAllies("商隊"); if(!cA.length||!S.nest)return; const n=S.nest, who=cA.map(p=>p.n).join("、");
+  const bA=jobAllies("商隊").filter(p=>beastAlly(p)); if(bA.length&&out)out.push(`${bA.map(p=>p.n).join("、")}不會說話，跑不了商隊（換個工作吧）`);
+  const cA=jobAllies("商隊").filter(p=>!beastAlly(p)); if(!cA.length||!S.nest)return; const n=S.nest, who=cA.map(p=>p.n).join("、");
   const ok=st=>isSettle(st)&&S.world[st].known!==false&&stOf(st)>=0&&(!langOf(st)||cA.some(p=>allyLangs(p).includes(langOf(st))));
   const dests=Object.keys(S.world).filter(ok).sort((a,b)=>stOf(b)-stOf(a));
   if(!dests.length){n.carT=0;out.push(`商隊（${who}）沒地方去：要找到對你中立以上的聚落，而且商隊裡有人會說那裡的話`);return}

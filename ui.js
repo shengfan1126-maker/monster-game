@@ -184,7 +184,7 @@ function storyHTML(){
     bottom=`<div class="check"><h3>命名進化</h3><div class="note">同伴的存在值湊滿了，可以進化：取個名字、選一個職業方向。進化後存在值歸零。</div>
       <div class="sacbox"><label>誰</label><select id="nek">${can.map(([p,k])=>`<option value="${k}"${k===NE.k?" selected":""}>${esc(p.n)}（${esc(p.kind)}）</option>`).join("")}</select>
       <label>新名字（不改就留空）</label><input id="nen" maxlength="10" value="${esc(NE.name)}" placeholder="${esc(S.party[NE.k].n)}" style="font:inherit;padding:7px;border:1px solid var(--line);border-radius:5px;background:var(--card);color:var(--ink)">
-      <label>方向</label><select id="ned">${Object.keys(DIRS).map(d=>`<option${d===NE.dir?" selected":""}>${d}</option>`).join("")}</select></div>
+      <label>方向</label><select id="ned">${dirsFor(S.party[NE.k]).map(d=>`<option${d===NE.dir?" selected":""}>${d}</option>`).join("")}</select></div>
       <button class="paybtn" id="neok">命名</button><div style="text-align:right;margin-top:6px"><button class="tl" id="neno">這次不命名</button></div></div>`}
   else if(!busy&&!S.err&&S.raid&&S.raid.now&&!S.raid.on){const r=S.raid;
     bottom=`<div class="check war"><h3>${esc(r.name)}來了</h3><div class="note">${esc(r.size)}・${r.lv}級。在${esc(NEST())}迎戰，共 ${r.ofK||r.of||(r.army?5:3)} 個階段，同伴全部上場。<br>對你有利：${(r.king?kingAdv(r):raidAdv()).slice(0,3).map(esc).join("、")||"沒有"}<br>${r.king?(r.kind==="scout"?"擋不住也不會死，但會什麼都問不到。":"這是八王戰：輸了你會死。"):"輸了就是全滅。"}不想打，只能丟下一切逃走（存糧全失、人口剩一格、俘虜走散）。</div>
@@ -554,6 +554,7 @@ const GUIDE=[
  ["同伴",`<p>對你「追隨」的角色會成為同伴，<b>最多兩名同行</b>，其他留在巢穴工作（見「分工」）。</p>
 <ul><li>同伴不算優勢，改成<b>在場減傷</b>：等級夠的同伴在場，你受到的傷害 −1（兩個 −2）；太弱的上不了戰場。</li>
 <li><b>同行的同伴空手，判定多一項劣勢</b>：在「同伴・巢穴」頁把武器交給他。</li>
+<li><b>動物同伴</b>（狼、熊、蛇……不是類人的都算）：有牙有爪，不算空手；不會說話，學不了語言、跑不了商隊；進化只能選戰士或斥候。</li>
 <li>同伴有技能（F～A，最多 5 個），可以讓他忘掉一個。</li>
 <li>能力一天全隊 2 次：判定卡上選<b>代打</b>（他吃 HP 代價）、戰士替你擋代價、法師增傷；在「同伴・巢穴」頁請祭司治療你、請斥候<b>偵查</b>（找這裡和隔壁還沒去過的地點、據點，不花時間；結果寫在按鈕下面）。進化戰前可以請同伴看對手弱點。</li></ul>
 <p><b>同伴成長</b>：跟你出門協助一次存在值 +2；留在巢穴做工作每天 +1（訓練 +2）。滿 20 進化：第一次取名、選職業（戰士、斥候、法師、祭司、工匠），之後等級 +1。同伴最高是你的等級 −1。</p>`],

@@ -335,13 +335,17 @@ function equipAlly(who,item,off,notes){
   if(p.hold.length>=3){S.items.push(p.hold.shift())}
   p.hold.push(it); if(m)p.holdMat=Object.assign(p.holdMat||{},{[it]:m}); delete S.mat[it]; S.items.splice(i,1); notes.push(`${p.n}拿著 ${it}`);
 }
+/* v0.92：用戶 11-17「動物不算空手，不會語言，進化職業一律戰士／斥候；不是人型的魔獸都比照動物」。類人照 HUMANOID 判斷，看種族不看名字。 */
+const beastAlly=p=>!!p&&!isHumanoid({sp:p.kind0||p.kind||p.n,kind:p.kind});
+const BEAST_DIRS=["戰士","斥候"];
+const dirsFor=p=>beastAlly(p)?BEAST_DIRS:Object.keys(DIRS);
 function nameEvolve(k,name,dir){
-  const p=S.party[k]; if(!p||!DIRS[dir])return;
+  const p=S.party[k]; if(!p||!DIRS[dir]||!dirsFor(p).includes(dir))return;
   const pre=snap(), notes=[];
   S.log.push({who:"you",text:`命名進化：${p.n}${name&&name!==p.n?` → ${name}`:""}（${dir}）`,pre});
   if(name&&name!==p.n)renameChar(p.n,name,notes);
   p.kind0=p.kind0||p.kind; p.kind=`${p.kind0}${dir}`; p.dir=dir; p.named=true;
-  const sk=DIRS[dir].skill; if(!p.skills.some(x=>x.n===sk.n))p.skills.push({...sk,g:p.lv});
+  const sk=beastAlly(p)&&dir==="戰士"?{n:"撕咬",sys:"天生"}:DIRS[dir].skill; if(!p.skills.some(x=>x.n===sk.n))p.skills.push({...sk,g:p.lv});   /* 動物戰士學撕咬，不學劍術 */
   notes.push(`〈系統〉《世界之聲》：「${p.n} 進化為 ${p.kind}。」`,`${p.n}習得 ${sk.n}（${p.lv}級・${sk.sys}）。之後給牠「${dir}」對路的技能會長得比較快。`);
   p.lv=GRADES[gIdx(p.lv)+1]||p.lv; p.xp=0; p.ready=false; notes.push(`${p.n}升到 ${p.lv} 級，存在值歸零。`);
   S.log.push(sysEntry(notes.join("\n"))); save(); render();
