@@ -304,6 +304,7 @@ function dayJobs(notes){
   tA.forEach(p=>allyXp(p,(fac("訓練")?3:2)*(dirHit(p,"訓練")?1:1),out));
   if(tC&&!S.alone){n.trainPts=(n.trainPts||0)+tC*(fac("訓練")?1.5:1);
     if(n.trainPts>=CREW_EVO){if((n.evoN||0)<(n.pop||1)){n.trainPts-=CREW_EVO;crewEvolve(notes)}else n.trainPts=CREW_EVO}}
+  ["採集","巡邏","醫療","情報"].forEach(j=>jobAllies(j).forEach(p=>allyXp(p,1,out)));   /* v0.88：用戶 11-17，在巢穴工作的同伴也有經驗（每天 +1，同狩獵；訓練 +2） */
   const hunters=kept().filter(x=>x.contract&&TECH[x.cls||""]&&TECH[x.cls||""].tag==="獵手").length;
   if(hunters){n.food=(n.food||0)+hunters;out.push(`〔獵手〕多 ${hunters} 份`)}
   if(out.length)notes.push("巢穴分工："+out.join("；"));
