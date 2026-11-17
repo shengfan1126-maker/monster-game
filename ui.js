@@ -7,7 +7,7 @@ function render(){
   gearSync();   /* v0.63：裝備欄 */
   if(BAGOPEN){bbody.innerHTML=bagCardHTML();bsheet.classList.add("open")}   /* v0.70：故事頁的背包彈出頁跟著更新 */
   M.innerHTML=statusHTML()+tabsHTML()+`<div class="panel">${panelHTML()}</div>`;
-  M.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{TAB=b.dataset.tab;render()});
+  M.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{TAB=b.dataset.tab;ALLYMSG=null;render()});
   if(TAB==="story") bindStory();
   if(TAB==="skill"||(BAGOPEN&&TAB!=="story")) bindBag();   /* v0.63；v0.70 背包彈出頁 */
   if(TAB==="nest") bindNest();
@@ -322,11 +322,13 @@ function track(k,label,list,v){
   return `<div class="trk"><span class="k">${label}</span><span class="v">${list[v-1]}</span><span class="pips" title="${TRACK_HINT[k]}">${pips}</span></div>`;
 }
 let ASD="";
+let ALLYMSG=null;   /* v0.90：同伴能力（偵查、治療）的結果寫在按鈕下面，換分頁就清掉 */
 function partyHTML(){
   const rows=S.party.map((p,k)=>`<div class="npc"><div class="h"><b>${p.mate?"💍":""}${esc(p.n)}${p.temp?"〔契約〕":""}</b><span>${esc(p.kind)}・${p.lv} 級${p.knack?`・本事：${esc(p.knack)}`:""}</span></div>
       <div class="d">${p.named?`職業：${esc(p.dir)}${allyAbOf(p)?`（能力：${allyAbOf(p)}）`:""}`:"還沒進化，沒有職業"}・存在值 ${p.xp||0}／${EVO_PTS}${gIdx(p.lv)>=gIdx(capLv(p))?(gIdx(p.lv)>=gIdx(capLv(p))&&gIdx(S.lv)>0?"（等級已到上限，主角進化後才能再升）":""):""}${!allyElig(p)&&gIdx(p.lv)<gIdx(allyLv())?"・<span style=\"color:var(--bad,#c33)\">等級太低，上不了戰場</span>":""}${allyElig(p)?"・在場減傷 −1":""}</div>
-      ${allyAbOf(p)==="情報"&&allyElig(p)?`<div class="pbtn"><button class="tl" data-as2="${k}"${allyUses()>=2?" disabled":""}>請他偵查（找到附近 1 個新地點，不花時間）</button></div>`:""}
-      ${allyAbOf(p)==="治療"&&allyElig(p)?`<div class="pbtn"><button class="tl" data-ah="${k}"${S.healDay===S.day||allyUses()>=2?" disabled":""}>請他治療你（HP +50%，一天一次）</button></div>`:""}
+      ${allyAbOf(p)==="情報"&&allyElig(p)?`<div class="pbtn"><button class="tl" data-as2="${k}"${allyUses()>=2?" disabled":""}>${allyUses()>=2?"請他偵查（今天同伴能力用完了）":"請他偵查（找附近的新地點，不花時間）"}</button></div>`:""}
+      ${allyAbOf(p)==="治療"&&allyElig(p)?`<div class="pbtn"><button class="tl" data-ah="${k}"${S.healDay===S.day||allyUses()>=2?" disabled":""}>${S.healDay===S.day?"請他治療你（今天治過了）":allyUses()>=2?"請他治療你（今天同伴能力用完了）":"請他治療你（HP +50%，一天一次）"}</button></div>`:""}
+      ${ALLYMSG&&ALLYMSG.k===k?`<div class="note" style="margin:4px 0">→ ${esc(ALLYMSG.t)}</div>`:""}
       ${!allyArmed(p)?`<div class="d" style="color:var(--bad,#c33)">空著手：${p.with?"跟著你戰鬥時，判定會多一項劣勢（容易被圍毆）":"他出門跟你戰鬥時，判定會多一項劣勢"}。把武器（背包裡的白字武器或魔法武器）交給牠。</div>`:""}
       ${mateHTML(p,k)}
       <div class="d">${p.skills.length?p.skills.map((x,j)=>`${esc(x.n)}（${esc(x.g||p.lv)}級）<button class="tl" data-as="${k}|${j}">${ASD===k+":"+j?"確定忘掉？":"忘掉"}</button>`).join("　"):"還沒有技能"}${p.tags.length?`　【${p.tags.map(esc).join("】【")}】`:""}</div>
@@ -551,7 +553,7 @@ const GUIDE=[
 <ul><li>同伴不算優勢，改成<b>在場減傷</b>：等級夠的同伴在場，你受到的傷害 −1（兩個 −2）；太弱的上不了戰場。</li>
 <li><b>同行的同伴空手，判定多一項劣勢</b>：在「同伴・巢穴」頁把武器交給他。</li>
 <li>同伴有技能（F～A，最多 5 個），可以讓他忘掉一個。</li>
-<li>能力一天全隊 2 次（判定卡上選）：<b>代打</b>（他吃 HP 代價）、戰士替你擋代價、法師增傷、祭司治療。進化戰前可以請同伴看對手弱點。</li></ul>
+<li>能力一天全隊 2 次：判定卡上選<b>代打</b>（他吃 HP 代價）、戰士替你擋代價、法師增傷；在「同伴・巢穴」頁請祭司治療你、請斥候<b>偵查</b>（找這裡和隔壁還沒去過的地點、據點，不花時間；結果寫在按鈕下面）。進化戰前可以請同伴看對手弱點。</li></ul>
 <p><b>同伴成長</b>：跟你出門協助一次存在值 +2；留在巢穴做工作每天 +1（訓練 +2）。滿 20 進化：第一次取名、選職業（戰士、斥候、法師、祭司、工匠），之後等級 +1。同伴最高是你的等級 −1。</p>`],
  ["巢穴",`<ul><li>存糧每天吃「人口格數」份，吃光人口會掉。</li>
 <li>當上巢穴之主後巢穴有等級（E 起）。把用不到的東西<b>捐給巢穴</b>換物資點數，點數夠了升級。</li>
@@ -574,7 +576,7 @@ const GUIDE=[
 <li>每 30 天（第 25 天起預告）有一次大討伐。全滅時可以帶 1 個技能轉生。</li></ul>
 <p><b>關鍵戰</b>（進化戰、討伐戰、八王戰、地城、殺管理員）至少要付一項代價。撐不住可以<b>捨身</b>：選一處留下永久的傷——眼睛（探索時間加倍）、單手（不能用雙手武器和盾）、腿（移動時間加倍）、身體（HP 上限 −20%）、心靈（MP 上限 −20%），或失去一個技能。獨角獸王的加護可以治好一處。</p>`],
  ["據點、突襲、統治",`<p>附近有聚落、營地、巢穴，每局隨機藏在不同地區（矮人、精靈、半身人、人類、獸人……友善敵對都有）。</p>
-<ul><li>「地點」頁的「？未探索的據點」列出每個地區還有幾處。<b>在那個地區多按幾次「探索」</b>才找得到（附近 2～4 次、遠的 3～6 次）。</li>
+<ul><li>「地點」頁的「？未探索的據點」列出每個地區還有幾處。<b>在那個地區多按幾次「探索」</b>才找得到（附近 2～4 次、遠的 3～6 次）。同行的斥候同伴「偵查」一次等於幫你探索 2 次。</li>
 <li>找到敵對的營地或巢穴，走過去會多一個<b>突襲</b>：成功直接搶到魔法物品，也讓那個勢力少一個人。</li>
 <li><b>統治</b>：突襲成功讓他們「威懾」→「壓制」；壓制後到那個地點，可以逼他們稱臣（每天上貢 2 份存糧）或消滅他們。</li>
 <li>有人提出交換條件時會出「<b>契約提議</b>」：同意了他暫時跟你走，條件完成後回去。</li></ul>`],

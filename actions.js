@@ -295,14 +295,28 @@ function allyWeak(i){
 }
 function allyScout(k){
   const p=S.party[k]; if(!p||busy||S.dead||!allyElig(p)||allyAbOf(p)!=="情報"||allyUses()>=2)return;
-  const hid=hiddenOf(S.at); if(!hid.length){S.log.push(sysEntry(`${p.n}在${S.at}附近轉了一圈，沒有新的地方可以找了。`));save();render();return}
-  const to=rnd(hid); S.world[to].known=true; S.allyUsed=allyUses()+1;
-  S.log.push(sysEntry(`${p.n}先去探了路：發現了「${to}」（${S.world[to].kind}）。今天同伴能力還剩 ${2-S.allyUsed} 次。`)); save();render();
+  /* v0.90：以前只找跟這裡相連、還沒去過的地點；巢穴附近一開始就全知道，所以按了永遠「沒有新的地方」，訊息又只寫在故事頁，看起來像按鈕壞了。
+     現在：先找相連的地點；沒有的話，替這個地區還沒找到的據點探 2 次（等於探索 2 次、不花時間），湊夠就直接找到。結果寫在按鈕下面。 */
+  /* 找的範圍：這裡和隔壁已知的地點（巢穴在自己一個地區，只看巢穴的話永遠找不到東西）。 */
+  const from=S.at, W=S.world, near=[from,...Object.keys((W[from]||{links:{}}).links).filter(m=>W[m]&&W[m].known)];
+  let hid=hiddenOf(from); if(!hid.length)hid=[...new Set(near.flatMap(m=>hiddenOf(m)))];
+  const rg0=(W[from]||{}).region, rgs=[...new Set(near.map(m=>(W[m]||{}).region).filter(Boolean))].sort((x,y)=>(y===rg0)-(x===rg0));
+  const rg=rgs.find(r=>(S.sites||[]).some(x=>!x.found&&x.region===r)); let t=null;
+  if(hid.length){const to=rnd(hid);W[to].known=true;t=`發現了「${to}」（${W[to].kind}）`}
+  else if(rg){
+    S.expl=S.expl||{}; S.expl[rg]=(S.expl[rg]||0)+2;
+    const sd=S.sites.find(x=>!x.found&&x.region===rg&&S.expl[rg]>=x.need);
+    if(sd){const at=near.find(m=>W[m].region===rg)||from, nd=W[sd.n], h=rint(1,3); sd.found=true; nd.links[at]=h; W[at].links[sd.n]=h; nd.known=true; t=`找到了誰也沒去過的地方：「${sd.n}」（${nd.kind}，在${at}附近）`}
+    else{const left=Math.max(1,Math.min(...S.sites.filter(x=>!x.found&&x.region===rg).map(x=>x.need))-S.expl[rg]);t=`在${rg}一帶找到一些痕跡，還有誰也沒去過的地方（去那裡再探索 ${left} 次左右）`}
+  }
+  if(!t){ALLYMSG={k,t:`${p.n}在${from}和附近轉了一圈，沒有新的地方可以找了。換個地方再請他（這次不算用掉能力）。`};render();return}
+  S.allyUsed=allyUses()+1; const line=`${p.n}先去探了路：${t}。今天同伴能力還剩 ${2-S.allyUsed} 次。`;
+  ALLYMSG={k,t:line}; S.log.push(sysEntry(line)); save();render();
 }
 function allyHeal(k){
   const p=S.party[k]; if(!p||busy||S.dead||!allyElig(p)||allyAbOf(p)!=="治療"||S.healDay===S.day||allyUses()>=2)return;
   const g=Math.min(S.hpMax-S.hp,Math.ceil(S.hpMax/2)); S.healDay=S.day; S.allyUsed=allyUses()+1; S.hp+=g;
-  S.log.push(sysEntry(`${p.n}替你治療：HP +${g}（今天同伴能力還剩 ${2-S.allyUsed} 次）。`)); save();render();
+  const line=`${p.n}替你治療：HP +${g}（今天同伴能力還剩 ${2-S.allyUsed} 次）。`; ALLYMSG={k,t:line}; S.log.push(sysEntry(line)); save();render();
 }
 const maxSk=a=>5;   // v0.32：同伴技能最多 5 個，滿了由主角放棄再學
 const allyCan=(a,p)=>{const s=a.skills.find(x=>x.n===p.n);return s?gIdx(s.g)<gIdx(a.lv):a.skills.length<maxSk(a)};
