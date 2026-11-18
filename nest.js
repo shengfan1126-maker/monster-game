@@ -660,6 +660,7 @@ function nearSettles(){                        // 巢穴附近：同一個地區
   return [];
 }
 const ENDINGS=[
+ {k:"plain",line:"退休",n:"平凡的一生",need:"不用條件，隨時都能在這裡退休",retire:true,any:true},   /* v0.94：用戶 11-18「加入一個退休隨時都可以的按鈕」，文字是用戶寫的 */
  {k:"family",line:"退休",n:"哥布林家族",need:"伴侶 7 位以上，而且巢穴人口到「興盛」（後代很多）",retire:true,
   chk:()=>mates().length>=7&&S.nest.pop>=5},
  {k:"chief",line:"退休",n:"哥布林部落酋長",need:"當上巢穴之主，而且巢穴附近（同一個地區、或直接相連的地方；那裡沒有聚落的話，算最近的一圈）的聚落全部中立以上（至少 1 個）",retire:true,
@@ -704,7 +705,9 @@ function deathRecord(){
   metaSave();
 }
 function retireAt(k){
-  const e=ENDINGS.find(x=>x.k===k); if(!e||!e.retire||!S.ends||!S.ends[k]||S.dead||busy)return;
+  const e=ENDINGS.find(x=>x.k===k); if(!e||!e.retire||S.dead||busy)return;
+  if(e.any){if(!S.ends)S.ends={};endSet(k);return}
+  if(!S.ends||!S.ends[k])return;
   S.ended={k,day:S.day}; S.dead=true;           // 用「結束」擋住之後的行動；deathRecord 看到 ended 就不算死亡
   S.log.push(sysEntry(`〈系統〉結局：${e.n}。你在第 ${S.day} 天選擇在這裡退休。`)); save(); TAB="story"; render();
 }
@@ -714,7 +717,7 @@ function endBookHTML(){
     ${lines.map(l=>`<div class="note" style="margin:8px 0 2px"><b>${esc(l)}</b></div>${ENDINGS.filter(e=>e.line===l).map(e=>{
       const got=M.ends[e.k], now=S.ends&&S.ends[e.k];
       return `<div class="row"><span class="k">${got?"✓":e.soon?"…":"○"} ${esc(e.n)}</span><span>${got?`第 ${got.run} 局第 ${got.day} 天解鎖`:esc(e.need)}${e.soon&&!got?`<br><span class="note">要等之後的版本（還沒做：${esc(e.soon)}）</span>`:""}
-        ${now&&e.retire&&!S.dead?`<br><button class="tl" data-rt="${e.k}">${RT===e.k?"確定在這裡退休？（這一局結束）":"在這裡退休"}</button>`:""}</span></div>`}).join("")}`).join("")}</div>`;
+        ${(now||e.any)&&e.retire&&!S.dead?`<br><button class="tl" data-rt="${e.k}">${RT===e.k?"確定在這裡退休？（這一局結束）":e.any?"退休":"在這裡退休"}</button>`:""}</span></div>`}).join("")}`).join("")}</div>`;
 }
 function endHTML(){
   const ended=S.ended&&ENDINGS.find(e=>e.k===S.ended.k), col=!ended&&(S.sacN||0)>=3;
@@ -1488,7 +1491,7 @@ function homeLeave(take){
   END_TXT[k]=HOME_TXT[came.length?"mates":"alone"]; endSet(k,null,extra);
 }
 /* 結局房間（回想）：看過的結局可以重看文字；第一次結局之後問要不要全部打開。 */
-Object.assign(END_TXT,{home:HOME_TXT.alone,home2:HOME_TXT.mates,stay:"你留了下來。"});
+Object.assign(END_TXT,{home:HOME_TXT.alone,home2:HOME_TXT.mates,stay:"你留了下來。",plain:"你雖然轉生成為哥布林，好像做了點什麼，又好像什麼都沒做的過了一生。"});
 function endRoomHTML(){
   const M=metaGet(), all=!!M.allOpen, list=ENDINGS.filter(e=>END_TXT[e.k]&&(all||M.ends[e.k]));
   if(!list.length)return "";
